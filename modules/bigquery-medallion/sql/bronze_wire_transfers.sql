@@ -13,7 +13,7 @@ SELECT
   CASE MOD(n, 4) WHEN 0 THEN 'Completed' WHEN 1 THEN 'Completed' WHEN 2 THEN 'Pending' ELSE 'Completed' END AS status,
   CASE WHEN MOD(n, 20) = 0 THEN TRUE ELSE FALSE END AS ofac_hold,
   CASE WHEN MOD(n, 10) = 0 THEN TRUE ELSE FALSE END AS requires_ctr,
-  CASE WHEN amount > 10000 THEN TRUE ELSE FALSE END AS above_ctr_threshold,
+  CASE WHEN (500 + RAND() * 99500) > 10000 THEN TRUE ELSE FALSE END AS above_ctr_threshold,
   CONCAT('Purpose: ', CASE MOD(n, 5) WHEN 0 THEN 'Invoice Payment' WHEN 1 THEN 'Real Estate' WHEN 2 THEN 'Personal Transfer' WHEN 3 THEN 'Business Payment' ELSE 'Other' END) AS purpose,
   CASE MOD(n, 8) WHEN 0 THEN 'US' WHEN 1 THEN 'GB' WHEN 2 THEN 'DE' WHEN 3 THEN 'CH' WHEN 4 THEN 'JP' WHEN 5 THEN 'CA' WHEN 6 THEN 'AU' ELSE 'US' END AS beneficiary_country,
   TIMESTAMP_ADD(TIMESTAMP '2024-01-01 00:00:00 UTC', INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,

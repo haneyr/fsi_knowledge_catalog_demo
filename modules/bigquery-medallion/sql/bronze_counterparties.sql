@@ -6,7 +6,7 @@ SELECT
     WHEN 0 THEN 'Corporate' WHEN 1 THEN 'Financial Institution' WHEN 2 THEN 'Government'
     WHEN 3 THEN 'Sovereign' WHEN 4 THEN 'SME' ELSE 'Individual'
   END AS counterparty_type,
-  CONCAT('LEI-', LPAD(CAST(MOD(n * 31, 99999999999999999999) AS STRING), 20, '0')) AS lei,
+  CONCAT('LEI-', LPAD(CAST(MOD(n * 31, 999999999) AS STRING), 9, '0'), LPAD(CAST(MOD(n * 17, 999999999) AS STRING), 9, '0'), CAST(MOD(n, 10) AS STRING), '0') AS lei,
   CASE MOD(n, 5) WHEN 0 THEN 'US' WHEN 1 THEN 'GB' WHEN 2 THEN 'DE' WHEN 3 THEN 'JP' ELSE 'CA' END AS country,
   CASE MOD(n, 11) WHEN 0 THEN 'Technology' WHEN 1 THEN 'Healthcare' WHEN 2 THEN 'Real Estate' WHEN 3 THEN 'Energy' WHEN 4 THEN 'Manufacturing' WHEN 5 THEN 'Retail' WHEN 6 THEN 'Financial Services' WHEN 7 THEN 'Government' WHEN 8 THEN 'Agriculture' WHEN 9 THEN 'Transportation' ELSE 'Utilities' END AS industry,
   CASE MOD(n, 7) WHEN 0 THEN 'AAA' WHEN 1 THEN 'AA' WHEN 2 THEN 'A' WHEN 3 THEN 'BBB' WHEN 4 THEN 'BB' WHEN 5 THEN 'B' ELSE 'NR' END AS internal_rating,
