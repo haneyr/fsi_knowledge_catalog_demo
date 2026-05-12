@@ -1,0 +1,17 @@
+CREATE OR REPLACE TABLE `${project_id}.fsi_snapshots.snapshot_daily_market_data` AS
+SELECT
+  DATE_ADD('2024-01-01', INTERVAL CAST(FLOOR(n / 100.0) AS INT64) DAY) AS snapshot_date,
+  CASE MOD(n, 10)
+    WHEN 0 THEN 'S&P 500' WHEN 1 THEN 'DJIA' WHEN 2 THEN 'NASDAQ' WHEN 3 THEN 'Russell 2000'
+    WHEN 4 THEN '10Y Treasury' WHEN 5 THEN 'Fed Funds' WHEN 6 THEN 'EUR/USD'
+    WHEN 7 THEN 'VIX' WHEN 8 THEN 'Gold' ELSE 'Oil WTI'
+  END AS indicator,
+  ROUND(CASE MOD(n, 10)
+    WHEN 0 THEN 4500 + RAND() * 1000 WHEN 1 THEN 35000 + RAND() * 5000
+    WHEN 2 THEN 14000 + RAND() * 3000 WHEN 3 THEN 1900 + RAND() * 400
+    WHEN 4 THEN 3.5 + RAND() * 1.5 WHEN 5 THEN 4.5 + RAND() * 1
+    WHEN 6 THEN 1.05 + RAND() * 0.1 WHEN 7 THEN 12 + RAND() * 25
+    WHEN 8 THEN 1800 + RAND() * 500 ELSE 70 + RAND() * 30
+  END, 2) AS value,
+  ROUND(-0.03 + RAND() * 0.06, 4) AS daily_change_pct
+FROM UNNEST(GENERATE_ARRAY(1, 5000)) AS n
