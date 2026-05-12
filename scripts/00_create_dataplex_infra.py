@@ -100,7 +100,7 @@ def main():
         ("fsi-data-lineage-metadata", "Data Lineage Metadata", "Source system and data flow info", [
             {"name": "source_system", "type": "string", "index": 1, "constraints": {"required": True}, "annotations": {"displayName": "Source System"}},
             {"name": "ingestion_method", "type": "enum", "index": 2, "annotations": {"displayName": "Ingestion Method"},
-             "enumValues": [{"name": "IBM CDC Replication", "index": 1}, {"name": "Temenos Extract API", "index": 2}, {"name": "SAP SLT Replication", "index": 3}, {"name": "Batch File Extract", "index": 4}, {"name": "Database Replication", "index": 5}, {"name": "API Integration", "index": 6}, {"name": "SWIFT/FIX Message", "index": 7}]},
+             "enumValues": [{"name": "IBM CDC Replication", "index": 1}, {"name": "Temenos Extract API", "index": 2}, {"name": "SAP SLT Replication", "index": 3}, {"name": "Batch File Extract", "index": 4}, {"name": "Database Replication", "index": 5}, {"name": "API Integration", "index": 6}, {"name": "SWIFT-FIX Message", "index": 7}]},
             {"name": "refresh_frequency", "type": "enum", "index": 3, "annotations": {"displayName": "Refresh Frequency"},
              "enumValues": [{"name": "Real-time", "index": 1}, {"name": "Intraday", "index": 2}, {"name": "End-of-Day", "index": 3}, {"name": "Daily", "index": 4}, {"name": "Weekly", "index": 5}, {"name": "Monthly", "index": 6}]},
             {"name": "data_flow_path", "type": "string", "index": 4, "annotations": {"displayName": "Data Flow Path"}},
