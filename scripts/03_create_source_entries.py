@@ -85,7 +85,7 @@ SYSTEMS = [
         "instance_desc": "Production Temenos T24 R22. Wealth management platform. API extraction to BigQuery.",
         "schema_name": "WEALTH_MGMT",
         "schema_desc": "Wealth management module: 13 API-replicated tables.",
-        "fqn_prefix": "temenos:fortuna-prod.WEALTH_MGMT",
+        "fqn_prefix": "oracle:fortuna-prod.WEALTH_MGMT",
         "resource_prefix": "//temenos.meridianbank.internal/instances/FORTUNA_PROD/schemas/WEALTH_MGMT",
         "tables": [
             ("wm-clients-table", "WM_CLIENTS", "HNW/UHNW clients (50K rows)", [
@@ -115,7 +115,7 @@ SYSTEMS = [
         "instance_desc": "Production SAP S/4HANA 2023 FPS02. Finance and risk management. SLT replication to BigQuery.",
         "schema_name": "FINANCE_RISK",
         "schema_desc": "Finance and risk management schema: 13 SLT-replicated tables.",
-        "fqn_prefix": "sap:argus-prod.FINANCE_RISK",
+        "fqn_prefix": "oracle:argus-prod.FINANCE_RISK",
         "resource_prefix": "//sap.meridianbank.internal/instances/ARGUS_PROD/schemas/FINANCE_RISK",
         "tables": [
             ("gl-entries-table", "GL_ENTRIES", "General ledger entries (10M rows)", [
@@ -149,7 +149,7 @@ def main():
 
         api_call(f"{DP}/{EG}/entries?entryId={sys_cfg['instance_id']}", "POST", {
             "entryType": ET(sys_cfg["instance_type"]),
-            "fullyQualifiedName": f"{sys_cfg['fqn_prefix'].split('.')[0]}:{sys_cfg['instance_name'].lower()}",
+            "fullyQualifiedName": sys_cfg["fqn_prefix"].split(".")[0],
             "entrySource": {"resource": f"{sys_cfg['resource_prefix'].rsplit('/', 2)[0]}", "displayName": sys_cfg["instance_name"], "description": sys_cfg["instance_desc"], "system": sys_cfg["system"], "platform": sys_cfg["platform"]},
             "aspects": {
                 "dataplex-types.global.generic": {"aspectType": "projects/dataplex-types/locations/global/aspectTypes/generic", "data": {}},
