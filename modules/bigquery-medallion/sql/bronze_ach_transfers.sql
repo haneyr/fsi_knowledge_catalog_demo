@@ -1,0 +1,19 @@
+CREATE OR REPLACE TABLE `${project_id}.fsi_bronze.bronze_ach_transfers` AS
+SELECT
+  CONCAT('ACH-', LPAD(CAST(n AS STRING), 12, '0')) AS ach_id,
+  CONCAT('ACCT-', LPAD(CAST(CAST(FLOOR(RAND() * 50000) + 1 AS INT64) AS STRING), 10, '0')) AS account_id,
+  CASE MOD(n, 4) WHEN 0 THEN 'Credit' WHEN 1 THEN 'Debit' WHEN 2 THEN 'Credit' ELSE 'Debit' END AS direction,
+  CASE MOD(n, 6)
+    WHEN 0 THEN 'PPD' WHEN 1 THEN 'CCD' WHEN 2 THEN 'WEB' WHEN 3 THEN 'TEL' WHEN 4 THEN 'CTX' ELSE 'PPD'
+  END AS sec_code,
+  ROUND(10 + RAND() * 10000, 2) AS amount,
+  DATE_ADD('2024-01-01', INTERVAL CAST(FLOOR(RAND() * 500) AS INT64) DAY) AS effective_date,
+  DATE_ADD('2024-01-01', INTERVAL CAST(FLOOR(RAND() * 500) AS INT64) DAY) AS settlement_date,
+  CASE MOD(n, 5) WHEN 0 THEN 'Settled' WHEN 1 THEN 'Settled' WHEN 2 THEN 'Settled' WHEN 3 THEN 'Pending' ELSE 'Returned' END AS status,
+  CASE WHEN MOD(n, 5) = 4 THEN CASE MOD(n, 4) WHEN 0 THEN 'R01' WHEN 1 THEN 'R02' WHEN 2 THEN 'R03' ELSE 'R10' END ELSE NULL END AS return_code,
+  CONCAT('Originator-', CAST(MOD(n, 500) AS STRING)) AS originator_name,
+  CONCAT('0', CAST(10000000 + MOD(n * 13, 90000000) AS STRING)) AS originating_dfi,
+  CONCAT('Batch-', CAST(MOD(n, 1000) AS STRING)) AS batch_id,
+  TIMESTAMP_ADD(TIMESTAMP '2024-01-01 00:00:00 UTC', INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
+  'ATLAS' AS source_system
+FROM UNNEST(GENERATE_ARRAY(1, 30000)) AS n

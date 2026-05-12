@@ -1,0 +1,54 @@
+CREATE OR REPLACE TABLE `${project_id}.fsi_bronze.bronze_loans` AS
+SELECT
+  CONCAT('LN-', LPAD(CAST(n AS STRING), 9, '0')) AS loan_id,
+  CONCAT('CUST-', LPAD(CAST(CAST(FLOOR(RAND() * 20000) + 1 AS INT64) AS STRING), 8, '0')) AS customer_id,
+  CASE MOD(n, 6)
+    WHEN 0 THEN 'MORTGAGE' WHEN 1 THEN 'AUTO' WHEN 2 THEN 'PERSONAL'
+    WHEN 3 THEN 'HELOC' WHEN 4 THEN 'COMMERCIAL' ELSE 'SBA'
+  END AS loan_type,
+  ROUND(CASE MOD(n, 6)
+    WHEN 0 THEN 100000 + RAND() * 900000
+    WHEN 1 THEN 10000 + RAND() * 60000
+    WHEN 2 THEN 5000 + RAND() * 45000
+    WHEN 3 THEN 25000 + RAND() * 200000
+    WHEN 4 THEN 50000 + RAND() * 5000000
+    ELSE 10000 + RAND() * 500000
+  END, 2) AS original_amount,
+  ROUND(CASE MOD(n, 6)
+    WHEN 0 THEN 50000 + RAND() * 800000
+    WHEN 1 THEN 5000 + RAND() * 50000
+    WHEN 2 THEN 2000 + RAND() * 40000
+    WHEN 3 THEN 10000 + RAND() * 180000
+    WHEN 4 THEN 20000 + RAND() * 4000000
+    ELSE 5000 + RAND() * 400000
+  END, 2) AS current_balance,
+  ROUND(0.03 + RAND() * 0.12, 4) AS interest_rate,
+  CASE MOD(n, 5) WHEN 0 THEN 'FIXED' WHEN 1 THEN 'VARIABLE' WHEN 2 THEN 'FIXED' WHEN 3 THEN 'ARM' ELSE 'FIXED' END AS rate_type,
+  CAST(CASE MOD(n, 6)
+    WHEN 0 THEN 360 WHEN 1 THEN 60 WHEN 2 THEN 36 WHEN 3 THEN 240 WHEN 4 THEN 120 ELSE 84
+  END AS INT64) AS term_months,
+  DATE_ADD('2015-01-01', INTERVAL CAST(FLOOR(RAND() * 3500) AS INT64) DAY) AS origination_date,
+  DATE_ADD('2025-01-01', INTERVAL CAST(FLOOR(RAND() * 10000) AS INT64) DAY) AS maturity_date,
+  CASE MOD(n, 8)
+    WHEN 0 THEN 'Current' WHEN 1 THEN 'Current' WHEN 2 THEN 'Current' WHEN 3 THEN 'Current'
+    WHEN 4 THEN '30 Days Past Due' WHEN 5 THEN '60 Days Past Due'
+    WHEN 6 THEN '90+ Days Past Due' ELSE 'Current'
+  END AS delinquency_status,
+  CASE WHEN MOD(n, 6) IN (0, 3) THEN ROUND(0.3 + RAND() * 0.7, 2) ELSE NULL END AS ltv_ratio,
+  CAST(FLOOR(300 + RAND() * 550) AS INT64) AS fico_score_at_origination,
+  ROUND(0.1 + RAND() * 0.6, 2) AS dti_ratio,
+  CASE MOD(n, 6) WHEN 0 THEN CONCAT(CAST(FLOOR(RAND() * 9999) AS STRING), ' Property Ln') ELSE NULL END AS collateral_description,
+  CASE MOD(n, 10)
+    WHEN 0 THEN 'Pass' WHEN 1 THEN 'Pass' WHEN 2 THEN 'Pass' WHEN 3 THEN 'Pass'
+    WHEN 4 THEN 'Pass' WHEN 5 THEN 'Special Mention' WHEN 6 THEN 'Substandard'
+    WHEN 7 THEN 'Doubtful' WHEN 8 THEN 'Pass' ELSE 'Pass'
+  END AS risk_rating,
+  CASE MOD(n, 10)
+    WHEN 0 THEN '11' WHEN 1 THEN '44' WHEN 2 THEN '52' WHEN 3 THEN '62' WHEN 4 THEN '23'
+    WHEN 5 THEN '31' WHEN 6 THEN '54' WHEN 7 THEN '72' WHEN 8 THEN '48' ELSE '51'
+  END AS naics_code,
+  CONCAT('BR-', LPAD(CAST(MOD(n, 500) + 1 AS STRING), 4, '0')) AS originating_branch_id,
+  CONCAT('LO-', LPAD(CAST(MOD(n, 200) + 1 AS STRING), 4, '0')) AS loan_officer_id,
+  TIMESTAMP_ADD(TIMESTAMP '2024-01-01 00:00:00 UTC', INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
+  'ATLAS' AS source_system
+FROM UNNEST(GENERATE_ARRAY(1, 15000)) AS n
