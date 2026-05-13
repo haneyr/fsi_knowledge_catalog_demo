@@ -32,11 +32,14 @@ os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 from google.adk import Agent, Runner
+from google.adk.apps import App
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools import FunctionTool
+from google.adk.plugins.bigquery_agent_analytics_plugin import BigQueryAgentAnalyticsPlugin
 from google.cloud import bigquery
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
 
 SYSTEM_INSTRUCTION = f"""You are a financial data analyst for Meridian National Bank.
 You have access to BigQuery and can run SQL queries against the bank's data warehouse.
@@ -149,6 +152,19 @@ root_agent = Agent(
     model="gemini-2.5-flash",
     instruction=SYSTEM_INSTRUCTION,
     tools=[run_sql],
+)
+
+bq_analytics_plugin = BigQueryAgentAnalyticsPlugin(
+    project_id=PROJECT_ID,
+    dataset_id=BQ_ANALYTICS_DATASET,
+    table_id="scaled_agent_events",
+    location="US",
+)
+
+app = App(
+    name="fsi_scaled_agent",
+    root_agent=root_agent,
+    plugins=[bq_analytics_plugin],
 )
 
 

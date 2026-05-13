@@ -34,8 +34,10 @@ os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 from google.adk import Agent, Runner
+from google.adk.apps import App
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools import FunctionTool
+from google.adk.plugins.bigquery_agent_analytics_plugin import BigQueryAgentAnalyticsPlugin
 from google.cloud import bigquery
 import google.auth
 import google.auth.transport.requests
@@ -43,6 +45,7 @@ import requests as http_requests
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 DATAPLEX_PROJECT = os.environ.get("DATAPLEX_PROJECT", PROJECT_ID)
+BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
 DATAPLEX_URL = "https://dataplex.googleapis.com/v1"
 
 SYSTEM_INSTRUCTION = f"""You are a senior financial data analyst for Meridian National Bank. You have
@@ -298,6 +301,19 @@ root_agent = Agent(
     model="gemini-2.5-flash",
     instruction=SYSTEM_INSTRUCTION,
     tools=[search_entries, lookup_entry, lookup_context, run_sql],
+)
+
+bq_analytics_plugin = BigQueryAgentAnalyticsPlugin(
+    project_id=PROJECT_ID,
+    dataset_id=BQ_ANALYTICS_DATASET,
+    table_id="kc_agent_events",
+    location="US",
+)
+
+app = App(
+    name="fsi_kc_agent",
+    root_agent=root_agent,
+    plugins=[bq_analytics_plugin],
 )
 
 
