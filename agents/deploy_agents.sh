@@ -20,8 +20,6 @@
 #   1. pip install google-adk google-cloud-aiplatform google-cloud-bigquery
 #   2. gcloud auth login && gcloud auth application-default login
 #   3. Set PROJECT_ID below or export GOOGLE_CLOUD_PROJECT
-#   4. For the KC agent: download the MCP Toolbox binary to agents/agent_kc/toolbox
-#      (see https://github.com/googleapis/mcp-toolbox-sdk-python)
 #
 # Usage:
 #   bash agents/deploy_agents.sh                    # Deploy all 3 agents
@@ -35,6 +33,21 @@ set -e
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-fsi-kc-demo-qen5wk}"
 REGION="${GOOGLE_CLOUD_LOCATION:-us-central1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Grant required IAM permissions to the Agent Engine service account
+grant_agent_engine_permissions() {
+    echo "=== Granting IAM permissions to Agent Engine service account ==="
+    PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')
+    SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
+
+    for role in roles/bigquery.jobUser roles/bigquery.dataViewer roles/dataplex.viewer roles/datalineage.viewer; do
+        gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+            --member="serviceAccount:${SA}" \
+            --role="${role}" --quiet 2>/dev/null | tail -1
+        echo "  Granted ${role}"
+    done
+    echo "Agent Engine SA permissions configured."
+}
 
 # Create .env files for each agent
 create_env_files() {
@@ -74,16 +87,6 @@ deploy_scaled() {
 
 deploy_kc() {
     echo "=== Deploying FSI KC Agent ==="
-
-    # Verify toolbox binary exists
-    if [ ! -f "${SCRIPT_DIR}/agent_kc/toolbox" ]; then
-        echo "ERROR: MCP Toolbox binary not found at ${SCRIPT_DIR}/agent_kc/toolbox"
-        echo "Download it from: https://github.com/googleapis/mcp-toolbox-sdk-python"
-        echo "Or copy from an existing installation:"
-        echo "  cp /path/to/toolbox ${SCRIPT_DIR}/agent_kc/toolbox"
-        exit 1
-    fi
-
     adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
@@ -92,7 +95,8 @@ deploy_kc() {
     echo "KC agent deployed."
 }
 
-# Generate .env files
+# Grant permissions and generate .env files
+grant_agent_engine_permissions
 create_env_files
 
 # Deploy based on argument

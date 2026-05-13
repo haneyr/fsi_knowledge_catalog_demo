@@ -59,7 +59,6 @@ fsi_gold (20 analytics tables)
 - `google-adk` >= 1.33.0
 - `google-cloud-aiplatform` >= 1.60
 - `google-cloud-bigquery` >= 3.0
-- MCP Toolbox binary (for the KC agent — see below)
 
 Optional (for Terraform-based deploy):
 - Terraform >= 1.5
@@ -126,11 +125,7 @@ This runs 10 scripts that create:
 # Install ADK
 pip install google-adk google-cloud-aiplatform google-cloud-bigquery
 
-# Download MCP Toolbox binary for the KC agent
-# (from https://github.com/googleapis/mcp-toolbox-sdk-python)
-cp /path/to/toolbox agents/agent_kc/toolbox
-
-# Deploy all 3 agents
+# Deploy all 3 agents (handles IAM permissions automatically)
 bash agents/deploy_agents.sh
 
 # Or deploy individually:
@@ -139,10 +134,15 @@ bash agents/deploy_agents.sh scaled
 bash agents/deploy_agents.sh kc
 ```
 
-The deploy script:
-1. Creates `.env` files with your project config
-2. Deploys each agent via `adk deploy agent_engine`
-3. Prints the Agent Engine console URL
+The deploy script automatically:
+1. Grants the Agent Engine service account required IAM permissions:
+   - `roles/bigquery.jobUser` — run queries
+   - `roles/bigquery.dataViewer` — read table data
+   - `roles/dataplex.viewer` — access Knowledge Catalog entries
+   - `roles/datalineage.viewer` — read data lineage
+2. Creates `.env` files with your project config
+3. Deploys each agent via `adk deploy agent_engine`
+4. Prints the Agent Engine console URL
 
 ## Running Agents Locally (for development)
 
@@ -158,10 +158,9 @@ cd agents/agent_scaled
 cp .env.example .env
 python3 agent.py
 
-# KC agent (needs toolbox binary)
+# KC agent
 cd agents/agent_kc
 cp .env.example .env
-# Ensure toolbox binary is in this directory
 python3 agent.py
 ```
 
@@ -182,7 +181,7 @@ python3 agent.py
 - Uses Knowledge Catalog MCP tools: `search_entries`, `lookup_context`, `lookup_entry`
 - `run_sql` for BigQuery after discovering the right tables
 - Cites glossary terms, data quality scores, and lineage in answers
-- MCP connection: Stdio (local toolbox binary) or SSE (remote via `MCP_TOOLBOX_URL`)
+- Uses native Dataplex REST API calls (no external MCP Toolbox binary needed)
 
 ## Demo Questions
 
