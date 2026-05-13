@@ -83,21 +83,32 @@ Your project is: {PROJECT_ID}
 """
 
 
+_creds_cache = [None, 0]
+
 def _get_token():
-    creds, _ = google.auth.default()
-    creds.refresh(google.auth.transport.requests.Request())
-    return creds.token
+    import time
+    now = time.time()
+    if _creds_cache[0] is None or now - _creds_cache[1] > 250:
+        creds, _ = google.auth.default()
+        creds.refresh(google.auth.transport.requests.Request())
+        _creds_cache[0] = creds.token
+        _creds_cache[1] = now
+    return _creds_cache[0]
 
 
-def _dataplex_request(method, path, body=None):
+def _dataplex_get(path):
+    headers = {"Authorization": f"Bearer {_get_token()}"}
+    resp = http_requests.get(f"{DATAPLEX_URL}/{path}", headers=headers)
+    if resp.status_code == 200:
+        return resp.json()
+    return {"error": f"HTTP {resp.status_code}: {resp.text[:500]}"}
+
+
+def _dataplex_post(path, body):
     headers = {"Authorization": f"Bearer {_get_token()}", "Content-Type": "application/json"}
-    url = f"{DATAPLEX_URL}/{path}"
-    if method == "GET":
-        resp = http_requests.get(url, headers=headers, params=body)
-    else:
-        resp = http_requests.post(url, headers=headers, json=body)
-    if resp.status_code in (200, 201):
-        return resp.json() if resp.text.strip() else {}
+    resp = http_requests.post(f"{DATAPLEX_URL}/{path}", headers=headers, json=body)
+    if resp.status_code == 200:
+        return resp.json()
     return {"error": f"HTTP {resp.status_code}: {resp.text[:500]}"}
 
 
@@ -107,9 +118,10 @@ def search_entries(query: str) -> str:
 
     Use this to discover tables, views, and other data assets by topic.
     Examples: "customer deposits", "loan delinquency", "portfolio performance"
+    Returns entry names that can be passed to lookup_entry for details.
     """
     try:
-        result = _dataplex_request("POST",
+        result = _dataplex_post(
             f"projects/{DATAPLEX_PROJECT}/locations/us:searchEntries",
             {"query": query, "pageSize": 10}
         )
@@ -132,6 +144,10 @@ def search_entries(query: str) -> str:
             if desc_snippet:
                 lines.append(f"  {desc_snippet}")
             lines.append(f"  Entry: {name}")
+            if fqn.startswith("bigquery:"):
+                parts = fqn.replace("bigquery:", "").split(".")
+                if len(parts) == 3:
+                    lines.append(f"  BigQuery table: `{parts[0]}.{parts[1]}.{parts[2]}`")
             lines.append("")
 
         return "\n".join(lines)
@@ -141,12 +157,13 @@ def search_entries(query: str) -> str:
 
 @FunctionTool
 def lookup_entry(entry_name: str) -> str:
-    """Look up details about a specific data entry by its full resource name.
+    """Look up full details about a data entry including schema and custom aspects.
 
-    Use the entry name returned from search_entries.
+    Pass the entry name from search_entries results (the line starting with 'Entry:').
+    Example: projects/123/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/...
     """
     try:
-        result = _dataplex_request("GET", entry_name)
+        result = _dataplex_get(entry_name)
         if "error" in result:
             return f"Lookup error: {result['error']}"
 
@@ -164,13 +181,23 @@ def lookup_entry(entry_name: str) -> str:
         for key, aspect in aspects.items():
             aspect_name = key.split(".")[-1]
             data = aspect.get("data", {})
-            if data:
-                lines.append(f"\n**{aspect_name}:**")
+            if not data:
+                continue
+            lines.append(f"\n**{aspect_name}:**")
+            if "fields" in data:
+                fields = data["fields"]
+                lines.append(f"  Columns ({len(fields)}):")
+                for f in fields[:20]:
+                    fname = f.get("name", "")
+                    ftype = f.get("dataType", f.get("metadataType", ""))
+                    fdesc = f.get("description", "")
+                    lines.append(f"    - {fname} ({ftype}){': ' + fdesc if fdesc else ''}")
+            else:
                 for k, v in data.items():
-                    if isinstance(v, dict) and "fields" in v:
-                        lines.append(f"  Schema fields: {len(v['fields'])}")
-                    elif isinstance(v, list):
+                    if isinstance(v, list):
                         lines.append(f"  {k}: {len(v)} items")
+                    elif isinstance(v, dict):
+                        lines.append(f"  {k}: {{...}}")
                     else:
                         lines.append(f"  {k}: {v}")
 
@@ -180,68 +207,26 @@ def lookup_entry(entry_name: str) -> str:
 
 
 @FunctionTool
-def lookup_context(resource_name: str) -> str:
-    """Get rich context metadata for a BigQuery table including glossary terms,
-    data quality scores, lineage, and custom aspects.
+def lookup_context(dataset: str, table: str) -> str:
+    """Get rich context metadata for a BigQuery table including schema, custom
+    aspects (data classification, compliance, lineage), and table description.
 
-    Pass a fully qualified BigQuery resource like:
-    //bigquery.googleapis.com/projects/PROJECT/datasets/DATASET/tables/TABLE
+    Pass the dataset and table name separately.
+    Example: lookup_context(dataset="fsi_gold", table="gold_asset_allocation")
     """
     try:
-        result = _dataplex_request("GET",
-            f"projects/{DATAPLEX_PROJECT}/locations/us:lookupContext",
-            {"resourceName": resource_name}
+        project_number = None
+        result = _dataplex_post(
+            f"projects/{DATAPLEX_PROJECT}/locations/us:searchEntries",
+            {"query": f"{dataset}.{table}", "pageSize": 1}
         )
-        if "error" in result:
-            return f"Context lookup error: {result['error']}"
+        entries = result.get("results", [])
+        if entries:
+            entry_name = entries[0].get("dataplexEntry", {}).get("name", "")
+            if entry_name:
+                return lookup_entry.func(entry_name)
 
-        lines = [f"Context for: {resource_name}\n"]
-
-        context = result.get("context", {})
-        if not context:
-            context = result
-
-        glossary_terms = context.get("glossaryTerms", result.get("glossaryTerms", []))
-        if glossary_terms:
-            lines.append(f"**Glossary Terms ({len(glossary_terms)}):**")
-            for term in glossary_terms[:10]:
-                term_name = term.get("name", "").split("/")[-1]
-                desc = term.get("description", "")
-                lines.append(f"  - {term_name}: {desc[:200]}")
-
-        dq = context.get("dataQuality", result.get("dataQuality", {}))
-        if dq:
-            lines.append(f"\n**Data Quality:**")
-            score = dq.get("score", dq.get("overallScore"))
-            if score:
-                lines.append(f"  Overall score: {score}")
-            dimensions = dq.get("dimensions", [])
-            for dim in dimensions:
-                lines.append(f"  {dim.get('name', 'unknown')}: {dim.get('score', 'N/A')}")
-
-        lineage = context.get("lineage", result.get("lineage", {}))
-        if lineage:
-            lines.append(f"\n**Lineage:**")
-            sources = lineage.get("sources", [])
-            for src in sources[:5]:
-                lines.append(f"  Source: {src.get('fullyQualifiedName', src.get('name', 'unknown'))}")
-
-        aspects = context.get("aspects", result.get("aspects", {}))
-        for key, aspect in aspects.items():
-            if "dataplex-types" in key:
-                continue
-            aspect_name = key.split(".")[-1]
-            data = aspect.get("data", {})
-            if data:
-                lines.append(f"\n**{aspect_name}:**")
-                for k, v in data.items():
-                    if not isinstance(v, (dict, list)):
-                        lines.append(f"  {k}: {v}")
-
-        if len(lines) <= 1:
-            lines.append("No rich context available. Try using search_entries to find the correct entry name, then lookup_entry.")
-
-        return "\n".join(lines)
+        return f"Could not find entry for {dataset}.{table}. Try search_entries with a descriptive query instead."
     except Exception as e:
         return f"Context lookup error: {str(e)}"
 
