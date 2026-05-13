@@ -1,0 +1,4 @@
+flask>=3.0
+flask-sock>=0.7
+google-cloud-aiplatform>=1.60
+gunicorn>=22.0
