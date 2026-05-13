@@ -232,3 +232,13 @@ scripts/config.json
 
 # Claude
 .claude/
+
+# ADK deploy temp folders
+agents/*_tmp*/
+
+# MCP Toolbox binary (292MB — download separately)
+agents/agent_kc/toolbox
+agents/agent_kc/toolbox-cloudrun/toolbox
+
+# Agent .env files (contain project-specific config)
+agents/*/.env

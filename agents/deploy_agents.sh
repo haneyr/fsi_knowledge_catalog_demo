@@ -1,0 +1,117 @@
+#!/bin/bash
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+####################################################################################
+# FSI Knowledge Catalog Demo — Deploy Agents to Vertex AI Agent Engine
+#
+# Prerequisites:
+#   1. pip install google-adk google-cloud-aiplatform google-cloud-bigquery
+#   2. gcloud auth login && gcloud auth application-default login
+#   3. Set PROJECT_ID below or export GOOGLE_CLOUD_PROJECT
+#   4. For the KC agent: download the MCP Toolbox binary to agents/agent_kc/toolbox
+#      (see https://github.com/googleapis/mcp-toolbox-sdk-python)
+#
+# Usage:
+#   bash agents/deploy_agents.sh                    # Deploy all 3 agents
+#   bash agents/deploy_agents.sh basic              # Deploy only basic agent
+#   bash agents/deploy_agents.sh scaled             # Deploy only scaled agent
+#   bash agents/deploy_agents.sh kc                 # Deploy only KC agent
+####################################################################################
+
+set -e
+
+PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-fsi-kc-demo-qen5wk}"
+REGION="${GOOGLE_CLOUD_LOCATION:-us-central1}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Create .env files for each agent
+create_env_files() {
+    for agent_dir in agent_basic agent_scaled agent_kc; do
+        cat > "${SCRIPT_DIR}/${agent_dir}/.env" << EOF
+GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
+GOOGLE_CLOUD_LOCATION=${REGION}
+GOOGLE_GENAI_USE_VERTEXAI=True
+EOF
+    done
+    # KC agent needs additional env vars
+    cat >> "${SCRIPT_DIR}/agent_kc/.env" << EOF
+DATAPLEX_PROJECT=${PROJECT_ID}
+EOF
+    echo "Created .env files for all agents"
+}
+
+deploy_basic() {
+    echo "=== Deploying FSI Basic Agent ==="
+    adk deploy agent_engine \
+        --project="${PROJECT_ID}" \
+        --region="${REGION}" \
+        --display_name="FSI Basic Agent" \
+        "${SCRIPT_DIR}/agent_basic"
+    echo "Basic agent deployed."
+}
+
+deploy_scaled() {
+    echo "=== Deploying FSI Scaled Agent ==="
+    adk deploy agent_engine \
+        --project="${PROJECT_ID}" \
+        --region="${REGION}" \
+        --display_name="FSI Scaled Agent" \
+        "${SCRIPT_DIR}/agent_scaled"
+    echo "Scaled agent deployed."
+}
+
+deploy_kc() {
+    echo "=== Deploying FSI KC Agent ==="
+
+    # Verify toolbox binary exists
+    if [ ! -f "${SCRIPT_DIR}/agent_kc/toolbox" ]; then
+        echo "ERROR: MCP Toolbox binary not found at ${SCRIPT_DIR}/agent_kc/toolbox"
+        echo "Download it from: https://github.com/googleapis/mcp-toolbox-sdk-python"
+        echo "Or copy from an existing installation:"
+        echo "  cp /path/to/toolbox ${SCRIPT_DIR}/agent_kc/toolbox"
+        exit 1
+    fi
+
+    adk deploy agent_engine \
+        --project="${PROJECT_ID}" \
+        --region="${REGION}" \
+        --display_name="FSI KC Agent" \
+        "${SCRIPT_DIR}/agent_kc"
+    echo "KC agent deployed."
+}
+
+# Generate .env files
+create_env_files
+
+# Deploy based on argument
+case "${1:-all}" in
+    basic)  deploy_basic ;;
+    scaled) deploy_scaled ;;
+    kc)     deploy_kc ;;
+    all)
+        deploy_basic
+        deploy_scaled
+        deploy_kc
+        ;;
+    *)
+        echo "Usage: $0 [basic|scaled|kc|all]"
+        exit 1
+        ;;
+esac
+
+echo ""
+echo "=== Deployment Complete ==="
+echo "View your agents at:"
+echo "  https://console.cloud.google.com/vertex-ai/agents?project=${PROJECT_ID}"

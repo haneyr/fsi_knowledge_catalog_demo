@@ -15,13 +15,14 @@
 """
 FSI Knowledge Catalog Agent — Uses KC MCP tools to navigate 150+ tables intelligently.
 
-Demonstrates that Knowledge Catalog solves the agent scale problem by providing
-semantic search, rich metadata, glossary terms, data quality scores, and lineage
-to guide the agent to the right data.
+Supports two MCP connection modes:
+- SSE: Set MCP_TOOLBOX_URL to connect to a remote Toolbox (Cloud Run). Used by Agent Engine.
+- Stdio: Falls back to local toolbox binary if MCP_TOOLBOX_URL is not set. Used for local dev.
 
 Deploy to Vertex AI Agent Engine or run locally:
     export GOOGLE_CLOUD_PROJECT=your-project-id
     export DATAPLEX_PROJECT=your-project-id
+    export MCP_TOOLBOX_URL=https://kc-mcp-toolbox-XXXX.run.app  # for Agent Engine
     python3 agent.py
 """
 
@@ -35,13 +36,12 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
 from google.adk import Agent, Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools import FunctionTool
-from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
-from mcp.client.stdio import StdioServerParameters
+from google.adk.tools.mcp_tool import McpToolset, SseConnectionParams
 from google.cloud import bigquery
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 DATAPLEX_PROJECT = os.environ.get("DATAPLEX_PROJECT", PROJECT_ID)
-TOOLBOX_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "toolbox")
+MCP_TOOLBOX_URL = os.environ.get("MCP_TOOLBOX_URL", "")
 
 SYSTEM_INSTRUCTION = f"""You are a financial data analyst for Meridian National Bank with access to
 Knowledge Catalog for discovering data and BigQuery for running SQL queries.
@@ -112,38 +112,48 @@ def run_sql(sql: str) -> str:
         return f"SQL Error: {str(e)}"
 
 
-def create_agent():
-    kc_toolset = McpToolset(
-        connection_params=StdioConnectionParams(
-            server_params=StdioServerParameters(
-                command=TOOLBOX_PATH,
-                args=["--prebuilt", "dataplex", "--stdio"],
-                env={
-                    "DATAPLEX_PROJECT": DATAPLEX_PROJECT,
-                    "GOOGLE_CLOUD_PROJECT": PROJECT_ID,
-                    "PATH": os.environ.get("PATH", ""),
-                    "HOME": os.environ.get("HOME", ""),
-                },
+def _build_kc_toolset():
+    """Build the KC MCP toolset using SSE (remote) or Stdio (local)."""
+    if MCP_TOOLBOX_URL:
+        return McpToolset(
+            connection_params=SseConnectionParams(
+                url=f"{MCP_TOOLBOX_URL}/sse",
+                timeout=30.0,
+                sse_read_timeout=300.0,
             ),
-            timeout=30.0,
-        ),
-    )
+        )
+    else:
+        from google.adk.tools.mcp_tool import StdioConnectionParams
+        from mcp.client.stdio import StdioServerParameters
+        toolbox_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "toolbox")
+        return McpToolset(
+            connection_params=StdioConnectionParams(
+                server_params=StdioServerParameters(
+                    command=toolbox_path,
+                    args=["--prebuilt", "dataplex", "--stdio"],
+                    env={
+                        "DATAPLEX_PROJECT": DATAPLEX_PROJECT,
+                        "GOOGLE_CLOUD_PROJECT": PROJECT_ID,
+                        "PATH": os.environ.get("PATH", ""),
+                        "HOME": os.environ.get("HOME", ""),
+                    },
+                ),
+                timeout=30.0,
+            ),
+        )
 
-    kc_agent = Agent(
-        name="fsi_kc_agent",
-        model="gemini-2.5-flash",
-        instruction=SYSTEM_INSTRUCTION,
-        tools=[run_sql, kc_toolset],
-    )
 
-    return kc_agent, kc_toolset
+kc_toolset = _build_kc_toolset()
 
-
-agent, _kc_toolset = create_agent()
+agent = Agent(
+    name="fsi_kc_agent",
+    model="gemini-2.5-flash",
+    instruction=SYSTEM_INSTRUCTION,
+    tools=[run_sql, kc_toolset],
+)
 
 
 async def run_interactive():
-    global _kc_toolset
     session_service = InMemorySessionService()
     runner = Runner(agent=agent, app_name="fsi_kc_agent", session_service=session_service)
     session = await session_service.create_session(app_name="fsi_kc_agent", user_id="demo_user")
@@ -152,6 +162,7 @@ async def run_interactive():
     print("FSI Knowledge Catalog Agent (150+ tables WITH KC guidance)")
     print("Powered by ADK + Knowledge Catalog MCP + BigQuery")
     print("=" * 60)
+    print(f"MCP connection: {'SSE -> ' + MCP_TOOLBOX_URL if MCP_TOOLBOX_URL else 'Stdio (local toolbox)'}")
     print("\nExample questions:")
     print('  "What is our total relationship value for high-net-worth clients?"')
     print('  "Show me suspicious activity trends by quarter"')
@@ -180,7 +191,7 @@ async def run_interactive():
     except (EOFError, KeyboardInterrupt):
         pass
     finally:
-        await _kc_toolset.close()
+        await kc_toolset.close()
 
 
 if __name__ == "__main__":
