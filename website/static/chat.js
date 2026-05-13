@@ -134,12 +134,14 @@ class ChatPanel {
     }
 
     const agentData = scenario[this.agentMode];
-    const animDelay = this.agentMode === 'kc' ? 4000 : this.agentMode === 'scaled' ? 3000 : 2000;
+    const animDelay = this.agentMode === 'kc' ? 5000 : this.agentMode === 'scaled' ? 3000 : 2000;
 
     this.viz.triggerQuery(
       agentData.tables_used || [],
       agentData.tool_calls || [],
-      agentData.metadata_cited || []
+      agentData.metadata_cited || [],
+      agentData.lineage_path || [],
+      agentData.glossary_terms_cited || []
     );
 
     await this._delay(animDelay);
