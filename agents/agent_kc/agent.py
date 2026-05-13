@@ -60,11 +60,14 @@ Your project is: {PROJECT_ID}
 ### Step 1: DISCOVER (use Knowledge Catalog tools)
 Before writing ANY SQL, search Knowledge Catalog to find the right data:
 - `search_entries` — semantic search for tables by topic (e.g., "customer deposits", "loan delinquency")
-- `lookup_entry` — get full details about a specific entry including schema, custom aspects, data classification
-- `lookup_context` — shortcut to get metadata for a specific dataset.table
+- `get_context` — pass discovered entry names + your question to the Context API, which returns
+  rich pre-formatted metadata including schema with linked glossary terms, data quality info,
+  custom aspects, and storage details — all ready for analysis
 
 Search broadly. If a question touches multiple domains (e.g., "total relationship value" spans
 retail banking AND wealth management), run multiple searches to cover each domain.
+After searching, call `get_context` with the entry names of the best candidates to get
+full metadata before writing SQL.
 
 ### Step 2: UNDERSTAND (read and explain the metadata)
 Before querying, explain to the user what you found and WHY you chose specific tables:
@@ -190,79 +193,40 @@ def search_entries(query: str) -> str:
 
 
 @FunctionTool
-def lookup_entry(entry_name: str) -> str:
-    """Look up full details about a data entry including schema and custom aspects.
+def get_context(entry_names: list[str], question: str) -> str:
+    """Get rich LLM-ready context for one or more data entries using the
+    Knowledge Catalog Context API. Returns schema with linked glossary terms,
+    data quality info, custom aspects, and storage metadata — all pre-formatted
+    for analysis.
 
-    Pass the entry name from search_entries results (the line starting with 'Entry:').
-    Example: projects/123/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/...
-    """
-    try:
-        result = _dataplex_get(entry_name)
-        if "error" in result:
-            return f"Lookup error: {result['error']}"
+    Pass entry names from search_entries results (the lines starting with 'Entry:').
+    Pass your question as context so the API can prioritize relevant metadata.
 
-        fqn = result.get("fullyQualifiedName", "")
-        entry_type = result.get("entryType", "").split("/")[-1] if result.get("entryType") else ""
-        source = result.get("entrySource", {})
-
-        lines = [f"**{fqn}** ({entry_type})\n"]
-        if source.get("description"):
-            lines.append(f"Description: {source['description']}")
-        if source.get("system"):
-            lines.append(f"System: {source['system']}")
-
-        aspects = result.get("aspects", {})
-        for key, aspect in aspects.items():
-            aspect_name = key.split(".")[-1]
-            data = aspect.get("data", {})
-            if not data:
-                continue
-            lines.append(f"\n**{aspect_name}:**")
-            if "fields" in data:
-                fields = data["fields"]
-                lines.append(f"  Columns ({len(fields)}):")
-                for f in fields[:20]:
-                    fname = f.get("name", "")
-                    ftype = f.get("dataType", f.get("metadataType", ""))
-                    fdesc = f.get("description", "")
-                    lines.append(f"    - {fname} ({ftype}){': ' + fdesc if fdesc else ''}")
-            else:
-                for k, v in data.items():
-                    if isinstance(v, list):
-                        lines.append(f"  {k}: {len(v)} items")
-                    elif isinstance(v, dict):
-                        lines.append(f"  {k}: {{...}}")
-                    else:
-                        lines.append(f"  {k}: {v}")
-
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Lookup error: {str(e)}"
-
-
-@FunctionTool
-def lookup_context(dataset: str, table: str) -> str:
-    """Get rich context metadata for a BigQuery table including schema, custom
-    aspects (data classification, compliance, lineage), and table description.
-
-    Pass the dataset and table name separately.
-    Example: lookup_context(dataset="fsi_gold", table="gold_asset_allocation")
-    """
-    try:
-        project_number = None
-        result = _dataplex_post(
-            f"projects/{DATAPLEX_PROJECT}/locations/us:searchEntries",
-            {"query": f"{dataset}.{table}", "pageSize": 1}
+    Example:
+        get_context(
+            entry_names=["projects/123/locations/us/entryGroups/@bigquery/entries/..."],
+            question="What is the total relationship value for HNW clients?"
         )
-        entries = result.get("results", [])
-        if entries:
-            entry_name = entries[0].get("dataplexEntry", {}).get("name", "")
-            if entry_name:
-                return lookup_entry.func(entry_name)
+    """
+    try:
+        result = _dataplex_post(
+            f"projects/{DATAPLEX_PROJECT}/locations/us:lookupContext",
+            {
+                "resources": entry_names[:10],
+                "context": question,
+                "options": {"format": "yaml", "context_budget": "8000"},
+            }
+        )
+        if "error" in result:
+            return f"Context API error: {result['error']}"
 
-        return f"Could not find entry for {dataset}.{table}. Try search_entries with a descriptive query instead."
+        context = result.get("context", "")
+        if not context:
+            return "No context returned. The entries may not exist or may not have metadata."
+
+        return context
     except Exception as e:
-        return f"Context lookup error: {str(e)}"
+        return f"Context API error: {str(e)}"
 
 
 @FunctionTool
@@ -300,7 +264,7 @@ root_agent = Agent(
     name="fsi_kc_agent",
     model="gemini-2.5-flash",
     instruction=SYSTEM_INSTRUCTION,
-    tools=[search_entries, lookup_entry, lookup_context, run_sql],
+    tools=[search_entries, get_context, run_sql],
 )
 
 bq_analytics_plugin = BigQueryAgentAnalyticsPlugin(
