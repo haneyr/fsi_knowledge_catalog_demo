@@ -136,7 +136,7 @@ def run_sql(sql: str) -> str:
         return f"SQL Error: {str(e)}"
 
 
-agent = Agent(
+root_agent = Agent(
     name="fsi_scaled_agent",
     model="gemini-2.5-flash",
     instruction=SYSTEM_INSTRUCTION,
@@ -146,7 +146,7 @@ agent = Agent(
 
 async def run_interactive():
     session_service = InMemorySessionService()
-    runner = Runner(agent=agent, app_name="fsi_scaled_agent", session_service=session_service)
+    runner = Runner(agent=root_agent, app_name="fsi_scaled_agent", session_service=session_service)
     session = await session_service.create_session(app_name="fsi_scaled_agent", user_id="demo_user")
 
     print("\n" + "=" * 60)
