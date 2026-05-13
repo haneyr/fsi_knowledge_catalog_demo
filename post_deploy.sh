@@ -15,8 +15,8 @@
 
 ####################################################################################
 # FSI Knowledge Catalog Demo - Post Deploy
-# Runs all Python scripts that create Dataplex resources via REST APIs.
-# Called automatically by deploy.sh / deploy-existing-project.sh
+# Runs all Python scripts that create Dataplex and governance resources.
+# Called after BigQuery tables are created (deploy-bq.sh or Terraform).
 ####################################################################################
 
 set -e
@@ -26,34 +26,46 @@ cd "${SCRIPT_DIR}"
 
 echo "=== Post-Deploy: Creating FSI governance resources ==="
 
-echo "[1/10] Creating business glossary..."
+echo "[0/14] Creating Dataplex infrastructure (entry types, aspect types, entry groups)..."
+python3 00_create_dataplex_infra.py
+
+echo "[1/14] Creating business glossary..."
 python3 01_create_glossary.py
 
-echo "[2/10] Creating Dataplex scans..."
+echo "[2/14] Creating Dataplex scans..."
 python3 02_create_scans.py
 
-echo "[3/10] Creating source system entries..."
+echo "[3/14] Creating source system entries..."
 python3 03_create_source_entries.py
 
-echo "[4/10] Applying custom aspects..."
+echo "[4/14] Applying custom aspects..."
 python3 04_create_aspects.py
 
-echo "[5/10] Creating data products..."
+echo "[5/14] Creating data products..."
 python3 05_create_data_products.py
 
-echo "[6/10] Creating glossary-to-column links..."
+echo "[6/14] Creating glossary-to-column links..."
 python3 06_create_glossary_links.py
 
-echo "[7/10] Creating data lineage..."
+echo "[7/14] Creating data lineage..."
 python3 07_create_lineage.py
 
-echo "[8/10] Publishing scan results..."
+echo "[8/14] Publishing scan results..."
 python3 08_publish_scans.py
 
-echo "[9/10] Running query simulation..."
+echo "[9/14] Running query simulation..."
 python3 09_simulate_queries.py --iterations 1
 
-echo "[10/10] Creating reusable rule library..."
+echo "[10/14] Creating reusable rule library..."
 python3 10_create_rule_library.py
+
+echo "[11/14] Running profile and insights scans..."
+python3 11_run_scans_and_apply_insights.py
+
+echo "[12/14] Enriching glossary term overviews..."
+python3 12_enrich_glossary.py
+
+echo "[13/14] Applying insights descriptions to BigQuery..."
+python3 13_apply_insights_descriptions.py
 
 echo "=== Post-Deploy Complete ==="

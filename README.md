@@ -66,7 +66,31 @@ Optional (for Terraform-based deploy):
 
 ## Deploy
 
-### Step 1: Create the GCP Project
+### One-Command Deploy (recommended)
+
+```bash
+gcloud auth login
+gcloud auth application-default login
+pip install google-adk google-cloud-aiplatform google-cloud-bigquery google-auth requests
+
+# New project:
+export ORG_ID=your-org-id
+export BILLING_ACCOUNT=your-billing-account-id
+bash deploy-full.sh
+
+# Or existing project:
+export GOOGLE_CLOUD_PROJECT=your-project-id
+bash deploy-full.sh
+```
+
+This single script handles everything: project creation, API enablement,
+128 BigQuery tables, all Knowledge Catalog resources (glossary, scans, aspects,
+lineage, data products, rule library, insights), and deploying 3 agents to
+Vertex AI Agent Engine with BigQuery Agent Analytics.
+
+### Manual Step-by-Step Deploy
+
+#### Step 1: Create the GCP Project
 
 ```bash
 gcloud auth login

@@ -4,7 +4,7 @@
 
 set -e
 
-PROJECT_ID="fsi-kc-demo-qen5wk"
+PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-fsi-kc-demo-qen5wk}"
 LOCATION="us"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
