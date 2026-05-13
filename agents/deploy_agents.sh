@@ -40,7 +40,7 @@ grant_agent_engine_permissions() {
     PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')
     SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
 
-    for role in roles/bigquery.jobUser roles/bigquery.dataViewer roles/dataplex.viewer roles/datalineage.viewer; do
+    for role in roles/bigquery.jobUser roles/bigquery.dataViewer roles/dataplex.viewer roles/dataplex.catalogEditor roles/datalineage.viewer; do
         gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
             --member="serviceAccount:${SA}" \
             --role="${role}" --quiet 2>/dev/null | tail -1

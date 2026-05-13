@@ -139,6 +139,7 @@ The deploy script automatically:
    - `roles/bigquery.jobUser` — run queries
    - `roles/bigquery.dataViewer` — read table data
    - `roles/dataplex.viewer` — access Knowledge Catalog entries
+   - `roles/dataplex.catalogEditor` — search catalog entries
    - `roles/datalineage.viewer` — read data lineage
 2. Creates `.env` files with your project config
 3. Deploys each agent via `adk deploy agent_engine`
