@@ -128,6 +128,13 @@ echo "=== Deploying agents to Vertex AI Agent Engine ==="
 bash "${SCRIPT_DIR}/agents/deploy_agents.sh"
 
 # ---------------------------------------------------------------------------
+# Step 7: Deploy demo website to Cloud Run
+# ---------------------------------------------------------------------------
+echo "=== Deploying demo website ==="
+bash "${SCRIPT_DIR}/website/deploy.sh"
+WEBSITE_URL=$(gcloud run services describe fsi-kc-demo-ui --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 echo ""
@@ -137,6 +144,7 @@ echo "============================================================"
 echo "  Project:    ${GOOGLE_CLOUD_PROJECT}"
 echo "  Region:     ${GOOGLE_CLOUD_LOCATION}"
 echo ""
+echo "  Website:    ${WEBSITE_URL}"
 echo "  BigQuery:   https://console.cloud.google.com/bigquery?project=${GOOGLE_CLOUD_PROJECT}"
 echo "  Dataplex:   https://console.cloud.google.com/dataplex?project=${GOOGLE_CLOUD_PROJECT}"
 echo "  Agents:     https://console.cloud.google.com/vertex-ai/agents?project=${GOOGLE_CLOUD_PROJECT}"
