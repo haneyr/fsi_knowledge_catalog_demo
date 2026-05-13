@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meridian National Bank — Knowledge Catalog Agent Demo (Live)</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="agent-basic">
+
+  <header class="app-header">
+    <div class="logo">Meridian <span>National Bank</span></div>
+    <div class="agent-tabs">
+      <button class="agent-tab active" data-agent="basic" onclick="switchAgent('basic')">Basic Agent</button>
+      <button class="agent-tab" data-agent="scaled" onclick="switchAgent('scaled')">Scaled Agent</button>
+      <button class="agent-tab" data-agent="kc" onclick="switchAgent('kc')">KC Agent</button>
+    </div>
+    <span id="modeBadge" class="mode-badge static">STATIC</span>
+  </header>
+
+  <div class="main-container">
+    <div class="viz-panel">
+      <canvas id="vizCanvas"></canvas>
+      <div class="viz-info" id="vizInfo">
+        <h3 id="vizTitle">Basic Agent</h3>
+        <p id="vizDesc">5 gold tables hardcoded in the prompt. Works for simple questions within its narrow scope.</p>
+      </div>
+      <div class="viz-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#FFD600"></div> Gold (20)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#90A4AE"></div> Silver (40)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#FF8F00"></div> Bronze (40)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#546E7A"></div> Other (28)</div>
+      </div>
+    </div>
+
+    <div class="chat-panel">
+      <div class="chat-header" id="chatHeader">Chat with Basic Agent</div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="typing-indicator" id="typingIndicator">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+      <div class="chat-input-area">
+        <div class="preset-questions" id="presetQuestions"></div>
+        <div class="input-row">
+          <input type="text" id="chatInput" placeholder="Ask a question..." autocomplete="off">
+          <button class="send-btn" id="sendBtn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/visualization.js"></script>
+  <script src="/chat.js"></script>
+  <script>
+    const PRESETS = [
+      { q: "What are our top 5 customers by total relationship value?", cat: "Baseline" },
+      { q: "Show me suspicious activity trends over the past year", cat: "Disambiguation" },
+      { q: "For our high-net-worth clients, what's their total exposure including deposits, loans, and investments?", cat: "Cross-Domain" },
+      { q: "Are we meeting our Basel III capital requirements? What's our buffer?", cat: "Regulatory" },
+      { q: "What's the average FICO score across our loan portfolio, and should we trust this number?", cat: "Data Quality" },
+      { q: "If commercial real estate defaults increased 5%, what would happen to our capital ratios?", cat: "Stress Test" },
+    ];
+
+    const AGENT_INFO = {
+      basic: {
+        title: 'Basic Agent',
+        desc: '5 gold tables hardcoded in the prompt. Works for simple questions within its narrow scope.',
+        header: 'Chat with Basic Agent',
+      },
+      scaled: {
+        title: 'Scaled Agent',
+        desc: '150+ tables listed in the prompt. No Knowledge Catalog. Overwhelmed by ambiguity — picks wrong tables, misses cross-domain data.',
+        header: 'Chat with Scaled Agent',
+      },
+      kc: {
+        title: 'KC-Guided Agent',
+        desc: '150+ tables navigated through Knowledge Catalog. Searches semantically, reads metadata, traces lineage, cites glossary terms and data quality.',
+        header: 'Chat with Knowledge Catalog Agent',
+      },
+    };
+
+    const canvas = document.getElementById('vizCanvas');
+    const viz = new PointCloud(canvas);
+    const chat = new ChatPanel(viz);
+
+    function switchAgent(mode) {
+      document.querySelectorAll('.agent-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`[data-agent="${mode}"]`).classList.add('active');
+
+      viz.setMode(mode);
+      chat.setAgent(mode);
+
+      const info = AGENT_INFO[mode];
+      document.getElementById('vizTitle').textContent = info.title;
+      document.getElementById('vizDesc').textContent = info.desc;
+      document.getElementById('chatHeader').textContent = info.header;
+
+      renderPresets();
+    }
+
+    function renderPresets() {
+      const container = document.getElementById('presetQuestions');
+      container.innerHTML = '';
+      for (const p of PRESETS) {
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn';
+        btn.textContent = p.cat;
+        btn.title = p.q;
+        btn.addEventListener('click', () => chat.sendPreset(p.q));
+        container.appendChild(btn);
+      }
+    }
+
+    window.addEventListener('resize', () => viz.resize());
+    switchAgent('basic');
+  </script>
+</body>
+</html>
