@@ -1,4 +1,5 @@
 google-adk>=0.3.0
 google-cloud-bigquery>=3.0
 google-cloud-aiplatform>=1.60
-mcp>=1.0
+google-auth>=2.0
+requests>=2.28

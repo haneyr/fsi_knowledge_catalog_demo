@@ -13,20 +13,20 @@
 # limitations under the License.
 
 """
-FSI Knowledge Catalog Agent — Uses KC MCP tools to navigate 150+ tables intelligently.
+FSI Knowledge Catalog Agent — Uses KC Context API to navigate 150+ tables.
 
-Supports two MCP connection modes:
-- SSE: Set MCP_TOOLBOX_URL to connect to a remote Toolbox (Cloud Run). Used by Agent Engine.
-- Stdio: Falls back to local toolbox binary if MCP_TOOLBOX_URL is not set. Used for local dev.
+Implements Knowledge Catalog discovery tools as native FunctionTools calling
+the Dataplex REST API directly, making it fully compatible with Agent Engine
+without needing an external MCP Toolbox binary.
 
 Deploy to Vertex AI Agent Engine or run locally:
     export GOOGLE_CLOUD_PROJECT=your-project-id
     export DATAPLEX_PROJECT=your-project-id
-    export MCP_TOOLBOX_URL=https://kc-mcp-toolbox-XXXX.run.app  # for Agent Engine
     python3 agent.py
 """
 
 import asyncio
+import json
 import os
 import sys
 
@@ -36,12 +36,14 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
 from google.adk import Agent, Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools import FunctionTool
-from google.adk.tools.mcp_tool import McpToolset, SseConnectionParams
 from google.cloud import bigquery
+import google.auth
+import google.auth.transport.requests
+import requests as http_requests
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 DATAPLEX_PROJECT = os.environ.get("DATAPLEX_PROJECT", PROJECT_ID)
-MCP_TOOLBOX_URL = os.environ.get("MCP_TOOLBOX_URL", "")
+DATAPLEX_URL = "https://dataplex.googleapis.com/v1"
 
 SYSTEM_INSTRUCTION = f"""You are a financial data analyst for Meridian National Bank with access to
 Knowledge Catalog for discovering data and BigQuery for running SQL queries.
@@ -81,6 +83,169 @@ Your project is: {PROJECT_ID}
 """
 
 
+def _get_token():
+    creds, _ = google.auth.default()
+    creds.refresh(google.auth.transport.requests.Request())
+    return creds.token
+
+
+def _dataplex_request(method, path, body=None):
+    headers = {"Authorization": f"Bearer {_get_token()}", "Content-Type": "application/json"}
+    url = f"{DATAPLEX_URL}/{path}"
+    if method == "GET":
+        resp = http_requests.get(url, headers=headers, params=body)
+    else:
+        resp = http_requests.post(url, headers=headers, json=body)
+    if resp.status_code in (200, 201):
+        return resp.json() if resp.text.strip() else {}
+    return {"error": f"HTTP {resp.status_code}: {resp.text[:500]}"}
+
+
+@FunctionTool
+def search_entries(query: str) -> str:
+    """Search for data entries in Knowledge Catalog using semantic search.
+
+    Use this to discover tables, views, and other data assets by topic.
+    Examples: "customer deposits", "loan delinquency", "portfolio performance"
+    """
+    try:
+        result = _dataplex_request("POST",
+            f"projects/{DATAPLEX_PROJECT}/locations/us:searchEntries",
+            {"query": query, "pageSize": 10}
+        )
+        if "error" in result:
+            return f"Search error: {result['error']}"
+
+        entries = result.get("results", [])
+        if not entries:
+            return "No entries found for that search query."
+
+        lines = [f"Found {len(entries)} entries:\n"]
+        for entry in entries:
+            snippets = entry.get("snippets", {})
+            e = entry.get("dataplexEntry", {})
+            name = e.get("name", "")
+            fqn = e.get("fullyQualifiedName", "")
+            entry_type = e.get("entryType", "").split("/")[-1] if e.get("entryType") else ""
+            desc_snippet = snippets.get("dataplexEntry", {}).get("description", "")
+            lines.append(f"- **{fqn}** ({entry_type})")
+            if desc_snippet:
+                lines.append(f"  {desc_snippet}")
+            lines.append(f"  Entry: {name}")
+            lines.append("")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Search error: {str(e)}"
+
+
+@FunctionTool
+def lookup_entry(entry_name: str) -> str:
+    """Look up details about a specific data entry by its full resource name.
+
+    Use the entry name returned from search_entries.
+    """
+    try:
+        result = _dataplex_request("GET", entry_name)
+        if "error" in result:
+            return f"Lookup error: {result['error']}"
+
+        fqn = result.get("fullyQualifiedName", "")
+        entry_type = result.get("entryType", "").split("/")[-1] if result.get("entryType") else ""
+        source = result.get("entrySource", {})
+
+        lines = [f"**{fqn}** ({entry_type})\n"]
+        if source.get("description"):
+            lines.append(f"Description: {source['description']}")
+        if source.get("system"):
+            lines.append(f"System: {source['system']}")
+
+        aspects = result.get("aspects", {})
+        for key, aspect in aspects.items():
+            aspect_name = key.split(".")[-1]
+            data = aspect.get("data", {})
+            if data:
+                lines.append(f"\n**{aspect_name}:**")
+                for k, v in data.items():
+                    if isinstance(v, dict) and "fields" in v:
+                        lines.append(f"  Schema fields: {len(v['fields'])}")
+                    elif isinstance(v, list):
+                        lines.append(f"  {k}: {len(v)} items")
+                    else:
+                        lines.append(f"  {k}: {v}")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Lookup error: {str(e)}"
+
+
+@FunctionTool
+def lookup_context(resource_name: str) -> str:
+    """Get rich context metadata for a BigQuery table including glossary terms,
+    data quality scores, lineage, and custom aspects.
+
+    Pass a fully qualified BigQuery resource like:
+    //bigquery.googleapis.com/projects/PROJECT/datasets/DATASET/tables/TABLE
+    """
+    try:
+        result = _dataplex_request("GET",
+            f"projects/{DATAPLEX_PROJECT}/locations/us:lookupContext",
+            {"resourceName": resource_name}
+        )
+        if "error" in result:
+            return f"Context lookup error: {result['error']}"
+
+        lines = [f"Context for: {resource_name}\n"]
+
+        context = result.get("context", {})
+        if not context:
+            context = result
+
+        glossary_terms = context.get("glossaryTerms", result.get("glossaryTerms", []))
+        if glossary_terms:
+            lines.append(f"**Glossary Terms ({len(glossary_terms)}):**")
+            for term in glossary_terms[:10]:
+                term_name = term.get("name", "").split("/")[-1]
+                desc = term.get("description", "")
+                lines.append(f"  - {term_name}: {desc[:200]}")
+
+        dq = context.get("dataQuality", result.get("dataQuality", {}))
+        if dq:
+            lines.append(f"\n**Data Quality:**")
+            score = dq.get("score", dq.get("overallScore"))
+            if score:
+                lines.append(f"  Overall score: {score}")
+            dimensions = dq.get("dimensions", [])
+            for dim in dimensions:
+                lines.append(f"  {dim.get('name', 'unknown')}: {dim.get('score', 'N/A')}")
+
+        lineage = context.get("lineage", result.get("lineage", {}))
+        if lineage:
+            lines.append(f"\n**Lineage:**")
+            sources = lineage.get("sources", [])
+            for src in sources[:5]:
+                lines.append(f"  Source: {src.get('fullyQualifiedName', src.get('name', 'unknown'))}")
+
+        aspects = context.get("aspects", result.get("aspects", {}))
+        for key, aspect in aspects.items():
+            if "dataplex-types" in key:
+                continue
+            aspect_name = key.split(".")[-1]
+            data = aspect.get("data", {})
+            if data:
+                lines.append(f"\n**{aspect_name}:**")
+                for k, v in data.items():
+                    if not isinstance(v, (dict, list)):
+                        lines.append(f"  {k}: {v}")
+
+        if len(lines) <= 1:
+            lines.append("No rich context available. Try using search_entries to find the correct entry name, then lookup_entry.")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Context lookup error: {str(e)}"
+
+
 @FunctionTool
 def run_sql(sql: str) -> str:
     """Execute a SQL query against BigQuery and return results.
@@ -112,44 +277,11 @@ def run_sql(sql: str) -> str:
         return f"SQL Error: {str(e)}"
 
 
-def _build_kc_toolset():
-    """Build the KC MCP toolset using SSE (remote) or Stdio (local)."""
-    if MCP_TOOLBOX_URL:
-        return McpToolset(
-            connection_params=SseConnectionParams(
-                url=f"{MCP_TOOLBOX_URL}/sse",
-                timeout=30.0,
-                sse_read_timeout=300.0,
-            ),
-        )
-    else:
-        from google.adk.tools.mcp_tool import StdioConnectionParams
-        from mcp.client.stdio import StdioServerParameters
-        toolbox_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "toolbox")
-        return McpToolset(
-            connection_params=StdioConnectionParams(
-                server_params=StdioServerParameters(
-                    command=toolbox_path,
-                    args=["--prebuilt", "dataplex", "--stdio"],
-                    env={
-                        "DATAPLEX_PROJECT": DATAPLEX_PROJECT,
-                        "GOOGLE_CLOUD_PROJECT": PROJECT_ID,
-                        "PATH": os.environ.get("PATH", ""),
-                        "HOME": os.environ.get("HOME", ""),
-                    },
-                ),
-                timeout=30.0,
-            ),
-        )
-
-
-kc_toolset = _build_kc_toolset()
-
 root_agent = Agent(
     name="fsi_kc_agent",
     model="gemini-2.5-flash",
     instruction=SYSTEM_INSTRUCTION,
-    tools=[run_sql, kc_toolset],
+    tools=[search_entries, lookup_entry, lookup_context, run_sql],
 )
 
 
@@ -160,9 +292,8 @@ async def run_interactive():
 
     print("\n" + "=" * 60)
     print("FSI Knowledge Catalog Agent (150+ tables WITH KC guidance)")
-    print("Powered by ADK + Knowledge Catalog MCP + BigQuery")
+    print("Powered by ADK + Knowledge Catalog Context API + BigQuery")
     print("=" * 60)
-    print(f"MCP connection: {'SSE -> ' + MCP_TOOLBOX_URL if MCP_TOOLBOX_URL else 'Stdio (local toolbox)'}")
     print("\nExample questions:")
     print('  "What is our total relationship value for high-net-worth clients?"')
     print('  "Show me suspicious activity trends by quarter"')
@@ -190,8 +321,6 @@ async def run_interactive():
             print("\n")
     except (EOFError, KeyboardInterrupt):
         pass
-    finally:
-        await kc_toolset.close()
 
 
 if __name__ == "__main__":
