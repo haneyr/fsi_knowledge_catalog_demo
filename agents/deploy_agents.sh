@@ -30,7 +30,7 @@
 
 set -e
 
-PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-fsi-kc-demo-qen5wk}"
+PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT before running this script}"
 REGION="${GOOGLE_CLOUD_LOCATION:-us-central1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

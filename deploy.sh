@@ -14,8 +14,9 @@
 # limitations under the License.
 
 ####################################################################################
-# FSI Knowledge Catalog Demo - Deploy (New Project)
-# Creates a new GCP project and deploys all infrastructure + governance resources.
+# FSI Knowledge Catalog Demo - Deploy New Project (Terraform)
+# Requires Terraform and Terragrunt. For deployment without Terraform,
+# use deploy-full.sh instead (recommended).
 ####################################################################################
 
 set -e
