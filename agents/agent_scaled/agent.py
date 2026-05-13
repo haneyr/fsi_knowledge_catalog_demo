@@ -102,10 +102,18 @@ snapshot_monthly_balances, snapshot_quarterly_positions, snapshot_daily_market_d
 ### fsi_audit (2 audit tables)
 audit_data_access_log, audit_model_decisions
 
-## Rules
+## How to answer
+
 - Use fully qualified table names: `{PROJECT_ID}.dataset.table`
 - The BigQuery location is 'us' multi-region
 - Try to use gold tables when possible, silver for detailed queries
+- **Be thorough and detailed in your answers.** Don't just return raw numbers — provide
+  business context, explain what the numbers mean, highlight notable patterns, and offer
+  actionable insights. Structure your response with clear sections.
+- When presenting financial data, include relevant comparisons (e.g., percentages of total,
+  ranking, period-over-period context where available).
+- Format currency values with dollar signs and commas.
+- If the data reveals something interesting or concerning, call it out proactively.
 """
 
 
