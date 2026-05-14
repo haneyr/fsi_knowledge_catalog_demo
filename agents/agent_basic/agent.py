@@ -40,6 +40,15 @@ from google.cloud import bigquery
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
 
+_bq_client = None
+
+
+def _get_bq_client():
+    global _bq_client
+    if _bq_client is None:
+        _bq_client = bigquery.Client(project=PROJECT_ID)
+    return _bq_client
+
 SYSTEM_INSTRUCTION = f"""You are a financial data analyst for Meridian National Bank.
 You have access to a small set of summary tables in BigQuery and can run SQL queries.
 
@@ -68,17 +77,22 @@ Your project is: {PROJECT_ID}
    - High-level balance sheet: assets, liabilities, equity
    - Columns: category, line_item, amount
 
+## CRITICAL: Complete ALL queries BEFORE writing your response
+
+Do NOT write any response text between tool calls. Run all SQL queries silently first.
+Only after you have all the data, write ONE final response. Never narrate what you are
+"about to do." If a query returns unexpected results, silently fix and retry.
+
 ## How to answer
 
 - Use fully qualified table names with the project ID
 - The BigQuery location is 'us' multi-region
-- **Be thorough and detailed in your answers.** Don't just return raw numbers — provide
-  business context, explain what the numbers mean, highlight notable patterns, and offer
-  actionable insights. Structure your response with clear sections.
-- When presenting financial data, include relevant comparisons (e.g., percentages of total,
-  ranking, period-over-period context where available).
-- Format currency values with dollar signs and commas.
-- If the data reveals something interesting or concerning, call it out proactively.
+- Always present actual data and numbers in your response — never end with just a plan
+  to query something
+- Format currency with $ and commas
+- Provide business context: what the numbers mean, notable patterns, and actionable insights
+- If the question cannot be answered with your 5 tables, say so clearly and explain what
+  data would be needed
 """
 
 
@@ -86,7 +100,7 @@ Your project is: {PROJECT_ID}
 def run_sql(sql: str) -> str:
     """Execute a SQL query against BigQuery and return results."""
     try:
-        client = bigquery.Client(project=PROJECT_ID)
+        client = _get_bq_client()
         query_job = client.query(sql)
         results = query_job.result()
 

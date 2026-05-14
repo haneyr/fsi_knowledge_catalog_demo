@@ -24,6 +24,7 @@ import google.auth.transport.requests
 import requests as http_requests
 from flask import Flask, send_from_directory, request, jsonify
 
+logging.basicConfig(level=logging.INFO)
 app = Flask(__name__, static_folder="static")
 logger = logging.getLogger(__name__)
 
@@ -69,10 +70,28 @@ GLOSSARY_TERM_MAP = {
 }
 
 
+_creds_cache = [None, 0]
+
+
 def _get_token():
-    creds, _ = google.auth.default()
-    creds.refresh(google.auth.transport.requests.Request())
-    return creds.token
+    import time
+    now = time.time()
+    if _creds_cache[0] is None or now - _creds_cache[1] > 250:
+        creds, _ = google.auth.default()
+        creds.refresh(google.auth.transport.requests.Request())
+        _creds_cache[0] = creds.token
+        _creds_cache[1] = now
+    return _creds_cache[0]
+
+
+_http_session = None
+
+
+def _get_http_session():
+    global _http_session
+    if _http_session is None:
+        _http_session = http_requests.Session()
+    return _http_session
 
 
 def _get_project_number():
@@ -99,18 +118,26 @@ def _get_or_create_session(agent_id, user_id):
     if key in _sessions:
         return _sessions[key]
 
-    token = _get_token()
-    resp = http_requests.post(
-        f"{_ae_url(agent_id)}:query",
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        json={"class_method": "create_session", "input": {"user_id": user_id}},
-        timeout=30,
-    )
-    if resp.status_code == 200:
-        session_id = resp.json().get("output", {}).get("id", "")
-        _sessions[key] = session_id
-        return session_id
-    return None
+    try:
+        token = _get_token()
+        url = f"{_ae_url(agent_id)}:query"
+        logger.info("Creating session: POST %s for user=%s", url, user_id)
+        resp = _get_http_session().post(
+            url,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json={"class_method": "create_session", "input": {"user_id": user_id}},
+            timeout=30,
+        )
+        logger.info("Session response: status=%d body=%s", resp.status_code, resp.text[:500])
+        if resp.status_code == 200:
+            output = resp.json().get("output", {})
+            session_id = output.get("id", "") if isinstance(output, dict) else str(output)
+            _sessions[key] = session_id
+            return session_id
+        return None
+    except Exception as e:
+        logger.exception("Failed to create session: %s", e)
+        return None
 
 
 def _extract_tables(text):
@@ -140,10 +167,13 @@ def _parse_stream_chunk(raw_text):
     for part in parts:
         if "function_call" in part:
             fc = part["function_call"]
+            args = fc.get("args", {})
+            args_text = str(args)
             events.append({
                 "type": "tool_call",
                 "name": fc.get("name", ""),
-                "args": fc.get("args", {}),
+                "args": args,
+                "tables": _extract_tables(args_text),
             })
         elif "function_response" in part:
             fr = part["function_response"]
@@ -187,6 +217,159 @@ def config():
     })
 
 
+DATASET_MAP = {
+    'gold_': 'fsi_gold', 'silver_': 'fsi_silver', 'bronze_': 'fsi_bronze',
+    'ref_': 'fsi_reference', 'staging_': 'fsi_supplementary',
+    'snapshot_': 'fsi_supplementary', 'audit_': 'fsi_supplementary',
+    'vw_': 'fsi_views',
+}
+
+_table_info_cache = {}
+_term_info_cache = {}
+
+GLOSSARY_ID = os.environ.get("GLOSSARY_ID", "meridian-national-bank-glossary-us")
+
+
+def _get_dataset(table_name):
+    for prefix, ds in DATASET_MAP.items():
+        if table_name.startswith(prefix):
+            return ds
+    return 'fsi_gold'
+
+
+def _get_tier(table_name):
+    for prefix in ('gold_', 'silver_', 'bronze_', 'ref_', 'staging_', 'snapshot_', 'audit_', 'vw_'):
+        if table_name.startswith(prefix):
+            return prefix.rstrip('_')
+    return 'other'
+
+
+@app.route("/api/table-info")
+def table_info():
+    table = request.args.get("table", "")
+    if not table or not PROJECT_ID:
+        return jsonify({"error": "Missing table or project"}), 400
+
+    if table in _table_info_cache:
+        return jsonify(_table_info_cache[table])
+
+    dataset = _get_dataset(table)
+    tier = _get_tier(table)
+    entry_path = (
+        f"projects/{PROJECT_ID}/locations/us/entryGroups/@bigquery/entries/"
+        f"bigquery.googleapis.com/projects/{PROJECT_ID}/datasets/{dataset}/tables/{table}"
+    )
+    catalog_url = (
+        f"https://console.cloud.google.com/dataplex/projects/{PROJECT_ID}/locations/us/"
+        f"entryGroups/@bigquery/entries/"
+        f"bigquery.googleapis.com/projects/{PROJECT_ID}/datasets/{dataset}/tables/{table}"
+        f"?project={PROJECT_ID}"
+    )
+
+    try:
+        token = _get_token()
+        resp = _get_http_session().get(
+            f"https://dataplex.googleapis.com/v1/{entry_path}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            logger.warning("Dataplex lookup failed: status=%d body=%s", resp.status_code, resp.text[:300])
+            return jsonify({
+                "name": table, "tier": tier, "description": "",
+                "column_count": 0, "columns": [], "catalog_url": catalog_url,
+            })
+
+        data = resp.json()
+        desc = (data.get("entrySource", {}).get("description", "") or "")[:200]
+        aspects = data.get("aspects", {})
+
+        schema_data = {}
+        for k, v in aspects.items():
+            if "schema" in k:
+                schema_data = v.get("data", {})
+                break
+
+        fields = schema_data.get("fields", [])
+        col_names = [f.get("name", "") for f in fields]
+
+        result = {
+            "name": table, "tier": tier, "description": desc,
+            "column_count": len(fields),
+            "columns": col_names[:8],
+            "catalog_url": catalog_url,
+        }
+        _table_info_cache[table] = result
+        return jsonify(result)
+
+    except Exception as e:
+        logger.exception("table-info error: %s", e)
+        return jsonify({
+            "name": table, "tier": tier, "description": "",
+            "column_count": 0, "columns": [], "catalog_url": catalog_url,
+        })
+
+
+TERM_SLUG_MAP = {
+    'FICO Score': 'fico-score', 'AUM': 'aum-abbr', 'SAR': 'sar-abbr',
+    'CET1 Ratio': 'cet1-ratio', 'Customer ID': 'customer-id',
+    'Delinquency': 'delinquency', 'KYC': 'kyc-abbr', 'VaR': 'var-abbr',
+    'CUSIP': 'cusip', 'Branch': 'branch', 'NIM': 'nim-abbr',
+    'Risk Rating': 'risk-rating',
+}
+
+
+@app.route("/api/term-info")
+def term_info():
+    term = request.args.get("term", "")
+    if not term or not PROJECT_ID:
+        return jsonify({"error": "Missing term or project"}), 400
+
+    if term in _term_info_cache:
+        return jsonify(_term_info_cache[term])
+
+    slug = TERM_SLUG_MAP.get(term, term.lower().replace(' ', '-'))
+    glossary_path = f"projects/{PROJECT_ID}/locations/us/glossaries/{GLOSSARY_ID}"
+    term_path = f"{glossary_path}/terms/{slug}"
+    catalog_url = (
+        f"https://console.cloud.google.com/dataplex/glossaries/{GLOSSARY_ID}"
+        f"/terms/{slug};location=us?project={PROJECT_ID}"
+    )
+
+    try:
+        token = _get_token()
+        resp = _get_http_session().get(
+            f"https://dataplex.googleapis.com/v1/{term_path}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            logger.warning("Glossary term lookup failed: status=%d body=%s", resp.status_code, resp.text[:300])
+            return jsonify({
+                "term": term, "description": "", "category": "",
+                "catalog_url": catalog_url,
+            })
+
+        data = resp.json()
+        desc = (data.get("description", "") or "")[:200]
+        parent = data.get("parent", "")
+        category = parent.split("/categories/")[-1].replace("-", " ").title() if "/categories/" in parent else ""
+
+        result = {
+            "term": term, "description": desc, "category": category,
+            "catalog_url": catalog_url,
+        }
+        _term_info_cache[term] = result
+        return jsonify(result)
+
+    except Exception as e:
+        logger.exception("term-info error: %s", e)
+        return jsonify({
+            "term": term, "description": "", "category": "",
+            "catalog_url": catalog_url,
+        })
+
+
 # ---- WebSocket ----
 
 try:
@@ -221,7 +404,7 @@ try:
                     continue
 
                 token = _get_token()
-                resp = http_requests.post(
+                resp = _get_http_session().post(
                     f"{_ae_url(agent_id)}:streamQuery",
                     headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
                     json={"input": {
@@ -249,7 +432,7 @@ try:
 
                     events = _parse_stream_chunk(text)
                     for event in events:
-                        if event["type"] == "tool_response":
+                        if event["type"] in ("tool_call", "tool_response"):
                             all_tables.extend(event.get("tables", []))
                             all_glossary.extend(event.get("glossary_terms", []))
                         ws.send(json.dumps(event))
