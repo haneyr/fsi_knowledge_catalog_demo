@@ -179,9 +179,10 @@ body {
   border-radius: 12px;
   font-size: 13px;
   line-height: 1.5;
-  white-space: pre-wrap;
   word-wrap: break-word;
 }
+
+.message.user { white-space: pre-wrap; }
 
 .message.user {
   align-self: flex-end;
@@ -214,6 +215,42 @@ body {
 .tool-chip.search { background: rgba(52,168,83,0.2); color: var(--kc-color); }
 .tool-chip.lookup { background: rgba(66,133,244,0.2); color: var(--basic-color); }
 .tool-chip.sql { background: rgba(255,193,7,0.2); color: #FFC107; }
+
+/* Markdown content in agent messages */
+.message.agent .markdown-content { font-size: 13px; line-height: 1.6; color: var(--text); }
+.message.agent .markdown-content h2 {
+  font-size: 14px; font-weight: 600; color: var(--kc-color);
+  margin: 16px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+.message.agent .markdown-content h2:first-child { margin-top: 0; }
+.message.agent .markdown-content h3 { font-size: 13px; font-weight: 600; color: #fff; margin: 12px 0 4px; }
+.message.agent .markdown-content p { margin: 0 0 8px; }
+.message.agent .markdown-content p:last-child { margin-bottom: 0; }
+.message.agent .markdown-content strong { font-weight: 600; color: #fff; }
+.message.agent .markdown-content ul,
+.message.agent .markdown-content ol { margin: 6px 0 8px 18px; padding: 0; }
+.message.agent .markdown-content li { margin-bottom: 3px; }
+.message.agent .markdown-content code {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: 3px;
+  padding: 1px 5px; font-family: 'Monaco','Menlo','Consolas',monospace; font-size: 12px; color: #FFD600;
+}
+.message.agent .markdown-content pre {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px; margin: 8px 0; overflow-x: auto;
+}
+.message.agent .markdown-content pre code { background: none; border: none; padding: 0; color: var(--text); }
+.message.agent .markdown-content table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
+.message.agent .markdown-content th {
+  background: var(--bg-input); border: 1px solid var(--border);
+  padding: 6px 8px; text-align: left; font-weight: 600; color: #fff;
+}
+.message.agent .markdown-content td { border: 1px solid var(--border); padding: 6px 8px; }
+.message.agent .markdown-content tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.message.agent .markdown-content blockquote {
+  border-left: 3px solid var(--kc-color); padding-left: 10px; margin: 8px 0;
+  color: var(--text-dim); font-style: italic;
+}
+.message.agent .markdown-content hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
 
 .typing-indicator {
   display: none;

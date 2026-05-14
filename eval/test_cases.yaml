@@ -1,0 +1,296 @@
+config:
+  project_id: "${GOOGLE_CLOUD_PROJECT}"
+  location: "us-central1"
+  agents:
+    basic: "${BASIC_AGENT_ID}"
+    scaled: "${SCALED_AGENT_ID}"
+    kc: "${KC_AGENT_ID}"
+
+cases:
+  # ============================================================
+  # SIMPLE — All agents should handle these
+  # ============================================================
+
+  - id: top_customers
+    question: "What are our top 5 customers by total relationship value?"
+    tags:
+      complexity: simple
+      audience: retail_banking
+      kc_feature: semantic_search
+    expected:
+      basic:  { outcome: success, tables: [gold_customer_360], should_contain: ["$"] }
+      scaled: { outcome: success, tables: [gold_customer_360] }
+      kc:     { outcome: success, tables: [gold_customer_360], glossary: [Customer ID] }
+
+  - id: loan_portfolio_summary
+    question: "Give me a breakdown of our loan portfolio by product type and risk rating."
+    tags:
+      complexity: simple
+      audience: risk_compliance
+      kc_feature: schema_understanding
+    expected:
+      basic:  { outcome: success, tables: [gold_loan_portfolio_summary] }
+      scaled: { outcome: success, tables: [gold_loan_portfolio_summary] }
+      kc:     { outcome: success, tables: [gold_loan_portfolio_summary], glossary: [Risk Rating] }
+
+  - id: balance_sheet_overview
+    question: "What does our balance sheet look like? Show me total assets, liabilities, and equity."
+    tags:
+      complexity: simple
+      audience: executive_strategy
+      kc_feature: semantic_search
+    expected:
+      basic:  { outcome: success, tables: [gold_balance_sheet_summary], should_contain: ["$"] }
+      scaled: { outcome: success, tables: [gold_balance_sheet_summary] }
+      kc:     { outcome: success, tables: [gold_balance_sheet_summary] }
+
+  - id: portfolio_performance
+    question: "How are our wealth management portfolios performing? Show me returns and risk metrics."
+    tags:
+      complexity: simple
+      audience: wealth_management
+      kc_feature: semantic_search
+    expected:
+      basic:  { outcome: success, tables: [gold_portfolio_performance] }
+      scaled: { outcome: success, tables: [gold_portfolio_performance] }
+      kc:     { outcome: success, tables: [gold_portfolio_performance] }
+
+  # ============================================================
+  # AMBIGUOUS — Scaled agent picks wrong tables
+  # ============================================================
+
+  - id: suspicious_activity_trends
+    question: "Show me suspicious activity trends over the past year."
+    tags:
+      complexity: ambiguous
+      audience: risk_compliance
+      kc_feature: glossary_terms
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial, wrong_tables: [bronze_fraud_alerts, silver_fraud_alerts, bronze_compliance_cases] }
+      kc:     { outcome: success, tables: [gold_fraud_analytics, gold_aml_risk_scoring, silver_fraud_alerts], glossary: [SAR] }
+
+  - id: interest_rate_exposure
+    question: "What's our interest rate exposure across the balance sheet?"
+    tags:
+      complexity: ambiguous
+      audience: risk_compliance
+      kc_feature: schema_understanding
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial, wrong_tables: [bronze_interest_rates] }
+      kc:     { outcome: success, tables: [gold_net_interest_margin, gold_balance_sheet_summary], glossary: [NIM] }
+
+  - id: customer_risk_overview
+    question: "Give me an overview of customer risk across the bank."
+    tags:
+      complexity: ambiguous
+      audience: executive_strategy
+      kc_feature: glossary_terms
+    expected:
+      basic:  { outcome: partial }
+      scaled: { outcome: partial, wrong_tables: [bronze_risk_exposures, bronze_risk_profiles] }
+      kc:     { outcome: success, tables: [gold_customer_360, gold_aml_risk_scoring], glossary: [Risk Rating, KYC] }
+
+  - id: delinquency_trends
+    question: "Are delinquencies trending up or down? Should we be concerned?"
+    tags:
+      complexity: ambiguous
+      audience: retail_banking
+      kc_feature: glossary_terms
+    expected:
+      basic:  { outcome: partial }
+      scaled: { outcome: partial, wrong_tables: [silver_loans, bronze_loans] }
+      kc:     { outcome: success, tables: [gold_delinquency_analysis, gold_loan_portfolio_summary], glossary: [Delinquency] }
+
+  # ============================================================
+  # MULTI-TABLE — Requires joining multiple sources
+  # ============================================================
+
+  - id: branch_performance_full
+    question: "Which branches are our top performers? Consider both retail and commercial metrics."
+    tags:
+      complexity: multi_table
+      audience: retail_banking
+      kc_feature: cross_domain_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_branch_performance], glossary: [Branch] }
+
+  - id: advisor_revenue_analysis
+    question: "Which wealth advisors generate the most revenue and have the best client retention?"
+    tags:
+      complexity: multi_table
+      audience: wealth_management
+      kc_feature: schema_understanding
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_advisor_scorecard, gold_client_revenue] }
+
+  - id: aml_investigation
+    question: "I need to investigate AML risk. Show me high-risk customers with their KYC status and any recent wire transfer activity."
+    tags:
+      complexity: multi_table
+      audience: risk_compliance
+      kc_feature: cross_domain_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_aml_risk_scoring, gold_customer_360], glossary: [KYC, SAR] }
+
+  - id: operational_risk_audit
+    question: "What does our operational risk profile look like? Include any audit findings."
+    tags:
+      complexity: multi_table
+      audience: risk_compliance
+      kc_feature: lineage_tracing
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_operational_risk], lineage: true }
+
+  # ============================================================
+  # CROSS-DOMAIN — Spans retail + wealth + risk domains
+  # ============================================================
+
+  - id: hnw_total_exposure
+    question: "For our high-net-worth clients, what's their total exposure including deposits, loans, and investments?"
+    tags:
+      complexity: cross_domain
+      audience: wealth_management
+      kc_feature: cross_domain_discovery
+    expected:
+      basic:  { outcome: success, tables: [gold_customer_360] }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_customer_360], glossary: [AUM, Customer ID], lineage: true }
+
+  - id: branch_retail_wealth_revenue
+    question: "Which branches have the highest combined retail and wealth management revenue?"
+    tags:
+      complexity: cross_domain
+      audience: executive_strategy
+      kc_feature: cross_domain_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_branch_performance, gold_client_revenue], glossary: [Branch] }
+
+  - id: customer_product_penetration
+    question: "For our top customers, how many products do they have across retail banking and wealth management?"
+    tags:
+      complexity: cross_domain
+      audience: retail_banking
+      kc_feature: cross_domain_discovery
+    expected:
+      basic:  { outcome: partial, tables: [gold_customer_360] }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_customer_360], glossary: [Customer ID, AUM] }
+
+  - id: cross_sell_opportunities
+    question: "Identify private banking clients who don't yet have wealth management portfolios — potential cross-sell opportunities."
+    tags:
+      complexity: cross_domain
+      audience: executive_strategy
+      kc_feature: cross_domain_discovery
+    expected:
+      basic:  { outcome: partial, tables: [gold_customer_360] }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_customer_360] }
+
+  # ============================================================
+  # GOVERNANCE-DEPENDENT — Need metadata to answer properly
+  # ============================================================
+
+  - id: fico_trust
+    question: "What's the average FICO score across our loan portfolio, and should we trust this number?"
+    tags:
+      complexity: governance_dependent
+      audience: data_steward
+      kc_feature: data_quality_rules
+    expected:
+      basic:  { outcome: partial }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_loan_portfolio_summary], glossary: [FICO Score], metadata: [data_quality] }
+
+  - id: cusip_data_quality
+    question: "We're seeing issues with our securities data. Can you check the quality of CUSIP identifiers?"
+    tags:
+      complexity: governance_dependent
+      audience: data_steward
+      kc_feature: data_quality_rules
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, glossary: [CUSIP], metadata: [data_quality] }
+
+  - id: basel_capital_requirements
+    question: "Are we meeting our Basel III capital requirements? What's our buffer above the minimum?"
+    tags:
+      complexity: governance_dependent
+      audience: regulatory_reporting
+      kc_feature: glossary_terms
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial, wrong_tables: [bronze_regulatory_capital] }
+      kc:     { outcome: success, tables: [gold_capital_adequacy], glossary: [CET1 Ratio], metadata: [regulatory] }
+
+  - id: data_lineage_question
+    question: "Where does our customer data originate and how does it flow through the system?"
+    tags:
+      complexity: governance_dependent
+      audience: data_steward
+      kc_feature: lineage_tracing
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, lineage: true, metadata: [lineage] }
+
+  # ============================================================
+  # IMPOSSIBLE WITHOUT METADATA — Only KC can answer
+  # ============================================================
+
+  - id: cre_stress_test
+    question: "If commercial real estate defaults increased 5%, what would happen to our capital ratios?"
+    tags:
+      complexity: impossible_without_metadata
+      audience: regulatory_reporting
+      kc_feature: cross_domain_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_capital_adequacy, gold_loan_portfolio_summary], glossary: [CET1 Ratio], lineage: true }
+
+  - id: market_risk_var_analysis
+    question: "Calculate our portfolio Value at Risk and explain what assumptions go into this number."
+    tags:
+      complexity: impossible_without_metadata
+      audience: risk_compliance
+      kc_feature: glossary_terms
+    expected:
+      basic:  { outcome: partial }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_market_risk_var], glossary: [VaR], metadata: [data_quality] }
+
+  - id: liquidity_coverage_ratio
+    question: "What's our liquidity coverage ratio and how does it compare to regulatory minimums?"
+    tags:
+      complexity: impossible_without_metadata
+      audience: regulatory_reporting
+      kc_feature: glossary_terms
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_liquidity_coverage] }
+
+  - id: regulatory_filing_readiness
+    question: "Are we ready for our next regulatory filing? Summarize our key metrics across the call report schedules."
+    tags:
+      complexity: impossible_without_metadata
+      audience: regulatory_reporting
+      kc_feature: lineage_tracing
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: partial }
+      kc:     { outcome: success, tables: [gold_regulatory_dashboard, silver_regulatory_filings, bronze_regulatory_filings, gold_capital_adequacy], lineage: true }

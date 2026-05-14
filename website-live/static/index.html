@@ -29,11 +29,12 @@
         <div class="legend-item"><div class="legend-dot" style="background:#FFD600"></div> Gold (20)</div>
         <div class="legend-item"><div class="legend-dot" style="background:#90A4AE"></div> Silver (40)</div>
         <div class="legend-item"><div class="legend-dot" style="background:#FF8F00"></div> Bronze (40)</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#546E7A"></div> Other (28)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#546E7A"></div> Other (22)</div>
       </div>
     </div>
 
-    <div class="chat-panel">
+    <div class="resize-handle" id="resizeHandle"></div>
+    <div class="chat-panel" id="chatPanel">
       <div class="chat-header" id="chatHeader">Chat with Basic Agent</div>
       <div class="chat-messages" id="chatMessages"></div>
       <div class="typing-indicator" id="typingIndicator">
@@ -42,6 +43,7 @@
         <div class="typing-dot"></div>
       </div>
       <div class="chat-input-area">
+        <div class="narrative-tabs" id="narrativeTabs"></div>
         <div class="preset-questions" id="presetQuestions"></div>
         <div class="input-row">
           <input type="text" id="chatInput" placeholder="Ask a question..." autocomplete="off">
@@ -51,17 +53,57 @@
     </div>
   </div>
 
+  <div id="tablePopup" class="table-popup hidden">
+    <div class="popup-header">
+      <span class="popup-tier"></span>
+      <span class="popup-name"></span>
+      <button class="popup-close" onclick="document.getElementById('tablePopup').classList.add('hidden')">&times;</button>
+    </div>
+    <div class="popup-body">
+      <p class="popup-desc"></p>
+      <div class="popup-cols"></div>
+    </div>
+    <a class="popup-link" target="_blank" rel="noopener">Open in Knowledge Catalog &rarr;</a>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="/visualization.js"></script>
   <script src="/chat.js"></script>
   <script>
-    const PRESETS = [
-      { q: "What are our top 5 customers by total relationship value?", cat: "Baseline" },
-      { q: "Show me suspicious activity trends over the past year", cat: "Disambiguation" },
-      { q: "For our high-net-worth clients, what's their total exposure including deposits, loans, and investments?", cat: "Cross-Domain" },
-      { q: "Are we meeting our Basel III capital requirements? What's our buffer?", cat: "Regulatory" },
-      { q: "What's the average FICO score across our loan portfolio, and should we trust this number?", cat: "Data Quality" },
-      { q: "If commercial real estate defaults increased 5%, what would happen to our capital ratios?", cat: "Stress Test" },
-    ];
+    const NARRATIVES = {
+      executive: {
+        label: 'Executive Briefing',
+        desc: 'A bank executive walks through increasingly complex questions.',
+        steps: [
+          { cat: 'Baseline', q: 'What are our top 5 customers by total relationship value?' },
+          { cat: 'Cross-Domain', q: 'Which branches have the highest combined retail and wealth management revenue?' },
+          { cat: 'Risk Overview', q: 'Give me an overview of customer risk across the bank.' },
+          { cat: 'Stress Test', q: 'If commercial real estate defaults increased 5%, what would happen to our capital ratios?' },
+        ],
+      },
+      compliance: {
+        label: 'Risk & Compliance',
+        desc: 'A compliance officer drills into risk and regulatory data.',
+        steps: [
+          { cat: 'Portfolio', q: 'Give me a breakdown of our loan portfolio by product type and risk rating.' },
+          { cat: 'Delinquency', q: 'Are delinquencies trending up or down? Should we be concerned?' },
+          { cat: 'Basel III', q: 'Are we meeting our Basel III capital requirements? What\'s our buffer above the minimum?' },
+          { cat: 'Filing', q: 'Are we ready for our next regulatory filing? Summarize our key metrics across the call report schedules.' },
+        ],
+      },
+      governance: {
+        label: 'Data Governance',
+        desc: 'A data steward investigates data quality and lineage.',
+        steps: [
+          { cat: 'FICO Trust', q: 'What\'s the average FICO score across our loan portfolio, and should we trust this number?' },
+          { cat: 'CUSIP Quality', q: 'We\'re seeing issues with our securities data. Can you check the quality of CUSIP identifiers?' },
+          { cat: 'Lineage', q: 'Where does our customer data originate and how does it flow through the system?' },
+          { cat: 'AML', q: 'I need to investigate AML risk. Show me high-risk customers with their KYC status and any recent wire transfer activity.' },
+        ],
+      },
+    };
+
+    let activeNarrative = 'executive';
 
     const AGENT_INFO = {
       basic: {
@@ -85,6 +127,14 @@
     const viz = new PointCloud(canvas);
     const chat = new ChatPanel(viz);
 
+    function switchNarrative(key) {
+      activeNarrative = key;
+      document.querySelectorAll('.narrative-tab').forEach(t => t.classList.remove('active'));
+      const el = document.querySelector(`[data-narrative="${key}"]`);
+      if (el) el.classList.add('active');
+      renderPresets();
+    }
+
     function switchAgent(mode) {
       document.querySelectorAll('.agent-tab').forEach(t => t.classList.remove('active'));
       document.querySelector(`[data-agent="${mode}"]`).classList.add('active');
@@ -100,21 +150,64 @@
       renderPresets();
     }
 
+    function renderNarrativeTabs() {
+      const container = document.getElementById('narrativeTabs');
+      container.innerHTML = '';
+      for (const [key, nar] of Object.entries(NARRATIVES)) {
+        const btn = document.createElement('button');
+        btn.className = 'narrative-tab' + (key === activeNarrative ? ' active' : '');
+        btn.dataset.narrative = key;
+        btn.textContent = nar.label;
+        btn.title = nar.desc;
+        btn.addEventListener('click', () => switchNarrative(key));
+        container.appendChild(btn);
+      }
+    }
+
     function renderPresets() {
       const container = document.getElementById('presetQuestions');
       container.innerHTML = '';
-      for (const p of PRESETS) {
+      const nar = NARRATIVES[activeNarrative];
+      for (let i = 0; i < nar.steps.length; i++) {
+        const step = nar.steps[i];
         const btn = document.createElement('button');
         btn.className = 'preset-btn';
-        btn.textContent = p.cat;
-        btn.title = p.q;
-        btn.addEventListener('click', () => chat.sendPreset(p.q));
+        btn.innerHTML = `<span class="preset-num">${i + 1}</span>${step.cat}`;
+        btn.title = step.q;
+        btn.addEventListener('click', () => chat.sendPreset(step.q));
         container.appendChild(btn);
       }
     }
 
     window.addEventListener('resize', () => viz.resize());
+    renderNarrativeTabs();
     switchAgent('basic');
+
+    // Resize handle drag
+    const handle = document.getElementById('resizeHandle');
+    const panel = document.getElementById('chatPanel');
+    let dragging = false;
+    handle.addEventListener('mousedown', (e) => {
+      dragging = true;
+      handle.classList.add('active');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const newWidth = window.innerWidth - e.clientX;
+      const clamped = Math.max(280, Math.min(700, newWidth));
+      panel.style.width = clamped + 'px';
+      viz.resize();
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('active');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    });
   </script>
 </body>
 </html>

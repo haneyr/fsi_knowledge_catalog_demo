@@ -48,6 +48,9 @@ const TABLES = {
     'ref_isin_mapping','ref_lei_registry','ref_fed_district_codes','ref_product_catalog',
     'staging_call_report_rc','staging_call_report_ri','staging_fr_y9c',
     'snapshot_monthly_balances','snapshot_quarterly_positions','audit_data_access_log',
+    'vw_dq_scorecard','vw_dq_by_dimension','vw_dq_failed_rules','vw_dq_rule_detail',
+    'vw_profile_summary','vw_customer_total_relationship','vw_branch_retail_wealth',
+    'vw_regulatory_summary',
   ],
 };
 
@@ -112,6 +115,14 @@ class PointCloud {
     this.activeGlossaryArcs = [];
     this._searchPulseRadius = 0;
     this._searchPulseAlpha = 0;
+    this._pulseStartTime = 0;
+    this.zoom = 1; this.targetZoom = 1;
+    this.panX = 0; this.panY = 0;
+    this.targetPanX = 0; this.targetPanY = 0;
+    this._zoomedIn = false;
+    this._termLabelPositions = [];
+    this.onNodeClick = null;
+    this.onTermClick = null;
     this.resize();
     this._buildNodes();
     this._setupMouse();
@@ -206,6 +217,7 @@ class PointCloud {
     this.activeGlossaryArcs = [];
     this._searchPulseRadius = 0;
     this._searchPulseAlpha = 0;
+    this._resetZoom();
     for (const n of this.nodes) { n.glow = 0; n.labelAlpha = 0; n.label = ''; }
     this._positionNodes();
   }
@@ -301,17 +313,57 @@ class PointCloud {
     }
   }
 
+  _screenToWorld(screenX, screenY) {
+    return {
+      x: (screenX - this.cx) / this.zoom + this.cx - this.panX,
+      y: (screenY - this.cy) / this.zoom + this.cy - this.panY,
+    };
+  }
+
+  _worldToScreen(wx, wy) {
+    return {
+      x: this.cx + (wx - this.cx + this.panX) * this.zoom,
+      y: this.cy + (wy - this.cy + this.panY) * this.zoom,
+    };
+  }
+
+  _hitTest(screenX, screenY) {
+    const { x: mx, y: my } = this._screenToWorld(screenX, screenY);
+    for (const n of this.nodes) {
+      if (n.alpha < 0.15) continue;
+      const dx = n.x - mx, dy = n.y - my;
+      if (dx * dx + dy * dy < 100) return n;
+    }
+    return null;
+  }
+
   _setupMouse() {
     this.canvas.addEventListener('mousemove', (e) => {
       const rect = this.canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      this.hoveredNode = null;
-      for (const n of this.nodes) {
-        if (n.alpha < 0.15) continue;
-        const dx = n.x - mx, dy = n.y - my;
-        if (dx * dx + dy * dy < 100) { this.hoveredNode = n; break; }
-      }
+      this.hoveredNode = this._hitTest(e.clientX - rect.left, e.clientY - rect.top);
       this.canvas.style.cursor = this.hoveredNode ? 'pointer' : 'default';
+    });
+
+    this.canvas.addEventListener('click', (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const screenX = e.clientX - rect.left, screenY = e.clientY - rect.top;
+      const { x: wx, y: wy } = this._screenToWorld(screenX, screenY);
+
+      for (const tl of this._termLabelPositions) {
+        if (Math.abs(wx - tl.x) < tl.hw && Math.abs(wy - tl.y) < tl.hh) {
+          if (this.onTermClick) {
+            const sp = this._worldToScreen(tl.x, tl.y);
+            this.onTermClick(tl.term, sp.x + rect.left, sp.y + rect.top);
+          }
+          return;
+        }
+      }
+
+      const node = this._hitTest(screenX, screenY);
+      if (node && this.onNodeClick) {
+        const sp = this._worldToScreen(node.x, node.y);
+        this.onNodeClick(node.name, sp.x + rect.left, sp.y + rect.top);
+      }
     });
   }
 
@@ -325,6 +377,16 @@ class PointCloud {
       n.jitterY = Math.cos(t * 0.0012 + n.id * 1.3) * 1.5;
       n.x += (n.baseX + n.jitterX - n.x) * 0.03;
       n.y += (n.baseY + n.jitterY - n.y) * 0.03;
+    }
+
+    this.zoom += (this.targetZoom - this.zoom) * 0.04;
+    this.panX += (this.targetPanX - this.panX) * 0.04;
+    this.panY += (this.targetPanY - this.panY) * 0.04;
+
+    if (this._searchPulseAlpha > 0) {
+      const pulseElapsed = t - this._pulseStartTime;
+      this._searchPulseRadius = (pulseElapsed / 1000) * Math.min(this.cx, this.cy);
+      this._searchPulseAlpha = Math.max(0, 1 - pulseElapsed / 1000);
     }
 
     if (this.animationState) this._updateQueryAnimation();
@@ -375,13 +437,20 @@ class PointCloud {
         arc.labelAlpha = elapsed > 3000 ? Math.min((elapsed - 3000) / 500, 0.7) : 0;
       }
 
-      if (elapsed > 5000) this.animationState = null;
+      if (elapsed > 4000 && !this._zoomedIn) this._triggerZoomToActive();
+      if (elapsed > 6000) this.animationState = null;
     }
   }
 
   _draw() {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.w, this.h);
+
+    // Apply zoom/pan transform
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.scale(this.zoom, this.zoom);
+    ctx.translate(-this.cx + this.panX, -this.cy + this.panY);
 
     // KC ring hints
     if (this.agentMode === 'kc') {
@@ -414,7 +483,6 @@ class PointCloud {
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Small directional dot at midpoint
       const mx = (line.src.x + line.tgt.x) / 2;
       const my = (line.src.y + line.tgt.y) / 2;
       ctx.beginPath();
@@ -424,12 +492,14 @@ class PointCloud {
     }
 
     // --- Layer 2: Glossary arcs (curved, green, dashed) ---
+    this._termLabelPositions = [];
+    const seenTerms = new Set();
     for (const arc of this.activeGlossaryArcs) {
       if (arc.alpha <= 0) continue;
       const a = arc.a, b = arc.b;
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
       const dx = b.x - a.x, dy = b.y - a.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
       const curvature = Math.min(dist * 0.3, 60);
       const cpx = mx - (dy / dist) * curvature;
       const cpy = my + (dx / dist) * curvature;
@@ -443,17 +513,20 @@ class PointCloud {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Term label at curve midpoint
-      if (arc.labelAlpha > 0) {
+      if (arc.labelAlpha > 0 && !seenTerms.has(arc.term)) {
+        seenTerms.add(arc.term);
         const labelX = (a.x + 2 * cpx + b.x) / 4;
         const labelY = (a.y + 2 * cpy + b.y) / 4;
-        ctx.font = '9px system-ui';
-        ctx.fillStyle = `rgba(52,168,83,${arc.labelAlpha})`;
+        ctx.font = '10px system-ui';
         const tw = ctx.measureText(arc.term).width;
-        ctx.fillStyle = `rgba(10,14,26,${arc.labelAlpha * 0.7})`;
-        ctx.fillRect(labelX - tw / 2 - 3, labelY - 8, tw + 6, 14);
+        const lw = tw + 8, lh = 16;
+        ctx.fillStyle = `rgba(10,14,26,${arc.labelAlpha * 0.8})`;
+        ctx.fillRect(labelX - tw / 2 - 4, labelY - 9, lw, lh);
         ctx.fillStyle = `rgba(52,168,83,${arc.labelAlpha})`;
         ctx.fillText(arc.term, labelX - tw / 2, labelY + 3);
+        this._termLabelPositions.push({
+          term: arc.term, x: labelX, y: labelY, hw: lw / 2, hh: lh / 2,
+        });
       }
     }
 
@@ -464,8 +537,8 @@ class PointCloud {
         ctx.beginPath();
         ctx.moveTo(n.x, n.y);
         ctx.lineTo(this.cx, this.cy);
-        ctx.strokeStyle = `${col}${Math.floor(n.glow * 80).toString(16).padStart(2, '0')}`;
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = `${col}${Math.floor(n.glow * 160).toString(16).padStart(2, '0')}`;
+        ctx.lineWidth = 2;
         ctx.stroke();
       }
     }
@@ -493,6 +566,21 @@ class PointCloud {
       }
     }
 
+    // Active table name labels (KC and scaled)
+    if (this.agentMode === 'kc' || this.agentMode === 'scaled') {
+      ctx.font = '10px system-ui';
+      for (const n of this.activeNodes) {
+        if (n.glow > 0.3) {
+          const label = n.name.replace(/^(gold|silver|bronze|ref)_/, '');
+          const tw = ctx.measureText(label).width;
+          ctx.fillStyle = `rgba(10,14,26,${n.glow * 0.7})`;
+          ctx.fillRect(n.x + n.radius + 4, n.y - 7, tw + 6, 14);
+          ctx.fillStyle = `rgba(255,255,255,${n.glow * 0.85})`;
+          ctx.fillText(label, n.x + n.radius + 7, n.y + 4);
+        }
+      }
+    }
+
     // Agent center orb
     const agentColor = COLORS[this.agentMode];
     const pulseSize = this.animationState ? 18 + Math.sin(this.animationTime * 0.005) * 4 : 15;
@@ -514,18 +602,22 @@ class PointCloud {
     ctx.fillStyle = agentColor + '10';
     ctx.fill();
 
-    // Tooltip
+    ctx.restore();
+
+    // Tooltip (drawn outside zoom transform so it stays crisp at screen scale)
     if (this.hoveredNode) {
       const n = this.hoveredNode;
+      const sx = this.cx + (n.x - this.cx + this.panX) * this.zoom;
+      const sy = this.cy + (n.y - this.cy + this.panY) * this.zoom;
       ctx.font = '12px system-ui';
       const tw = ctx.measureText(n.name).width;
       ctx.fillStyle = 'rgba(15,21,37,0.9)';
-      ctx.fillRect(n.x + 8, n.y - 18, tw + 8, 20);
+      ctx.fillRect(sx + 8, sy - 18, tw + 8, 20);
       ctx.fillStyle = '#e0e0e0';
-      ctx.fillText(n.name, n.x + 12, n.y - 4);
+      ctx.fillText(n.name, sx + 12, sy - 4);
     }
 
-    // Basic agent labels
+    // Basic agent labels (outside zoom — basic doesn't zoom)
     if (this.agentMode === 'basic') {
       ctx.font = '11px system-ui';
       for (const n of this.nodes) {
@@ -542,7 +634,6 @@ class PointCloud {
   triggerSearchPulse() {
     this._searchPulseRadius = 0;
     this._searchPulseAlpha = 1;
-    this.animationState = this.agentMode;
     this._pulseStartTime = this.animationTime;
   }
 
@@ -550,9 +641,9 @@ class PointCloud {
     const node = this.nodeMap[tableName];
     if (!node) return;
     node.glow = 1;
+    node.alpha = 1;
     if (!this.activeNodes.includes(node)) this.activeNodes.push(node);
-    this.animationState = this.agentMode;
-    this._buildLineageForTables([tableName], []);
+    if (this.agentMode === 'kc') this._buildLineageForTables([tableName], []);
   }
 
   illuminateTables(tableNames) {
@@ -560,6 +651,7 @@ class PointCloud {
   }
 
   showGlossaryArcsForTerms(termNames) {
+    if (this.agentMode !== 'kc') return;
     for (const term of termNames) {
       const tables = GLOSSARY_LINKS[term];
       if (!tables || tables.length < 2) continue;
@@ -571,6 +663,53 @@ class PointCloud {
         });
       }
     }
+  }
+
+  _computeActiveRegion() {
+    const pts = [];
+    for (const n of this.activeNodes) pts.push({ x: n.x, y: n.y });
+    for (const l of this.activeLineage) {
+      pts.push({ x: l.src.x, y: l.src.y });
+      pts.push({ x: l.tgt.x, y: l.tgt.y });
+    }
+    for (const a of this.activeGlossaryArcs) {
+      pts.push({ x: a.a.x, y: a.a.y });
+      pts.push({ x: a.b.x, y: a.b.y });
+    }
+    if (pts.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const pad = 80;
+    return {
+      cx: (minX + maxX) / 2, cy: (minY + maxY) / 2,
+      w: maxX - minX + pad * 2, h: maxY - minY + pad * 2,
+    };
+  }
+
+  _triggerZoomToActive() {
+    if (this.agentMode !== 'kc') return;
+    const region = this._computeActiveRegion();
+    if (!region) return;
+    const scaleX = this.w / region.w;
+    const scaleY = this.h / region.h;
+    this.targetZoom = Math.min(scaleX, scaleY, 2.5);
+    this.targetPanX = this.cx - region.cx;
+    this.targetPanY = this.cy - region.cy;
+    this._zoomedIn = true;
+  }
+
+  _resetZoom() {
+    this.targetZoom = 1; this.targetPanX = 0; this.targetPanY = 0;
+    this._zoomedIn = false;
+  }
+
+  zoomToActive() {
+    this._triggerZoomToActive();
   }
 
   setNodeLabel(tableName, label) {
@@ -586,6 +725,7 @@ class PointCloud {
     this.animationState = null;
     this._searchPulseRadius = 0;
     this._searchPulseAlpha = 0;
+    this._resetZoom();
     for (const n of this.nodes) { n.glow = 0; n.labelAlpha = 0; n.label = ''; }
   }
 }

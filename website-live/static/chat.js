@@ -1,5 +1,102 @@
 // Chat Panel Logic — WebSocket live mode with static fallback
 
+if (typeof marked !== 'undefined') {
+  marked.use({ breaks: true, gfm: true });
+}
+
+const _DATASET_MAP = {
+  'gold_': 'fsi_gold', 'silver_': 'fsi_silver', 'bronze_': 'fsi_bronze',
+  'ref_': 'fsi_reference', 'vw_': 'fsi_dashboards',
+  'staging_': 'fsi_supplementary', 'snapshot_': 'fsi_supplementary', 'audit_': 'fsi_supplementary',
+};
+const _GLOSSARY_TERMS = {
+  'FICO Score': 'fico-score', 'AUM': 'aum-abbr', 'SAR': 'sar-abbr',
+  'CET1 Ratio': 'cet1-ratio', 'Customer ID': 'customer-id',
+  'Delinquency': 'delinquency', 'KYC': 'kyc-abbr', 'VaR': 'var-abbr',
+  'CUSIP': 'cusip', 'NIM': 'nim-abbr', 'Risk Rating': 'risk-rating', 'Branch': 'branch',
+};
+const _GLOSSARY_ID = 'meridian-national-bank-glossary-us';
+const _TABLE_RE = /\b((?:gold|silver|bronze|ref|vw|staging|snapshot|audit)_[a-z0-9_]+)\b/g;
+let _projectNumber = '';
+
+function _renderMarkdown(text) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'markdown-content';
+  if (typeof marked !== 'undefined') {
+    wrapper.innerHTML = marked.parse(text);
+  } else {
+    wrapper.textContent = text;
+    wrapper.style.whiteSpace = 'pre-wrap';
+  }
+  return wrapper;
+}
+
+function _linkifyEntities(container, agentMode, projectId) {
+  if (!projectId) return;
+
+  // Pass 1: linkify table names in text nodes
+  let walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+  for (const node of textNodes) {
+    if (node.parentElement?.closest('a')) continue;
+    const text = node.textContent;
+    let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let modified = false;
+
+    html = html.replace(_TABLE_RE, (match) => {
+      let ds = '';
+      for (const [prefix, dataset] of Object.entries(_DATASET_MAP)) {
+        if (match.startsWith(prefix)) { ds = dataset; break; }
+      }
+      if (!ds) return match;
+      const url = agentMode === 'kc'
+        ? `https://console.cloud.google.com/dataplex/projects/${projectId}/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/${projectId}/datasets/${ds}/tables/${match}?project=${projectId}`
+        : `https://console.cloud.google.com/bigquery?referrer=search&amp;project=${projectId}&amp;ws=!1m5!1m4!4m3!1s${projectId}!2s${ds}!3s${match}`;
+      modified = true;
+      return `<a href="${url}" target="_blank" rel="noopener" class="entity-link table-link">${match}</a>`;
+    });
+
+    if (modified) {
+      const span = document.createElement('span');
+      span.innerHTML = html;
+      node.parentNode.replaceChild(span, node);
+    }
+  }
+
+  // Pass 2: linkify glossary terms (KC only) — runs after table links are in the DOM
+  // so we only process text nodes that aren't inside <a> tags
+  if (agentMode === 'kc') {
+    walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+    for (const node of textNodes) {
+      if (node.parentElement?.closest('a')) continue;
+      const text = node.textContent;
+      let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      let modified = false;
+
+      for (const [term, slug] of Object.entries(_GLOSSARY_TERMS)) {
+        if (!html.includes(term)) continue;
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const glossaryUrl = `https://console.cloud.google.com/dataplex/dp-glossaries/projects/${projectId}/locations/us/glossaries/${_GLOSSARY_ID}/terms/${slug}?project=${projectId}`;
+        html = html.replace(new RegExp(escaped, 'g'), (m) => {
+          modified = true;
+          return `<a href="${glossaryUrl}" target="_blank" rel="noopener" class="entity-link glossary-link">${m}</a>`;
+        });
+      }
+
+      if (modified) {
+        const span = document.createElement('span');
+        span.innerHTML = html;
+        node.parentNode.replaceChild(span, node);
+      }
+    }
+  }
+}
+
 class ChatPanel {
   constructor(viz) {
     this.viz = viz;
@@ -8,6 +105,7 @@ class ChatPanel {
     this.sendBtn = document.getElementById('sendBtn');
     this.typingEl = document.getElementById('typingIndicator');
     this.agentMode = 'basic';
+    this.projectId = '';
     this.staticData = null;
     this.liveMode = false;
     this.ws = null;
@@ -16,6 +114,15 @@ class ChatPanel {
     this.sendBtn.addEventListener('click', () => this.send());
     this.inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
+    });
+
+    this.popupEl = document.getElementById('tablePopup');
+    this.viz.onNodeClick = (name, sx, sy) => this._showTablePopup(name, sx, sy);
+    this.viz.onTermClick = (term, sx, sy) => this._showTermPopup(term, sx, sy);
+    document.addEventListener('click', (e) => {
+      if (this.popupEl && !this.popupEl.contains(e.target) && !this.viz.canvas.contains(e.target)) {
+        this.popupEl.classList.add('hidden');
+      }
     });
 
     this._loadStaticData();
@@ -34,6 +141,8 @@ class ChatPanel {
       const resp = await fetch('/api/config');
       const config = await resp.json();
       this.liveMode = config.live_mode;
+      this.projectId = config.project_id || '';
+      _projectNumber = config.project_number || '';
       const badge = document.getElementById('modeBadge');
       badge.className = 'mode-badge ' + (this.liveMode ? 'live' : 'static');
       badge.textContent = this.liveMode ? 'LIVE' : 'STATIC';
@@ -93,9 +202,9 @@ class ChatPanel {
       div.appendChild(chips);
     }
 
-    const textEl = document.createElement('div');
-    textEl.textContent = response;
-    div.appendChild(textEl);
+    const rendered = _renderMarkdown(response);
+    _linkifyEntities(rendered, this.agentMode, this.projectId);
+    div.appendChild(rendered);
     this.messagesEl.appendChild(div);
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
@@ -107,8 +216,9 @@ class ChatPanel {
       this._currentAgentMsg._chips = document.createElement('div');
       this._currentAgentMsg._chips.className = 'tool-chips';
       this._currentAgentMsg.appendChild(this._currentAgentMsg._chips);
-      this._currentAgentMsg._text = document.createElement('div');
-      this._currentAgentMsg.appendChild(this._currentAgentMsg._text);
+      this._currentAgentMsg._rawText = '';
+      this._currentAgentMsg._rendered = document.createElement('div');
+      this._currentAgentMsg.appendChild(this._currentAgentMsg._rendered);
       this.messagesEl.appendChild(this._currentAgentMsg);
     }
     return this._currentAgentMsg;
@@ -127,7 +237,10 @@ class ChatPanel {
 
   _appendText(text) {
     const msg = this._getOrCreateAgentMsg();
-    msg._text.textContent += text;
+    msg._rawText += text;
+    const rendered = _renderMarkdown(msg._rawText);
+    _linkifyEntities(rendered, this.agentMode, this.projectId);
+    msg._rendered.replaceChildren(rendered);
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
 
@@ -193,6 +306,9 @@ class ChatPanel {
         if (event.name === 'search_entries') {
           this.viz.triggerSearchPulse();
         }
+        if (event.tables && event.tables.length > 0) {
+          this.viz.illuminateTables(event.tables);
+        }
         break;
 
       case 'tool_response':
@@ -213,6 +329,7 @@ class ChatPanel {
         this._hideTyping();
         if (event.all_tables) this.viz.illuminateTables(event.all_tables);
         if (event.all_glossary) this.viz.showGlossaryArcsForTerms(event.all_glossary);
+        this.viz.zoomToActive();
         break;
 
       case 'error':
@@ -264,6 +381,107 @@ class ChatPanel {
   }
 
   _delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async _showTablePopup(tableName, screenX, screenY) {
+    const popup = this.popupEl;
+    if (!popup) return;
+
+    popup.querySelector('.popup-name').textContent = tableName;
+    popup.querySelector('.popup-desc').textContent = 'Loading...';
+    popup.querySelector('.popup-cols').innerHTML = '';
+    popup.querySelector('.popup-link').href = '#';
+
+    const tier = tableName.match(/^(gold|silver|bronze|ref|staging|snapshot|audit|vw)_/)?.[1] || 'other';
+    const tierEl = popup.querySelector('.popup-tier');
+    tierEl.textContent = tier;
+    tierEl.className = 'popup-tier ' + tier;
+
+    popup.classList.remove('hidden');
+    popup.classList.add('loading');
+
+    const popupW = 280, popupH = 200;
+    let left = screenX + 16;
+    let top = screenY - popupH / 2;
+    if (left + popupW > window.innerWidth - 10) left = screenX - popupW - 16;
+    if (top < 10) top = 10;
+    if (top + popupH > window.innerHeight - 10) top = window.innerHeight - popupH - 10;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+
+    try {
+      const resp = await fetch(`/api/table-info?table=${encodeURIComponent(tableName)}`);
+      const info = await resp.json();
+
+      popup.classList.remove('loading');
+      popup.querySelector('.popup-desc').textContent = info.description || 'No description available.';
+      const linkEl = popup.querySelector('.popup-link');
+      if (this.agentMode === 'kc') {
+        linkEl.href = info.catalog_url || '#';
+        linkEl.innerHTML = 'Open in Knowledge Catalog &rarr;';
+      } else {
+        linkEl.href = info.bq_url || '#';
+        linkEl.innerHTML = 'Open in BigQuery &rarr;';
+      }
+
+      const colsDiv = popup.querySelector('.popup-cols');
+      if (info.columns && info.columns.length > 0) {
+        colsDiv.innerHTML = `<div class="popup-cols-label">${info.column_count} columns</div><div class="popup-col-pills"></div>`;
+        const pills = colsDiv.querySelector('.popup-col-pills');
+        for (const col of info.columns) {
+          const pill = document.createElement('span');
+          pill.className = 'popup-col-pill';
+          pill.textContent = col;
+          pills.appendChild(pill);
+        }
+      }
+    } catch (e) {
+      popup.classList.remove('loading');
+      popup.querySelector('.popup-desc').textContent = 'Could not load metadata.';
+    }
+  }
+
+  async _showTermPopup(termName, screenX, screenY) {
+    const popup = this.popupEl;
+    if (!popup) return;
+
+    popup.querySelector('.popup-name').textContent = termName;
+    popup.querySelector('.popup-desc').textContent = 'Loading...';
+    popup.querySelector('.popup-cols').innerHTML = '';
+    popup.querySelector('.popup-link').href = '#';
+
+    const tierEl = popup.querySelector('.popup-tier');
+    tierEl.textContent = 'glossary';
+    tierEl.className = 'popup-tier glossary';
+
+    popup.classList.remove('hidden');
+    popup.classList.add('loading');
+
+    const popupW = 280, popupH = 140;
+    let left = screenX + 16;
+    let top = screenY - popupH / 2;
+    if (left + popupW > window.innerWidth - 10) left = screenX - popupW - 16;
+    if (top < 10) top = 10;
+    if (top + popupH > window.innerHeight - 10) top = window.innerHeight - popupH - 10;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+
+    try {
+      const resp = await fetch(`/api/term-info?term=${encodeURIComponent(termName)}`);
+      const info = await resp.json();
+
+      popup.classList.remove('loading');
+      popup.querySelector('.popup-desc').textContent = info.description || 'No description available.';
+      popup.querySelector('.popup-link').href = info.catalog_url || '#';
+
+      if (info.category) {
+        const colsDiv = popup.querySelector('.popup-cols');
+        colsDiv.innerHTML = `<div class="popup-cols-label">Category</div><div class="popup-col-pills"><span class="popup-col-pill">${info.category}</span></div>`;
+      }
+    } catch (e) {
+      popup.classList.remove('loading');
+      popup.querySelector('.popup-desc').textContent = 'Could not load term info.';
+    }
+  }
 }
 
 window.ChatPanel = ChatPanel;

@@ -1,5 +1,21 @@
 // Chat Panel Logic — handles static fallback and live WebSocket modes
 
+if (typeof marked !== 'undefined') {
+  marked.use({ breaks: true, gfm: true });
+}
+
+function _renderMarkdown(text) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'markdown-content';
+  if (typeof marked !== 'undefined') {
+    wrapper.innerHTML = marked.parse(text);
+  } else {
+    wrapper.textContent = text;
+    wrapper.style.whiteSpace = 'pre-wrap';
+  }
+  return wrapper;
+}
+
 class ChatPanel {
   constructor(viz) {
     this.viz = viz;
@@ -94,9 +110,7 @@ class ChatPanel {
       div.appendChild(chips);
     }
 
-    const textEl = document.createElement('div');
-    textEl.textContent = response;
-    div.appendChild(textEl);
+    div.appendChild(_renderMarkdown(response));
 
     this.messagesEl.appendChild(div);
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;

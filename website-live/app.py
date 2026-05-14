@@ -41,22 +41,41 @@ AGENT_IDS = {
 AE_BASE = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
 _sessions = {}
 
-ALL_TABLE_NAMES = []
-for prefix in ['bronze_', 'silver_', 'gold_', 'ref_', 'staging_', 'snapshot_', 'audit_', 'vw_']:
-    for suffix in ['customers','accounts','transactions','loans','loan_payments','credit_cards',
-        'card_transactions','fraud_alerts','kyc_records','branches','employees','wire_transfers',
-        'ach_transfers','atm_transactions','wm_clients','portfolios','holdings','trades',
-        'securities','advisors','performance','fee_schedules','benchmarks','client_goals',
-        'risk_profiles','distributions','custodian_feeds','gl_entries','gl_accounts',
-        'cost_centers','regulatory_capital','risk_exposures','counterparties','market_data',
-        'stress_tests','audit_events','regulatory_filings','interest_rates','fx_rates',
-        'compliance_cases','customer_360','account_summary','transaction_patterns',
-        'loan_portfolio_summary','delinquency_analysis','fraud_analytics','aml_risk_scoring',
-        'branch_performance','portfolio_performance','client_revenue','asset_allocation',
-        'advisor_scorecard','fee_revenue','net_interest_margin','capital_adequacy',
-        'liquidity_coverage','market_risk_var','operational_risk','regulatory_dashboard',
-        'balance_sheet_summary']:
-        ALL_TABLE_NAMES.append(f"{prefix}{suffix}")
+_BASE_SUFFIXES = [
+    'customers','accounts','transactions','loans','loan_payments','credit_cards',
+    'card_transactions','fraud_alerts','kyc_records','branches','employees','wire_transfers',
+    'ach_transfers','atm_transactions','wm_clients','portfolios','holdings','trades',
+    'securities','advisors','performance','fee_schedules','benchmarks','client_goals',
+    'risk_profiles','distributions','custodian_feeds','gl_entries','gl_accounts',
+    'cost_centers','regulatory_capital','risk_exposures','counterparties','market_data',
+    'stress_tests','audit_events','regulatory_filings','interest_rates','fx_rates',
+    'compliance_cases',
+]
+_GOLD_TABLES = [
+    'gold_customer_360','gold_account_summary','gold_transaction_patterns',
+    'gold_loan_portfolio_summary','gold_delinquency_analysis','gold_fraud_analytics',
+    'gold_aml_risk_scoring','gold_branch_performance','gold_portfolio_performance',
+    'gold_client_revenue','gold_asset_allocation','gold_advisor_scorecard',
+    'gold_fee_revenue','gold_net_interest_margin','gold_capital_adequacy',
+    'gold_liquidity_coverage','gold_market_risk_var','gold_operational_risk',
+    'gold_regulatory_dashboard','gold_balance_sheet_summary',
+]
+_VIEW_TABLES = [
+    'vw_dq_scorecard','vw_dq_by_dimension','vw_dq_failed_rules','vw_dq_rule_detail',
+    'vw_profile_summary','vw_customer_total_relationship','vw_branch_retail_wealth',
+    'vw_regulatory_summary',
+]
+_OTHER_TABLES = [
+    'ref_naics_codes','ref_country_codes','ref_currency_codes','ref_cusip_master',
+    'ref_isin_mapping','ref_lei_registry','ref_fed_district_codes','ref_product_catalog',
+    'staging_call_report_rc','staging_call_report_ri','staging_fr_y9c',
+    'snapshot_monthly_balances','snapshot_quarterly_positions','audit_data_access_log',
+]
+ALL_TABLE_NAMES = (
+    [f'bronze_{s}' for s in _BASE_SUFFIXES]
+    + [f'silver_{s}' for s in _BASE_SUFFIXES]
+    + _GOLD_TABLES + _VIEW_TABLES + _OTHER_TABLES
+)
 
 GLOSSARY_TERM_MAP = {
     'search_entries': [],
@@ -212,6 +231,7 @@ def static_files(path):
 def config():
     return jsonify({
         "project_id": PROJECT_ID,
+        "project_number": _get_project_number(),
         "live_mode": any(AGENT_IDS.values()),
         "agents": {k: bool(v) for k, v in AGENT_IDS.items()},
     })
@@ -221,7 +241,7 @@ DATASET_MAP = {
     'gold_': 'fsi_gold', 'silver_': 'fsi_silver', 'bronze_': 'fsi_bronze',
     'ref_': 'fsi_reference', 'staging_': 'fsi_supplementary',
     'snapshot_': 'fsi_supplementary', 'audit_': 'fsi_supplementary',
-    'vw_': 'fsi_views',
+    'vw_': 'fsi_dashboards',
 }
 
 _table_info_cache = {}
@@ -265,6 +285,10 @@ def table_info():
         f"bigquery.googleapis.com/projects/{PROJECT_ID}/datasets/{dataset}/tables/{table}"
         f"?project={PROJECT_ID}"
     )
+    bq_url = (
+        f"https://console.cloud.google.com/bigquery?referrer=search"
+        f"&project={PROJECT_ID}&ws=!1m5!1m4!4m3!1s{PROJECT_ID}!2s{dataset}!3s{table}"
+    )
 
     try:
         token = _get_token()
@@ -277,7 +301,7 @@ def table_info():
             logger.warning("Dataplex lookup failed: status=%d body=%s", resp.status_code, resp.text[:300])
             return jsonify({
                 "name": table, "tier": tier, "description": "",
-                "column_count": 0, "columns": [], "catalog_url": catalog_url,
+                "column_count": 0, "columns": [], "catalog_url": catalog_url, "bq_url": bq_url,
             })
 
         data = resp.json()
@@ -297,7 +321,7 @@ def table_info():
             "name": table, "tier": tier, "description": desc,
             "column_count": len(fields),
             "columns": col_names[:8],
-            "catalog_url": catalog_url,
+            "catalog_url": catalog_url, "bq_url": bq_url,
         }
         _table_info_cache[table] = result
         return jsonify(result)
@@ -306,7 +330,7 @@ def table_info():
         logger.exception("table-info error: %s", e)
         return jsonify({
             "name": table, "tier": tier, "description": "",
-            "column_count": 0, "columns": [], "catalog_url": catalog_url,
+            "column_count": 0, "columns": [], "catalog_url": catalog_url, "bq_url": bq_url,
         })
 
 
@@ -332,8 +356,8 @@ def term_info():
     glossary_path = f"projects/{PROJECT_ID}/locations/us/glossaries/{GLOSSARY_ID}"
     term_path = f"{glossary_path}/terms/{slug}"
     catalog_url = (
-        f"https://console.cloud.google.com/dataplex/glossaries/{GLOSSARY_ID}"
-        f"/terms/{slug};location=us?project={PROJECT_ID}"
+        f"https://console.cloud.google.com/dataplex/dp-glossaries/projects/{PROJECT_ID}"
+        f"/locations/us/glossaries/{GLOSSARY_ID}/terms/{slug}?project={PROJECT_ID}"
     )
 
     try:
