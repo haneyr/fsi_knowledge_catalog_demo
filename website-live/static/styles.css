@@ -294,6 +294,72 @@ body {
   border-color: var(--kc-color);
 }
 
+/* Agent working status */
+.agent-working-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-style: italic;
+  padding: 4px 0;
+}
+.working-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--kc-color);
+  animation: working-pulse 1.2s ease-in-out infinite;
+}
+.agent-basic .working-dot { background: var(--basic-color); }
+.agent-scaled .working-dot { background: var(--scaled-color); }
+@keyframes working-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.4); }
+}
+.message.agent.working { border-left: 2px solid var(--kc-color); }
+.agent-basic .message.agent.working { border-left-color: var(--basic-color); }
+.agent-scaled .message.agent.working { border-left-color: var(--scaled-color); }
+
+/* Collapsible discovery section */
+.discovery-section {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.discovery-section summary {
+  padding: 8px 12px;
+  background: var(--bg-input);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.discovery-section summary::before {
+  content: '\25B6';
+  font-size: 9px;
+  transition: transform 0.2s;
+}
+.discovery-section[open] summary::before {
+  transform: rotate(90deg);
+}
+.discovery-section summary:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.05);
+}
+.discovery-content {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.discovery-content h2 { display: none; }
+.discovery-content p { margin-bottom: 6px; }
+
 .typing-indicator {
   display: none;
   align-self: flex-start;

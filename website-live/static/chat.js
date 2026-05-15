@@ -242,10 +242,14 @@ class ChatPanel {
   _getOrCreateAgentMsg() {
     if (!this._currentAgentMsg) {
       this._currentAgentMsg = document.createElement('div');
-      this._currentAgentMsg.className = 'message agent';
+      this._currentAgentMsg.className = 'message agent working';
       this._currentAgentMsg._chips = document.createElement('div');
       this._currentAgentMsg._chips.className = 'tool-chips';
       this._currentAgentMsg.appendChild(this._currentAgentMsg._chips);
+      this._currentAgentMsg._status = document.createElement('div');
+      this._currentAgentMsg._status.className = 'agent-working-status';
+      this._currentAgentMsg._status.innerHTML = '<span class="working-dot"></span> Agent is working...';
+      this._currentAgentMsg.appendChild(this._currentAgentMsg._status);
       this._currentAgentMsg._rawText = '';
       this._currentAgentMsg._rendered = document.createElement('div');
       this._currentAgentMsg.appendChild(this._currentAgentMsg._rendered);
@@ -276,6 +280,78 @@ class ChatPanel {
 
   _showTyping() { this.typingEl.classList.add('visible'); }
   _hideTyping() { this.typingEl.classList.remove('visible'); }
+
+  _updateWorkingStatus(toolName) {
+    const msg = this._getOrCreateAgentMsg();
+    if (!msg._status) return;
+    const labels = {
+      search_entries: 'Searching Knowledge Catalog...',
+      get_context: 'Reading metadata & schema...',
+      run_sql: 'Querying BigQuery...',
+    };
+    msg._status.innerHTML = `<span class="working-dot"></span> ${labels[toolName] || 'Agent is working...'}`;
+  }
+
+  _hideWorkingStatus() {
+    if (this._currentAgentMsg) {
+      this._currentAgentMsg.classList.remove('working');
+      if (this._currentAgentMsg._status) {
+        this._currentAgentMsg._status.remove();
+        this._currentAgentMsg._status = null;
+      }
+    }
+  }
+
+  _finalizeResponse() {
+    if (!this._currentAgentMsg || this.agentMode !== 'kc') return;
+    const rendered = this._currentAgentMsg._rendered;
+    if (!rendered) return;
+
+    const content = rendered.querySelector('.markdown-content');
+    if (!content) return;
+
+    const children = [...content.children];
+    let discoveryStart = -1;
+    let discoveryEnd = -1;
+
+    for (let i = 0; i < children.length; i++) {
+      const el = children[i];
+      const text = el.textContent.toLowerCase().trim();
+      if (el.tagName === 'H2' || (el.tagName === 'P' && /^\*?\*?data discovery\*?\*?/i.test(el.textContent.trim()))) {
+        if (/data discovery/i.test(text)) {
+          discoveryStart = i;
+        } else if (discoveryStart >= 0 && discoveryEnd < 0) {
+          discoveryEnd = i;
+        }
+      }
+      if (discoveryStart >= 0 && discoveryEnd < 0 && el.tagName === 'H2' && !/data discovery/i.test(text)) {
+        discoveryEnd = i;
+      }
+    }
+
+    if (discoveryStart < 0) return;
+    if (discoveryEnd < 0) discoveryEnd = children.length;
+    if (discoveryEnd - discoveryStart < 2) return;
+
+    const details = document.createElement('details');
+    details.className = 'discovery-section';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Data Discovery — how the agent found the right data';
+    details.appendChild(summary);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'discovery-content';
+    for (let i = discoveryStart; i < discoveryEnd; i++) {
+      wrapper.appendChild(children[i]);
+    }
+    details.appendChild(wrapper);
+
+    if (children[discoveryEnd]) {
+      content.insertBefore(details, children[discoveryEnd]);
+    } else {
+      content.appendChild(details);
+    }
+  }
 
   async send() {
     const text = this.inputEl.value.trim();
@@ -333,6 +409,7 @@ class ChatPanel {
 
       case 'tool_call':
         this._addToolChip(event.name);
+        this._updateWorkingStatus(event.name);
         if (event.name === 'search_entries') {
           this.viz.triggerSearchPulse();
         }
@@ -352,11 +429,14 @@ class ChatPanel {
 
       case 'text_chunk':
         this._hideTyping();
+        this._hideWorkingStatus();
         this._appendText(event.text);
         break;
 
       case 'done':
         this._hideTyping();
+        this._hideWorkingStatus();
+        this._finalizeResponse();
         if (event.all_tables) this.viz.illuminateTables(event.all_tables);
         if (event.all_glossary) this.viz.showGlossaryArcsForTerms(event.all_glossary);
         this.viz.zoomToActive();
