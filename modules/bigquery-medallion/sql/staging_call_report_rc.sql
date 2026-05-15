@@ -5,5 +5,5 @@ SELECT
   CONCAT('Schedule RC - ', CASE MOD(n, 20) WHEN 0 THEN 'Cash and Balances Due' WHEN 1 THEN 'Securities HTM' WHEN 2 THEN 'Securities AFS' WHEN 3 THEN 'Fed Funds Sold' WHEN 4 THEN 'Loans and Leases' WHEN 5 THEN 'ALLL' WHEN 6 THEN 'Premises' WHEN 7 THEN 'Other RE Owned' WHEN 8 THEN 'Intangible Assets' WHEN 9 THEN 'Other Assets' WHEN 10 THEN 'Total Assets' WHEN 11 THEN 'Deposits - Domestic' WHEN 12 THEN 'Fed Funds Purchased' WHEN 13 THEN 'Other Borrowed Money' WHEN 14 THEN 'Other Liabilities' WHEN 15 THEN 'Total Liabilities' WHEN 16 THEN 'Common Stock' WHEN 17 THEN 'Surplus' WHEN 18 THEN 'Retained Earnings' ELSE 'Total Equity' END) AS line_description,
   ROUND(1000000 + RAND() * 50000000000, 0) AS amount,
   'Filed' AS status,
-  TIMESTAMP_ADD(TIMESTAMP '2024-01-01 00:00:00 UTC', INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at
+  TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at
 FROM UNNEST(GENERATE_ARRAY(1, 100)) AS n

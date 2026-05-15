@@ -1,7 +1,7 @@
 CREATE OR REPLACE TABLE `${project_id}.fsi_audit.audit_model_decisions` AS
 SELECT
   CONCAT('MDL-', LPAD(CAST(n AS STRING), 10, '0')) AS decision_id,
-  TIMESTAMP_ADD(TIMESTAMP '2024-01-01 00:00:00 UTC', INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS decision_timestamp,
+  TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS decision_timestamp,
   CASE MOD(n, 5) WHEN 0 THEN 'Credit Scoring' WHEN 1 THEN 'Fraud Detection' WHEN 2 THEN 'AML Screening' WHEN 3 THEN 'Loan Pricing' ELSE 'Risk Rating' END AS model_name,
   CONCAT('v', CAST(1 + MOD(n, 5) AS STRING), '.', CAST(MOD(n, 10) AS STRING)) AS model_version,
   CONCAT('CUST-', LPAD(CAST(CAST(FLOOR(RAND() * 20000) + 1 AS INT64) AS STRING), 8, '0')) AS subject_id,

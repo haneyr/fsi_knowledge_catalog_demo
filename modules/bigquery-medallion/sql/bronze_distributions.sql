@@ -14,6 +14,6 @@ SELECT
   CASE MOD(n, 4)
     WHEN 0 THEN 'Qualified Dividend' WHEN 1 THEN 'Ordinary Income' WHEN 2 THEN 'Long-Term Capital Gain' ELSE 'Tax-Exempt Interest'
   END AS tax_treatment,
-  TIMESTAMP_ADD(TIMESTAMP '2024-01-01 00:00:00 UTC', INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
+  TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
   'FORTUNA' AS source_system
 FROM UNNEST(GENERATE_ARRAY(1, 10000)) AS n
