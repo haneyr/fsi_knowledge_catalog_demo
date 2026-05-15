@@ -13,57 +13,32 @@
 # limitations under the License.
 
 variable "project_id" { type = string }
+
 variable "region" {
   type    = string
   default = "us-central1"
 }
+
 variable "multi_region" {
   type    = string
   default = "us"
 }
 
-module "project" {
-  source     = "../../modules/project"
+data "google_project" "project" {
   project_id = var.project_id
 }
 
-module "apis" {
-  source     = "../../modules/apis"
-  project_id = var.project_id
-  depends_on = [module.project]
-}
-
-module "service_account" {
-  source         = "../../modules/service-account"
+module "taxonomy" {
+  source         = "../../modules/data-catalog-taxonomy"
   project_id     = var.project_id
-  project_number = module.project.project_number
-  depends_on     = [module.apis]
+  multi_region   = var.multi_region
+  project_number = data.google_project.project.number
 }
 
-output "project_id" {
-  value = var.project_id
+output "taxonomy_id" {
+  value = module.taxonomy.taxonomy_id
 }
 
-output "project_number" {
-  value = module.project.project_number
-}
-
-output "region" {
-  value = var.region
-}
-
-output "multi_region" {
-  value = var.multi_region
-}
-
-output "service_account_email" {
-  value = module.service_account.email
-}
-
-output "gcp_account_name" {
-  value = module.project.gcp_account_name
-}
-
-output "random_suffix" {
-  value = module.project.random_suffix
+output "policy_tag_ids" {
+  value = module.taxonomy.policy_tag_ids
 }
