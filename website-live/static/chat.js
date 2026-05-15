@@ -52,7 +52,7 @@ function _linkifyEntities(container, agentMode, projectId) {
       }
       if (!ds) return match;
       const url = agentMode === 'kc'
-        ? `https://console.cloud.google.com/dataplex/projects/${projectId}/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/${projectId}/datasets/${ds}/tables/${match}?project=${projectId}`
+        ? `https://console.cloud.google.com/dataplex/dp-entries/projects/${projectId}/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com%2Fprojects%2F${projectId}%2Fdatasets%2F${ds}%2Ftables%2F${match}?project=${projectId}`
         : `https://console.cloud.google.com/bigquery?referrer=search&amp;project=${projectId}&amp;ws=!1m5!1m4!4m3!1s${projectId}!2s${ds}!3s${match}`;
       modified = true;
       return `<a href="${url}" target="_blank" rel="noopener" class="entity-link table-link">${match}</a>`;

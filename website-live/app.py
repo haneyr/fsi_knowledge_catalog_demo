@@ -280,9 +280,9 @@ def table_info():
         f"bigquery.googleapis.com/projects/{PROJECT_ID}/datasets/{dataset}/tables/{table}"
     )
     catalog_url = (
-        f"https://console.cloud.google.com/dataplex/projects/{PROJECT_ID}/locations/us/"
+        f"https://console.cloud.google.com/dataplex/dp-entries/projects/{PROJECT_ID}/locations/us/"
         f"entryGroups/@bigquery/entries/"
-        f"bigquery.googleapis.com/projects/{PROJECT_ID}/datasets/{dataset}/tables/{table}"
+        f"bigquery.googleapis.com%2Fprojects%2F{PROJECT_ID}%2Fdatasets%2F{dataset}%2Ftables%2F{table}"
         f"?project={PROJECT_ID}"
     )
     bq_url = (
