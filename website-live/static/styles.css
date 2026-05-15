@@ -276,6 +276,17 @@ body {
 .table-link:hover { color: #fff; border-color: #FFD600; }
 .glossary-link { color: var(--kc-color); border-color: rgba(52,168,83,0.4); }
 .glossary-link:hover { color: #fff; border-color: var(--kc-color); }
+.glossary-chip {
+  color: var(--kc-color);
+  border-bottom: 1px dotted rgba(52,168,83,0.4);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.glossary-chip:hover {
+  color: #fff;
+  border-bottom-style: solid;
+  border-color: var(--kc-color);
+}
 
 .typing-indicator {
   display: none;

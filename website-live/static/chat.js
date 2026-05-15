@@ -14,6 +14,10 @@ const _GLOSSARY_TERMS = {
   'CET1 Ratio': 'cet1-ratio', 'Customer ID': 'customer-id',
   'Delinquency': 'delinquency', 'KYC': 'kyc-abbr', 'VaR': 'var-abbr',
   'CUSIP': 'cusip', 'NIM': 'nim-abbr', 'Risk Rating': 'risk-rating', 'Branch': 'branch',
+  'Basel III': 'basel-iii', 'Wire Transfer': 'wire-transfer',
+  'BSA': 'bsa', 'Sharpe Ratio': 'sharpe-ratio',
+  'Stress Testing': 'stress-testing', 'Liquidity Risk': 'liquidity-risk',
+  'Charge-Off': 'charge-off', 'ACH Transfer': 'ach',
 };
 const _GLOSSARY_ID = 'meridian-national-bank-glossary-us';
 const _TABLE_RE = /\b((?:gold|silver|bronze|ref|vw|staging|snapshot|audit)_[a-z0-9_]+)\b/g;
@@ -73,7 +77,7 @@ function _linkifyEntities(container, agentMode, projectId) {
     while (walker.nextNode()) textNodes.push(walker.currentNode);
 
     for (const node of textNodes) {
-      if (node.parentElement?.closest('a')) continue;
+      if (node.parentElement?.closest('a, .glossary-chip')) continue;
       const text = node.textContent;
       let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       let modified = false;
@@ -81,10 +85,9 @@ function _linkifyEntities(container, agentMode, projectId) {
       for (const [term, slug] of Object.entries(_GLOSSARY_TERMS)) {
         if (!html.includes(term)) continue;
         const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const glossaryUrl = `https://console.cloud.google.com/dataplex/dp-glossaries/projects/${projectId}/locations/us/glossaries/${_GLOSSARY_ID}/terms/${slug}?project=${projectId}`;
         html = html.replace(new RegExp(escaped, 'g'), (m) => {
           modified = true;
-          return `<a href="${glossaryUrl}" target="_blank" rel="noopener" class="entity-link glossary-link">${m}</a>`;
+          return `<span class="glossary-chip" data-term="${m}">${m}</span>`;
         });
       }
 
@@ -119,8 +122,17 @@ class ChatPanel {
     this.popupEl = document.getElementById('tablePopup');
     this.viz.onNodeClick = (name, sx, sy) => this._showTablePopup(name, sx, sy);
     this.viz.onTermClick = (term, sx, sy) => this._showTermPopup(term, sx, sy);
+    this.messagesEl.addEventListener('click', (e) => {
+      const chip = e.target.closest('.glossary-chip');
+      if (chip) {
+        const term = chip.dataset.term;
+        const rect = chip.getBoundingClientRect();
+        this._showTermPopup(term, rect.left + rect.width / 2, rect.top);
+        e.stopPropagation();
+      }
+    });
     document.addEventListener('click', (e) => {
-      if (this.popupEl && !this.popupEl.contains(e.target) && !this.viz.canvas.contains(e.target)) {
+      if (this.popupEl && !this.popupEl.contains(e.target) && !this.viz.canvas.contains(e.target) && !e.target.closest('.glossary-chip')) {
         this.popupEl.classList.add('hidden');
       }
     });
