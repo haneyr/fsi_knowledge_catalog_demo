@@ -264,6 +264,25 @@ def main():
     logger.info("=== Applying column-level policy tags ===")
     tagged, failed = apply_column_tags(pid, tag_map)
 
+    logger.info("=== Granting fine-grained reader on taxonomy ===")
+    pn = cfg.get("project_number", "")
+    if not pn:
+        pn = subprocess.run(
+            ["gcloud", "projects", "describe", pid, "--format=value(projectNumber)"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.strip()
+    for sa in [
+        f"serviceAccount:service-{pn}@gcp-sa-aiplatform-re.iam.gserviceaccount.com",
+        f"serviceAccount:{pn}-compute@developer.gserviceaccount.com",
+    ]:
+        subprocess.run([
+            "gcloud", "data-catalog", "taxonomies", "add-iam-policy-binding", taxonomy_name,
+            "--location=us", f"--project={pid}",
+            f"--member={sa}", "--role=roles/datacatalog.categoryFineGrainedReader",
+            "--quiet",
+        ], capture_output=True)
+        logger.info("  Granted fine-grained reader to %s", sa.split(":")[-1][:40])
+
     logger.info("=" * 60)
     logger.info("POLICY TAGS COMPLETE")
     logger.info("  Taxonomy: %s", TAXONOMY_DISPLAY)
