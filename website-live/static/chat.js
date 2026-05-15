@@ -119,6 +119,11 @@ class ChatPanel {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
     });
 
+    this._agentContainers = {};
+    this._initAgentContainer('basic');
+    this._initAgentContainer('scaled');
+    this._initAgentContainer('kc');
+
     this.popupEl = document.getElementById('tablePopup');
     this.viz.onNodeClick = (name, sx, sy) => this._showTablePopup(name, sx, sy);
     this.viz.onTermClick = (term, sx, sy) => this._showTermPopup(term, sx, sy);
@@ -164,33 +169,46 @@ class ChatPanel {
     }
   }
 
-  setAgent(mode) {
-    this.agentMode = mode;
-    this.messagesEl.innerHTML = '';
-    this._currentAgentMsg = null;
-    document.body.className = `agent-${mode}`;
+  _initAgentContainer(mode) {
+    const container = document.createElement('div');
+    container.className = 'agent-messages-container';
+    container.style.display = 'none';
+    container.dataset.agent = mode;
+    this.messagesEl.appendChild(container);
+    this._agentContainers[mode] = container;
 
     const desc = {
       basic: 'Basic Agent — 5 gold tables, no Knowledge Catalog.',
       scaled: 'Scaled Agent — 150+ tables, no Knowledge Catalog.',
       kc: 'KC Agent — 150+ tables WITH Knowledge Catalog Context API.',
     };
-    this._addSystemMessage(desc[mode]);
+    const sysMsg = document.createElement('div');
+    sysMsg.className = 'message agent';
+    sysMsg.style.cssText = 'color:var(--text-dim);font-style:italic;font-size:12px';
+    sysMsg.textContent = desc[mode];
+    container.appendChild(sysMsg);
   }
 
-  _addSystemMessage(text) {
-    const div = document.createElement('div');
-    div.className = 'message agent';
-    div.style.cssText = 'color:var(--text-dim);font-style:italic;font-size:12px';
-    div.textContent = text;
-    this.messagesEl.appendChild(div);
+  setAgent(mode) {
+    this.agentMode = mode;
+    this._currentAgentMsg = null;
+    document.body.className = `agent-${mode}`;
+
+    for (const [key, container] of Object.entries(this._agentContainers)) {
+      container.style.display = key === mode ? 'flex' : 'none';
+    }
+    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+  }
+
+  _activeContainer() {
+    return this._agentContainers[this.agentMode] || this.messagesEl;
   }
 
   _addMessage(text, isUser) {
     const div = document.createElement('div');
     div.className = `message ${isUser ? 'user' : 'agent'}`;
     div.textContent = text;
-    this.messagesEl.appendChild(div);
+    this._activeContainer().appendChild(div);
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     return div;
   }
@@ -217,7 +235,7 @@ class ChatPanel {
     const rendered = _renderMarkdown(response);
     _linkifyEntities(rendered, this.agentMode, this.projectId);
     div.appendChild(rendered);
-    this.messagesEl.appendChild(div);
+    this._activeContainer().appendChild(div);
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
 
@@ -231,7 +249,7 @@ class ChatPanel {
       this._currentAgentMsg._rawText = '';
       this._currentAgentMsg._rendered = document.createElement('div');
       this._currentAgentMsg.appendChild(this._currentAgentMsg._rendered);
-      this.messagesEl.appendChild(this._currentAgentMsg);
+      this._activeContainer().appendChild(this._currentAgentMsg);
     }
     return this._currentAgentMsg;
   }

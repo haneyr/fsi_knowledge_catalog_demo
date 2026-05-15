@@ -183,6 +183,12 @@ body {
   gap: 12px;
 }
 
+.agent-messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .chat-messages::-webkit-scrollbar { width: 6px; }
 .chat-messages::-webkit-scrollbar-track { background: transparent; }
 .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
