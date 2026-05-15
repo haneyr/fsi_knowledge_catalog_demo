@@ -80,7 +80,8 @@ ALL_TABLE_NAMES = (
 GLOSSARY_TERM_MAP = {
     'search_entries': [],
     'fico': ['FICO Score'], 'cusip': ['CUSIP'], 'isin': ['ISIN'],
-    'aum': ['AUM'], 'sar': ['SAR'], 'bsa': ['SAR'],
+    'aum': ['AUM'], 'sar': ['SAR'], 'bsa': ['SAR', 'BSA'],
+    'aml': ['AML'], 'anti-money': ['AML'], 'money laundering': ['AML'],
     'cet1': ['CET1 Ratio'], 'capital': ['CET1 Ratio'],
     'kyc': ['KYC'], 'delinquen': ['Delinquency'],
     'customer': ['Customer ID'], 'branch': ['Branch'],
@@ -339,7 +340,11 @@ TERM_SLUG_MAP = {
     'CET1 Ratio': 'cet1-ratio', 'Customer ID': 'customer-id',
     'Delinquency': 'delinquency', 'KYC': 'kyc-abbr', 'VaR': 'var-abbr',
     'CUSIP': 'cusip', 'Branch': 'branch', 'NIM': 'nim-abbr',
-    'Risk Rating': 'risk-rating',
+    'Risk Rating': 'risk-rating', 'AML': 'aml', 'BSA': 'bsa',
+    'Basel III': 'basel-iii', 'Wire Transfer': 'wire-transfer',
+    'Sharpe Ratio': 'sharpe-ratio', 'Stress Testing': 'stress-testing',
+    'Liquidity Risk': 'liquidity-risk', 'Charge-Off': 'charge-off',
+    'ACH Transfer': 'ach',
 }
 
 

@@ -14,7 +14,7 @@ const _GLOSSARY_TERMS = {
   'CET1 Ratio': 'cet1-ratio', 'Customer ID': 'customer-id',
   'Delinquency': 'delinquency', 'KYC': 'kyc-abbr', 'VaR': 'var-abbr',
   'CUSIP': 'cusip', 'NIM': 'nim-abbr', 'Risk Rating': 'risk-rating', 'Branch': 'branch',
-  'Basel III': 'basel-iii', 'Wire Transfer': 'wire-transfer',
+  'AML': 'aml', 'Basel III': 'basel-iii', 'Wire Transfer': 'wire-transfer',
   'BSA': 'bsa', 'Sharpe Ratio': 'sharpe-ratio',
   'Stress Testing': 'stress-testing', 'Liquidity Risk': 'liquidity-risk',
   'Charge-Off': 'charge-off', 'ACH Transfer': 'ach',
