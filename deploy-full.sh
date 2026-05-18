@@ -86,7 +86,6 @@ gcloud services enable \
     run.googleapis.com \
     cloudbuild.googleapis.com \
     artifactregistry.googleapis.com \
-    orgpolicy.googleapis.com \
     --project="${GOOGLE_CLOUD_PROJECT}"
 
 gcloud config set project "${GOOGLE_CLOUD_PROJECT}"
