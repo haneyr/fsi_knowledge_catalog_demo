@@ -112,17 +112,26 @@ deploy_kc() {
     echo "KC agent deployed: ${KC_AGENT_ID}"
 }
 
-# Grant permissions and generate .env files
-grant_agent_engine_permissions
+# Generate .env files
 create_env_files
 
 # Deploy based on argument
 case "${1:-all}" in
-    basic)  deploy_basic ;;
-    scaled) deploy_scaled ;;
-    kc)     deploy_kc ;;
+    basic)
+        deploy_basic
+        grant_agent_engine_permissions
+        ;;
+    scaled)
+        deploy_scaled
+        grant_agent_engine_permissions
+        ;;
+    kc)
+        deploy_kc
+        grant_agent_engine_permissions
+        ;;
     all)
         deploy_basic
+        grant_agent_engine_permissions
         deploy_scaled
         deploy_kc
         ;;
