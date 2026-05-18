@@ -559,13 +559,12 @@ def main():
     logger.info("Project: %s | Location: %s", cfg["project_id"], cfg["multi_region"])
 
     if glossary_exists(cfg):
-        logger.error("Glossary '%s' already exists. Delete it first or choose a different ID.", GLOSSARY_ID)
-        sys.exit(1)
-
-    logger.info("--- Creating glossary ---")
-    create_glossary(cfg)
-    logger.info("Waiting 15s for glossary propagation...")
-    time.sleep(15)
+        logger.info("Glossary '%s' already exists — skipping creation, proceeding with terms/links.", GLOSSARY_ID)
+    else:
+        logger.info("--- Creating glossary ---")
+        create_glossary(cfg)
+        logger.info("Waiting 15s for glossary propagation...")
+        time.sleep(15)
 
     logger.info("--- Creating L1 categories (%d) ---", len(CATEGORIES))
     for cat in CATEGORIES:

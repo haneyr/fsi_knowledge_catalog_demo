@@ -26,7 +26,7 @@
 # Prerequisites:
 #   - gcloud CLI authenticated (gcloud auth login)
 #   - Application Default Credentials (gcloud auth application-default login)
-#   - pip install google-adk google-cloud-aiplatform google-cloud-bigquery google-auth requests
+#   - uv (https://docs.astral.sh/uv/) OR pip with google-adk, google-cloud-aiplatform, etc.
 #
 # Usage:
 #   # New project:
@@ -78,14 +78,33 @@ gcloud services enable \
     bigquery.googleapis.com \
     dataplex.googleapis.com \
     datalineage.googleapis.com \
+    datacatalog.googleapis.com \
     aiplatform.googleapis.com \
     cloudresourcemanager.googleapis.com \
     iam.googleapis.com \
     cloudaicompanion.googleapis.com \
+    run.googleapis.com \
+    cloudbuild.googleapis.com \
+    artifactregistry.googleapis.com \
+    orgpolicy.googleapis.com \
     --project="${GOOGLE_CLOUD_PROJECT}"
 
 gcloud config set project "${GOOGLE_CLOUD_PROJECT}"
 gcloud auth application-default set-quota-project "${GOOGLE_CLOUD_PROJECT}" 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Step 1b: Install Python dependencies
+# ---------------------------------------------------------------------------
+echo "=== Installing Python dependencies ==="
+if command -v uv &>/dev/null; then
+    uv sync --project "${SCRIPT_DIR}"
+    # Activate the venv for subsequent scripts
+    export PATH="${SCRIPT_DIR}/.venv/bin:${PATH}"
+    echo "  Installed via uv"
+else
+    echo "  uv not found, falling back to pip"
+    pip install google-adk google-cloud-aiplatform google-cloud-bigquery google-auth requests pyyaml -q
+fi
 
 # ---------------------------------------------------------------------------
 # Step 2: Generate scripts/config.json
@@ -125,7 +144,13 @@ bq --project_id="${GOOGLE_CLOUD_PROJECT}" mk --location=US \
 # Step 6: Deploy agents to Agent Engine
 # ---------------------------------------------------------------------------
 echo "=== Deploying agents to Vertex AI Agent Engine ==="
-bash "${SCRIPT_DIR}/agents/deploy_agents.sh"
+source "${SCRIPT_DIR}/agents/deploy_agents.sh"
+
+echo ""
+echo "  Agent IDs captured:"
+echo "    BASIC_AGENT_ID=${BASIC_AGENT_ID:-NOT SET}"
+echo "    SCALED_AGENT_ID=${SCALED_AGENT_ID:-NOT SET}"
+echo "    KC_AGENT_ID=${KC_AGENT_ID:-NOT SET}"
 
 # ---------------------------------------------------------------------------
 # Step 7: Deploy static demo website to Cloud Run
@@ -135,19 +160,17 @@ bash "${SCRIPT_DIR}/website/deploy.sh"
 WEBSITE_URL=$(gcloud run services describe fsi-kc-demo-ui --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
 
 # ---------------------------------------------------------------------------
-# Step 8: Deploy live WebSocket website (requires agent IDs)
+# Step 8: Deploy live WebSocket website
 # ---------------------------------------------------------------------------
-LIVE_URL="not deployed (set BASIC_AGENT_ID, SCALED_AGENT_ID, KC_AGENT_ID to enable)"
 if [[ -n "${BASIC_AGENT_ID:-}" && -n "${SCALED_AGENT_ID:-}" && -n "${KC_AGENT_ID:-}" ]]; then
     echo "=== Deploying live WebSocket website ==="
     bash "${SCRIPT_DIR}/website-live/deploy.sh"
     LIVE_URL=$(gcloud run services describe fsi-kc-demo-ui-live --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
 else
-    echo "=== Skipping live website (agent IDs not set) ==="
-    echo "  To deploy the live version, set these env vars and run website-live/deploy.sh:"
-    echo "    export BASIC_AGENT_ID=<id from agent deploy>"
-    echo "    export SCALED_AGENT_ID=<id from agent deploy>"
-    echo "    export KC_AGENT_ID=<id from agent deploy>"
+    LIVE_URL="not deployed (agent IDs not captured)"
+    echo "=== Skipping live website (agent IDs not captured) ==="
+    echo "  To deploy manually, set BASIC_AGENT_ID, SCALED_AGENT_ID, KC_AGENT_ID and run:"
+    echo "    bash website-live/deploy.sh"
 fi
 
 # ---------------------------------------------------------------------------

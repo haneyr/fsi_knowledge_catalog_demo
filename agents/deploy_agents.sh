@@ -66,34 +66,50 @@ EOF
     echo "Created .env files for all agents"
 }
 
+extract_agent_id() {
+    grep -oP 'reasoningEngines/\K[0-9]+' | tail -1
+}
+
 deploy_basic() {
     echo "=== Deploying FSI Basic Agent ==="
-    adk deploy agent_engine \
+    local output
+    output=$(adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
         --display_name="FSI Basic Agent" \
-        "${SCRIPT_DIR}/agent_basic"
-    echo "Basic agent deployed."
+        "${SCRIPT_DIR}/agent_basic" 2>&1)
+    echo "$output"
+    BASIC_AGENT_ID=$(echo "$output" | extract_agent_id)
+    export BASIC_AGENT_ID
+    echo "Basic agent deployed: ${BASIC_AGENT_ID}"
 }
 
 deploy_scaled() {
     echo "=== Deploying FSI Scaled Agent ==="
-    adk deploy agent_engine \
+    local output
+    output=$(adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
         --display_name="FSI Scaled Agent" \
-        "${SCRIPT_DIR}/agent_scaled"
-    echo "Scaled agent deployed."
+        "${SCRIPT_DIR}/agent_scaled" 2>&1)
+    echo "$output"
+    SCALED_AGENT_ID=$(echo "$output" | extract_agent_id)
+    export SCALED_AGENT_ID
+    echo "Scaled agent deployed: ${SCALED_AGENT_ID}"
 }
 
 deploy_kc() {
     echo "=== Deploying FSI KC Agent ==="
-    adk deploy agent_engine \
+    local output
+    output=$(adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
         --display_name="FSI KC Agent" \
-        "${SCRIPT_DIR}/agent_kc"
-    echo "KC agent deployed."
+        "${SCRIPT_DIR}/agent_kc" 2>&1)
+    echo "$output"
+    KC_AGENT_ID=$(echo "$output" | extract_agent_id)
+    export KC_AGENT_ID
+    echo "KC agent deployed: ${KC_AGENT_ID}"
 }
 
 # Grant permissions and generate .env files

@@ -1,0 +1,19 @@
+[project]
+name = "fsi-knowledge-catalog-demo"
+version = "1.0.0"
+description = "FSI Knowledge Catalog Agent Demo for Google Cloud"
+requires-python = ">=3.11"
+dependencies = [
+    "google-auth>=2.0",
+    "google-cloud-aiplatform>=1.60",
+    "google-cloud-bigquery>=3.0",
+    "google-adk>=0.3.0",
+    "requests>=2.28",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+eval = [
+    "pyyaml>=6.0",
+    "websockets>=12.0",
+]

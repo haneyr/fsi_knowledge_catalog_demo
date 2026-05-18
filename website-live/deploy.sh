@@ -15,6 +15,36 @@ echo "=== Deploying FSI KC Demo Website (Live Mode) to Cloud Run ==="
 echo "  Project: ${PROJECT_ID}"
 echo "  Agents: basic=${BASIC_AGENT_ID} scaled=${SCALED_AGENT_ID} kc=${KC_AGENT_ID}"
 
+# Enable required APIs (idempotent)
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com orgpolicy.googleapis.com \
+  --project="${PROJECT_ID}" --quiet 2>/dev/null
+
+# Grant Cloud Build permissions to compute SA
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/cloudbuild.builds.builder" --quiet 2>/dev/null | tail -1
+
+# Override org policies for public access (idempotent)
+gcloud org-policies reset constraints/iam.allowedPolicyMemberDomains \
+  --project="${PROJECT_ID}" 2>/dev/null || true
+
+gcloud resource-manager org-policies set-policy --project="${PROJECT_ID}" /dev/stdin 2>/dev/null <<'POLICY' || true
+constraint: constraints/iam.allowedPolicyMemberDomains
+listPolicy:
+  allValues: ALLOW
+POLICY
+
+gcloud org-policies set-policy --project="${PROJECT_ID}" /dev/stdin 2>/dev/null <<'POLICY' || true
+name: projects/${PROJECT_NUMBER}/policies/run.managed.requireInvokerIam
+spec:
+  rules:
+  - enforce: false
+POLICY
+
+echo "  Waiting 10s for policy propagation..."
+sleep 10
+
 cd "${SCRIPT_DIR}"
 gcloud run deploy "${SERVICE_NAME}" \
   --source=. \
