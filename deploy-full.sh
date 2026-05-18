@@ -18,25 +18,30 @@
 #
 # This script orchestrates the complete deployment:
 #   1. Creates a new GCP project (or uses existing)
-#   2. Enables APIs and links billing
+#   2. Enables APIs, installs Python deps (uv or pip)
 #   3. Creates BigQuery datasets and 128+ tables with synthetic data
 #   4. Creates all Knowledge Catalog resources (glossary, scans, aspects, etc.)
 #   5. Deploys 3 agents to Vertex AI Agent Engine with BQ analytics
+#   6. Deploys static + live websites to Cloud Run
 #
 # Prerequisites:
 #   - gcloud CLI authenticated (gcloud auth login)
 #   - Application Default Credentials (gcloud auth application-default login)
-#   - uv (https://docs.astral.sh/uv/) OR pip with google-adk, google-cloud-aiplatform, etc.
+#   - uv (https://docs.astral.sh/uv/) OR pip
 #
 # Usage:
-#   # New project:
+#   # First deploy (new project):
 #   export ORG_ID=your-org-id
 #   export BILLING_ACCOUNT=your-billing-account-id
 #   bash deploy-full.sh
 #
-#   # Existing project:
+#   # First deploy (existing project):
 #   export GOOGLE_CLOUD_PROJECT=your-existing-project-id
 #   bash deploy-full.sh
+#
+#   # Refresh data only (preserves table metadata, descriptions, policy tags):
+#   export GOOGLE_CLOUD_PROJECT=your-existing-project-id
+#   bash deploy-bq.sh --refresh
 ####################################################################################
 
 set -e
