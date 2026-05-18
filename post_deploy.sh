@@ -26,55 +26,58 @@ cd "${SCRIPT_DIR}"
 
 echo "=== Post-Deploy: Creating FSI governance resources ==="
 
-echo "[0/17] Creating Dataplex infrastructure (entry types, aspect types, entry groups)..."
+echo "[0/18] Creating Dataplex infrastructure (entry types, aspect types, entry groups)..."
 python3 00_create_dataplex_infra.py
 
-echo "[1/17] Creating business glossary..."
+echo "[1/18] Creating business glossary..."
 python3 01_create_glossary.py
 
-echo "[2/17] Creating Dataplex scans..."
+echo "[2/18] Creating Dataplex scans..."
 python3 02_create_scans.py
 
-echo "[3/17] Creating source system entries..."
+echo "[3/18] Creating source system entries..."
 python3 03_create_source_entries.py
 
-echo "[4/17] Applying custom aspects..."
+echo "[4/18] Applying custom aspects..."
 python3 04_create_aspects.py
 
-echo "[5/17] Creating data products..."
+echo "[5/18] Creating data products..."
 python3 05_create_data_products.py
 
-echo "[6/17] Creating glossary-to-column links..."
+echo "[6/18] Creating glossary-to-column links..."
 python3 06_create_glossary_links.py
 
-echo "[7/17] Creating data lineage..."
+echo "[7/18] Creating data lineage..."
 python3 07_create_lineage.py
 
-echo "[8/17] Publishing scan results..."
+echo "[8/18] Publishing scan results..."
 python3 08_publish_scans.py
 
-echo "[9/17] Running query simulation..."
+echo "[9/18] Running query simulation..."
 python3 09_simulate_queries.py --iterations 1
 
-echo "[10/17] Creating reusable rule library..."
+echo "[10/18] Creating reusable rule library..."
 python3 10_create_rule_library.py
 
-echo "[11/17] Running profile and insights scans..."
+echo "[11/18] Running profile and insights scans..."
 python3 11_run_scans_and_apply_insights.py
 
-echo "[12/17] Enriching glossary term overviews..."
+echo "[12/18] Enriching glossary term overviews..."
 python3 12_enrich_glossary.py
 
-echo "[13/17] Applying insights descriptions to BigQuery..."
+echo "[13/18] Applying insights descriptions to BigQuery..."
 python3 13_apply_insights_descriptions.py
 
-echo "[14/17] Linking glossary terms to data assets..."
+echo "[14/18] Linking glossary terms to data assets..."
 python3 14_link_glossary_to_assets.py
 
-echo "[15/17] Injecting dirty data for DQ scan failures..."
+echo "[15/18] Injecting dirty data for DQ scan failures..."
 python3 15_inject_dirty_data.py
 
-echo "[16/17] Creating column-level policy tags..."
+echo "[16/18] Creating column-level policy tags..."
 python3 16_create_policy_tags.py
+
+echo "[17/18] Enriching glossary terms with links..."
+python3 17_enrich_new_terms.py
 
 echo "=== Post-Deploy Complete ==="

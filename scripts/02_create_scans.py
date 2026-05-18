@@ -146,7 +146,7 @@ def main():
     total_rules = 0
     for dataset, table in SCAN_TABLES:
         table_rules = quality_rules.get((dataset, table), [
-            {"column": table.split("_", 1)[-1].split("_")[0] + "_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "default-pk-not-null"},
+            {"tableConditionExpectation": {"sqlExpression": "COUNT(*) > 0"}, "dimension": "VOLUME", "name": "has-rows"},
         ])
         total_rules += len(table_rules)
         create_and_run_scan(cfg, dataset, table, "quality", {
