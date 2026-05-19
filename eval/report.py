@@ -4,37 +4,48 @@ import html
 import json
 import time
 
+CUSTOM_METRICS = [
+    "outcome", "table_selection", "data_in_response", "response_structure",
+    "graceful_failure", "glossary_citation", "metadata_citation",
+]
+VERTEX_METRICS = [
+    "vertex_response_quality", "vertex_tool_use_quality",
+    "vertex_hallucination", "vertex_task_success",
+]
 
-def print_terminal_report(all_results, agents):
-    metric_names = ["outcome", "table_selection", "data_in_response",
-                    "graceful_failure", "glossary_citation", "metadata_citation"]
 
-    agent_metric_sums = {a: {m: [] for m in metric_names} for a in agents}
-    agent_latencies = {a: [] for a in agents}
+def _collect_present_metrics(all_results, agents):
+    present = set()
+    for cr in all_results:
+        for agent_type, data in cr["agents"].items():
+            if agent_type in agents:
+                present.update(data["scores"].keys())
+    custom = [m for m in CUSTOM_METRICS if m in present]
+    vertex = [m for m in VERTEX_METRICS if m in present]
+    return custom, vertex
 
+
+def _print_metric_table(all_results, agents, metric_names):
+    agent_sums = {a: {m: [] for m in metric_names} for a in agents}
     for cr in all_results:
         for agent_type, data in cr["agents"].items():
             if agent_type not in agents:
                 continue
-            agent_latencies[agent_type].append(data["result"].latency)
             for m in metric_names:
                 if m in data["scores"]:
-                    agent_metric_sums[agent_type][m].append(data["scores"][m].value)
+                    agent_sums[agent_type][m].append(data["scores"][m].value)
 
-    print(f"\n{'=' * 65}")
-    print(f"  SUMMARY ({len(all_results)} cases)")
-    print(f"{'=' * 65}")
-
-    header = f"{'Metric':<22}"
+    header = f"{'Metric':<32}"
     for a in agents:
         header += f"  {a:>8}"
     print(header)
-    print("-" * 65)
+    print("-" * (32 + 10 * len(agents)))
 
     for m in metric_names:
-        row = f"{m:<22}"
+        display = m.replace("vertex_", "")
+        row = f"{display:<32}"
         for a in agents:
-            vals = agent_metric_sums[a][m]
+            vals = agent_sums[a][m]
             if vals:
                 avg = sum(vals) / len(vals)
                 row += f"  {avg:>8.2f}"
@@ -42,7 +53,28 @@ def print_terminal_report(all_results, agents):
                 row += f"  {'—':>8}"
         print(row)
 
-    row = f"{'avg_latency_s':<22}"
+
+def print_terminal_report(all_results, agents):
+    custom, vertex = _collect_present_metrics(all_results, agents)
+    agent_latencies = {a: [] for a in agents}
+    for cr in all_results:
+        for agent_type, data in cr["agents"].items():
+            if agent_type in agents:
+                agent_latencies[agent_type].append(data["result"].latency)
+
+    if custom:
+        print(f"\n{'=' * 65}")
+        print(f"  CUSTOM METRICS ({len(all_results)} cases)")
+        print(f"{'=' * 65}")
+        _print_metric_table(all_results, agents, custom)
+
+    if vertex:
+        print(f"\n{'=' * 65}")
+        print(f"  VERTEX AI LLM-JUDGED METRICS ({len(all_results)} cases)")
+        print(f"{'=' * 65}")
+        _print_metric_table(all_results, agents, vertex)
+
+    row = f"\n{'avg_latency_s':<32}"
     for a in agents:
         vals = agent_latencies[a]
         if vals:
@@ -53,7 +85,6 @@ def print_terminal_report(all_results, agents):
     print(row)
     print()
 
-    # Group by complexity
     by_complexity = {}
     for cr in all_results:
         cx = cr["case"].get("tags", {}).get("complexity", "unknown")
@@ -77,6 +108,9 @@ def print_terminal_report(all_results, agents):
 
 
 def generate_html_report(all_results, agents, output_path):
+    _, vertex = _collect_present_metrics(all_results, agents)
+    has_vertex = len(vertex) > 0
+
     results_json = []
     for cr in all_results:
         entry = {
@@ -97,14 +131,15 @@ def generate_html_report(all_results, agents, output_path):
             }
         results_json.append(entry)
 
-    html_content = _build_html(results_json, agents)
+    html_content = _build_html(results_json, agents, has_vertex)
     with open(output_path, "w") as f:
         f.write(html_content)
 
 
-def _build_html(results, agents):
+def _build_html(results, agents, has_vertex=False):
     data_json = json.dumps(results)
     agents_json = json.dumps(agents)
+    has_vertex_json = json.dumps(has_vertex)
     ts = time.strftime("%Y-%m-%d %H:%M")
 
     return f"""<!DOCTYPE html>
@@ -162,6 +197,7 @@ canvas {{ max-width: 400px; }}
   <div><label>Complexity</label><br><select id="fComplexity" onchange="applyFilters()"><option value="">All</option></select></div>
   <div><label>Audience</label><br><select id="fAudience" onchange="applyFilters()"><option value="">All</option></select></div>
   <div><label>KC Feature</label><br><select id="fKcFeature" onchange="applyFilters()"><option value="">All</option></select></div>
+  <div id="metricFilterWrap" style="display:none"><label>Metrics</label><br><select id="fMetrics" onchange="applyFilters()"><option value="all">All</option><option value="custom">Custom Only</option><option value="vertex">Vertex AI Only</option></select></div>
 </div>
 
 <div class="summary-grid" id="summaryGrid"></div>
@@ -171,8 +207,11 @@ canvas {{ max-width: 400px; }}
 <script>
 const DATA = {data_json};
 const AGENTS = {agents_json};
+const HAS_VERTEX = {has_vertex_json};
 const AGENT_COLORS = {{basic:'#4285F4', scaled:'#EA4335', kc:'#34A853'}};
-const METRICS = ['outcome','table_selection','data_in_response','glossary_citation','metadata_citation'];
+const CUSTOM_METRICS = ['outcome','table_selection','data_in_response','response_structure','glossary_citation','metadata_citation'];
+const VERTEX_METRICS = ['vertex_response_quality','vertex_tool_use_quality','vertex_hallucination','vertex_task_success'];
+const ALL_METRICS = CUSTOM_METRICS.concat(VERTEX_METRICS);
 
 // Populate filter dropdowns
 function initFilters() {{
@@ -186,6 +225,14 @@ function initFilters() {{
       sel.appendChild(opt);
     }}
   }}
+  if (HAS_VERTEX) document.getElementById('metricFilterWrap').style.display = '';
+}}
+
+function getActiveMetrics() {{
+  const f = document.getElementById('fMetrics').value;
+  if (f === 'custom') return CUSTOM_METRICS;
+  if (f === 'vertex') return VERTEX_METRICS;
+  return ALL_METRICS;
 }}
 
 function getFiltered() {{
@@ -209,18 +256,21 @@ function scoreClass(v) {{
 function renderSummary(filtered) {{
   const grid = document.getElementById('summaryGrid');
   grid.innerHTML = '';
+  const activeMetrics = getActiveMetrics();
   for (const agent of AGENTS) {{
     const card = document.createElement('div');
     card.className = 'summary-card';
     let rows = '';
-    for (const m of METRICS) {{
+    for (const m of activeMetrics) {{
       const vals = filtered.flatMap(d => {{
         const a = d.agents[agent];
         return a && a.scores[m] ? [a.scores[m].v] : [];
       }});
       if (vals.length === 0) continue;
       const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
-      rows += `<div class="metric-row"><span>${{m.replace(/_/g,' ')}}</span><span class="metric-val ${{scoreClass(avg)}}">${{avg.toFixed(2)}}</span></div>`;
+      const label = m.replace('vertex_','').replace(/_/g,' ');
+      const prefix = m.startsWith('vertex_') ? '<span style="color:#AB47BC;font-size:9px">AI </span>' : '';
+      rows += `<div class="metric-row"><span>${{prefix}}${{label}}</span><span class="metric-val ${{scoreClass(avg)}}">${{avg.toFixed(2)}}</span></div>`;
     }}
     const lats = filtered.flatMap(d => d.agents[agent] ? [d.agents[agent].latency] : []);
     const avgLat = lats.length ? (lats.reduce((a,b)=>a+b,0)/lats.length).toFixed(1) : '—';
@@ -298,7 +348,7 @@ function drawRadar(filtered) {{
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 400, 400);
   const cx = 200, cy = 200, maxR = 150;
-  const metrics = METRICS.filter(m => {{
+  const metrics = getActiveMetrics().filter(m => {{
     return AGENTS.some(a => filtered.some(d => d.agents[a]?.scores[m]));
   }});
   if (metrics.length < 3) return;
@@ -325,7 +375,7 @@ function drawRadar(filtered) {{
     const x = cx + Math.cos(angle) * (maxR + 20);
     const y = cy + Math.sin(angle) * (maxR + 20);
     ctx.textAlign = 'center';
-    ctx.fillText(metrics[i].replace(/_/g,' '), x, y);
+    ctx.fillText(metrics[i].replace('vertex_','').replace(/_/g,' '), x, y);
   }}
 
   // Agent polygons
