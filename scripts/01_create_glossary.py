@@ -18,7 +18,8 @@
 Creates a comprehensive Dataplex Business Glossary for Meridian National Bank.
 
 Provisions: 1 glossary, 10 L1 categories, ~20 L2 sub-categories, 80+ terms,
-overviews, contacts, data quality rules, synonym links, related links.
+overviews, contacts, synonym links, related links, and definition links
+connecting glossary terms to BigQuery table columns.
 
 Usage: python3 01_create_glossary.py
 """
@@ -27,7 +28,7 @@ import logging
 import sys
 import time
 
-from common import load_config, api_call, poll_operation, DATAPLEX_URL as BASE_URL, GLOSSARY_ID
+from common import load_config, api_call, poll_operation, glossary_term_entry, bq_table_entry, DATAPLEX_URL as BASE_URL, GLOSSARY_ID
 
 logger = logging.getLogger(__name__)
 
@@ -408,6 +409,8 @@ TERMS = [
     # --- Regulatory & Compliance ---
     ("sar", "Suspicious Activity Report (SAR)", "bsa-aml",
      "A FinCEN filing (Form 111) required when a bank detects known or suspected violations of law, suspicious transactions, or structuring patterns."),
+    ("aml", "AML (Anti-Money Laundering)", "bsa-aml",
+     "A set of laws, regulations, and procedures intended to prevent criminals from disguising illegally obtained funds as legitimate income. Banks must implement AML programs including customer due diligence, transaction monitoring, and suspicious activity reporting under the Bank Secrecy Act."),
     ("bsa", "Bank Secrecy Act (BSA)", "bsa-aml",
      "Federal legislation requiring financial institutions to maintain records and file reports that help detect and prevent money laundering and terrorist financing."),
     ("ofac-screening", "OFAC Screening", "bsa-aml",
@@ -498,6 +501,8 @@ SYNONYM_LINKS = [
     ("acl-abbr", "allowance-for-credit-losses"),
     ("ltv-abbr", "ltv-ratio"),
     ("dti-abbr", "dti-ratio"),
+    ("bsa", "bsa-abbr"),
+    ("aml", "sar"),
 ]
 
 RELATED_LINKS = [
@@ -551,7 +556,153 @@ RELATED_LINKS = [
     ("general-ledger", "risk-weighted-assets"),
     ("branch", "core-banking-system"),
     ("branch", "digital-channel"),
+    # AML relationships
+    ("aml", "bsa"),
+    ("aml", "kyc"),
+    ("aml", "sar"),
+    ("aml", "cdd"),
+    ("aml", "wire-transfer"),
+    # Basel III / stress testing / liquidity
+    ("basel-iii", "stress-testing"),
+    ("basel-iii", "liquidity-risk"),
+    ("stress-testing", "cet1-ratio"),
+    ("stress-testing", "liquidity-risk"),
+    ("stress-testing", "dfast"),
+    ("liquidity-risk", "cet1-ratio"),
+    ("wire-transfer", "bsa"),
+    # Charge-off relationships
+    ("charge-off", "allowance-for-credit-losses"),
+    ("charge-off", "risk-rating"),
+    # Sharpe / alpha
+    ("sharpe-ratio", "alpha"),
+    ("sharpe-ratio", "benchmark"),
+    ("sharpe-ratio", "aum"),
 ]
+
+
+DEFINITION_LINKS = [
+    # Bronze - Customer & Identity
+    ("customer-id", "fsi_bronze", "bronze_customers", "customer_id"),
+    ("tin", "fsi_bronze", "bronze_customers", "ssn"),
+    ("customer-segment", "fsi_bronze", "bronze_customers", "customer_segment"),
+    ("kyc", "fsi_bronze", "bronze_customers", "kyc_status"),
+    ("kyc", "fsi_bronze", "bronze_kyc_records", "kyc_id"),
+    ("cdd", "fsi_bronze", "bronze_kyc_records", "due_diligence_level"),
+    ("pep", "fsi_bronze", "bronze_kyc_records", "pep_flag"),
+    ("beneficial-owner", "fsi_bronze", "bronze_kyc_records", "beneficial_owner_id"),
+    # Bronze - Deposits & Accounts
+    ("checking-account", "fsi_bronze", "bronze_accounts", None),
+    ("account-balance", "fsi_bronze", "bronze_accounts", "current_balance"),
+    # Bronze - Lending
+    ("mortgage", "fsi_bronze", "bronze_loans", None),
+    ("fico-score", "fsi_bronze", "bronze_loans", "fico_score_at_origination"),
+    ("ltv-ratio", "fsi_bronze", "bronze_loans", "ltv_ratio"),
+    ("dti-ratio", "fsi_bronze", "bronze_loans", "dti_ratio"),
+    ("delinquency", "fsi_bronze", "bronze_loans", "delinquency_status"),
+    ("risk-rating", "fsi_bronze", "bronze_loans", "risk_rating"),
+    # Bronze - Cards & Payments
+    ("credit-card", "fsi_bronze", "bronze_credit_cards", "card_id"),
+    ("apr", "fsi_bronze", "bronze_credit_cards", "apr"),
+    ("wire-transfer", "fsi_bronze", "bronze_wire_transfers", "wire_id"),
+    ("ach", "fsi_bronze", "bronze_ach_transfers", "ach_id"),
+    ("ctr", "fsi_bronze", "bronze_wire_transfers", "requires_ctr"),
+    ("ofac-screening", "fsi_bronze", "bronze_wire_transfers", "ofac_hold"),
+    ("sar", "fsi_bronze", "bronze_fraud_alerts", "sar_filed"),
+    ("branch", "fsi_bronze", "bronze_branches", "branch_id"),
+    # Bronze - Wealth
+    ("aum", "fsi_bronze", "bronze_wm_clients", "total_aum"),
+    ("portfolio", "fsi_bronze", "bronze_portfolios", "portfolio_id"),
+    ("asset-allocation", "fsi_bronze", "bronze_holdings", "asset_class"),
+    ("cusip", "fsi_bronze", "bronze_securities", "cusip"),
+    ("isin", "fsi_bronze", "bronze_securities", "isin"),
+    ("ticker-symbol", "fsi_bronze", "bronze_securities", "ticker"),
+    ("financial-advisor", "fsi_bronze", "bronze_advisors", "advisor_id"),
+    ("advisory-fee", "fsi_bronze", "bronze_fee_schedules", "fee_rate_bps"),
+    ("benchmark", "fsi_bronze", "bronze_benchmarks", "benchmark_id"),
+    ("sharpe-ratio", "fsi_bronze", "bronze_performance", "sharpe_ratio"),
+    ("alpha", "fsi_bronze", "bronze_performance", "alpha"),
+    # Bronze - Risk & Regulatory
+    ("general-ledger", "fsi_bronze", "bronze_gl_entries", "gl_entry_id"),
+    ("general-ledger", "fsi_bronze", "bronze_gl_accounts", "gl_account_id"),
+    ("cet1-ratio", "fsi_bronze", "bronze_regulatory_capital", "capital_ratio"),
+    ("risk-weighted-assets", "fsi_bronze", "bronze_regulatory_capital", "risk_weighted_assets"),
+    ("var", "fsi_bronze", "bronze_risk_exposures", "gross_exposure"),
+    ("stress-testing", "fsi_bronze", "bronze_stress_tests", "stress_test_id"),
+    ("call-report", "fsi_bronze", "bronze_regulatory_filings", "filing_id"),
+    ("aml", "fsi_bronze", "bronze_compliance_cases", None),
+    # Silver
+    ("customer-id", "fsi_silver", "silver_customers", "customer_id"),
+    ("tin", "fsi_silver", "silver_customers", "ssn_masked"),
+    ("customer-segment", "fsi_silver", "silver_customers", "customer_segment"),
+    ("account-balance", "fsi_silver", "silver_accounts", "current_balance"),
+    ("fico-score", "fsi_silver", "silver_loans", "fico_score_at_origination"),
+    ("ltv-ratio", "fsi_silver", "silver_loans", "ltv_ratio"),
+    ("dti-ratio", "fsi_silver", "silver_loans", "dti_ratio"),
+    ("delinquency", "fsi_silver", "silver_loans", "delinquency_status"),
+    ("risk-rating", "fsi_silver", "silver_loans", "risk_rating"),
+    ("credit-card", "fsi_silver", "silver_credit_cards", "card_id"),
+    ("apr", "fsi_silver", "silver_credit_cards", "apr"),
+    ("wire-transfer", "fsi_silver", "silver_wire_transfers", "wire_id"),
+    ("ach", "fsi_silver", "silver_ach_transfers", "ach_id"),
+    ("sar", "fsi_silver", "silver_fraud_alerts", "sar_filed"),
+    ("aum", "fsi_silver", "silver_wm_clients", "total_aum"),
+    ("portfolio", "fsi_silver", "silver_portfolios", "portfolio_id"),
+    ("cusip", "fsi_silver", "silver_securities", "cusip"),
+    ("isin", "fsi_silver", "silver_securities", "isin"),
+    ("financial-advisor", "fsi_silver", "silver_advisors", "advisor_id"),
+    ("general-ledger", "fsi_silver", "silver_gl_entries", "gl_entry_id"),
+    ("cet1-ratio", "fsi_silver", "silver_regulatory_capital", "capital_ratio"),
+    ("risk-weighted-assets", "fsi_silver", "silver_regulatory_capital", "risk_weighted_assets"),
+    # Gold
+    ("customer-id", "fsi_gold", "gold_customer_360", "customer_id"),
+    ("aum", "fsi_gold", "gold_customer_360", "total_aum"),
+    ("customer-segment", "fsi_gold", "gold_customer_360", "customer_segment"),
+    ("delinquency", "fsi_gold", "gold_delinquency_analysis", "delinquency_status"),
+    ("fico-score", "fsi_gold", "gold_loan_portfolio_summary", "avg_fico"),
+    ("sar", "fsi_gold", "gold_fraud_analytics", "sar_count"),
+    ("aml", "fsi_gold", "gold_aml_risk_scoring", None),
+    ("aml", "fsi_gold", "gold_fraud_analytics", None),
+    ("cet1-ratio", "fsi_gold", "gold_capital_adequacy", "capital_ratio"),
+    ("net-interest-margin", "fsi_gold", "gold_net_interest_margin", "avg_interest_rate"),
+    ("branch", "fsi_gold", "gold_branch_performance", "branch_id"),
+    ("advisory-fee", "fsi_gold", "gold_fee_revenue", "avg_fee_rate_bps"),
+    ("sharpe-ratio", "fsi_gold", "gold_advisor_scorecard", "avg_sharpe_ratio"),
+    ("sharpe-ratio", "fsi_gold", "gold_portfolio_performance", "avg_sharpe_ratio"),
+    ("alpha", "fsi_gold", "gold_advisor_scorecard", "avg_alpha"),
+    ("var", "fsi_gold", "gold_market_risk_var", "var_99_1d"),
+    ("stress-testing", "fsi_gold", "gold_capital_adequacy", None),
+    ("bsa", "fsi_gold", "gold_aml_risk_scoring", None),
+    ("bsa", "fsi_gold", "gold_fraud_analytics", None),
+    ("charge-off", "fsi_gold", "gold_loan_portfolio_summary", None),
+    ("charge-off", "fsi_gold", "gold_delinquency_analysis", None),
+    ("liquidity-risk", "fsi_gold", "gold_liquidity_coverage", None),
+    ("basel-iii", "fsi_gold", "gold_capital_adequacy", None),
+    ("basel-iii", "fsi_gold", "gold_regulatory_dashboard", None),
+]
+
+
+def create_definition_link(cfg, term_id, dataset, table, column=None):
+    pid = cfg["project_id"]
+    loc = cfg["multi_region"]
+    col_suffix = f"-{column.replace('_', '-')}" if column else ""
+    link_id = f"def-{term_id}-{table.replace('_', '-')}{col_suffix}"[:63]
+
+    source_ref = {"name": bq_table_entry(cfg, dataset, table), "type": "SOURCE"}
+    if column:
+        source_ref["path"] = f"Schema.{column}"
+
+    url = (
+        f"{BASE_URL}/projects/{pid}/locations/{loc}"
+        f"/entryGroups/@bigquery/entryLinks?entryLinkId={link_id}"
+    )
+    body = {
+        "entryLinkType": "projects/dataplex-types/locations/global/entryLinkTypes/definition",
+        "entryReferences": [
+            source_ref,
+            {"name": glossary_term_entry(cfg, term_id), "type": "TARGET"},
+        ],
+    }
+    api_call(url, "POST", body)
 
 
 def main():
@@ -618,14 +769,25 @@ def main():
             logger.warning("Failed to create related link %s: %s", link_id, e)
         time.sleep(0.5)
 
+    logger.info("--- Creating definition links (%d) ---", len(DEFINITION_LINKS))
+    def_created = 0
+    for term_id, dataset, table, column in DEFINITION_LINKS:
+        try:
+            create_definition_link(cfg, term_id, dataset, table, column)
+            def_created += 1
+        except RuntimeError as e:
+            logger.warning("Failed definition link %s->%s: %s", term_id, table, str(e)[:80])
+        time.sleep(0.3)
+
     logger.info("=" * 60)
     logger.info("GLOSSARY CREATION COMPLETE")
-    logger.info("  Glossary:       %s", GLOSSARY_ID)
-    logger.info("  Categories:     %d (L1) + %d (L2) = %d", len(CATEGORIES), l2_count, len(CATEGORIES) + l2_count)
-    logger.info("  Terms:          %d", len(TERMS))
-    logger.info("  Overviews:      %d", len(OVERVIEWS))
-    logger.info("  Synonym Links:  %d", len(SYNONYM_LINKS))
-    logger.info("  Related Links:  %d", len(RELATED_LINKS))
+    logger.info("  Glossary:         %s", GLOSSARY_ID)
+    logger.info("  Categories:       %d (L1) + %d (L2) = %d", len(CATEGORIES), l2_count, len(CATEGORIES) + l2_count)
+    logger.info("  Terms:            %d", len(TERMS))
+    logger.info("  Overviews:        %d", len(OVERVIEWS))
+    logger.info("  Synonym Links:    %d", len(SYNONYM_LINKS))
+    logger.info("  Related Links:    %d", len(RELATED_LINKS))
+    logger.info("  Definition Links: %d created (of %d)", def_created, len(DEFINITION_LINKS))
     logger.info("=" * 60)
 
 

@@ -22,6 +22,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)"
 cd "${SCRIPT_DIR}"
 
+TOTAL=16
 FAILED=0
 SUCCEEDED=0
 
@@ -29,7 +30,7 @@ run_step() {
     local step="$1"
     local desc="$2"
     local cmd="$3"
-    echo "[${step}/18] ${desc}..."
+    echo "[${step}/${TOTAL}] ${desc}..."
     if eval "${cmd}"; then
         SUCCEEDED=$((SUCCEEDED + 1))
     else
@@ -40,13 +41,12 @@ run_step() {
 
 echo "=== Post-Deploy: Creating FSI governance resources ==="
 
-run_step  0 "Creating Dataplex infrastructure"      "python3 00_create_dataplex_infra.py"
-run_step  1 "Creating business glossary"            "python3 01_create_glossary.py"
-run_step  2 "Creating Dataplex scans"               "python3 02_create_scans.py"
-run_step  3 "Creating source system entries"        "python3 03_create_source_entries.py"
-run_step  4 "Applying custom aspects"               "python3 04_create_aspects.py"
-run_step  5 "Creating data products"                "python3 05_create_data_products.py"
-run_step  6 "Creating glossary-to-column links"     "python3 06_create_glossary_links.py"
+run_step  1 "Creating Dataplex infrastructure"      "python3 00_create_dataplex_infra.py"
+run_step  2 "Creating business glossary & links"    "python3 01_create_glossary.py"
+run_step  3 "Creating Dataplex scans"               "python3 02_create_scans.py"
+run_step  4 "Creating source system entries"        "python3 03_create_source_entries.py"
+run_step  5 "Applying custom aspects"               "python3 04_create_aspects.py"
+run_step  6 "Creating data products"                "python3 05_create_data_products.py"
 run_step  7 "Creating data lineage"                 "python3 07_create_lineage.py"
 run_step  8 "Publishing scan results"               "python3 08_publish_scans.py"
 run_step  9 "Running query simulation"              "python3 09_simulate_queries.py --iterations 1"
@@ -57,12 +57,11 @@ run_step 13 "Applying insights descriptions"        "python3 13_apply_insights_d
 run_step 14 "Linking glossary terms to data assets" "python3 14_link_glossary_to_assets.py"
 run_step 15 "Injecting dirty data for DQ failures"  "python3 15_inject_dirty_data.py"
 run_step 16 "Creating column-level policy tags"     "python3 16_create_policy_tags.py"
-run_step 17 "Enriching glossary terms with links"   "python3 17_enrich_new_terms.py"
 
 echo ""
 echo "=== Post-Deploy Complete ==="
-echo "  Succeeded: ${SUCCEEDED}/18"
+echo "  Succeeded: ${SUCCEEDED}/${TOTAL}"
 if [ ${FAILED} -gt 0 ]; then
-    echo "  Failed:    ${FAILED}/18 (check logs above)"
+    echo "  Failed:    ${FAILED}/${TOTAL} (check logs above)"
     exit 1
 fi
