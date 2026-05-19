@@ -16,4 +16,5 @@ dependencies = [
 eval = [
     "pyyaml>=6.0",
     "websockets>=12.0",
+    "pandas>=2.0",
 ]

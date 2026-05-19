@@ -266,6 +266,14 @@ def run_evaluation(args):
         all_results.append(case_results)
         print()
 
+    # Vertex AI LLM-judged evaluation
+    if args.use_vertex_eval:
+        print(f"\n{'=' * 60}")
+        print(f"  Vertex AI LLM-Judged Evaluation")
+        print(f"{'=' * 60}\n")
+        from vertex_eval import run_vertex_eval
+        run_vertex_eval(all_results, agents_to_run, project_id, location)
+
     # Generate reports
     from report import print_terminal_report, generate_html_report
 
@@ -314,6 +322,8 @@ def main():
     parser.add_argument("--basic-id", help="Override basic agent ID")
     parser.add_argument("--scaled-id", help="Override scaled agent ID")
     parser.add_argument("--kc-id", help="Override KC agent ID")
+    parser.add_argument("--use-vertex-eval", action="store_true",
+                        help="Enable Vertex AI LLM-judged metrics alongside custom metrics")
     args = parser.parse_args()
     run_evaluation(args)
 
