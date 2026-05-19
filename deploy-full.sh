@@ -157,22 +157,15 @@ echo "    SCALED_AGENT_ID=${SCALED_AGENT_ID:-NOT SET}"
 echo "    KC_AGENT_ID=${KC_AGENT_ID:-NOT SET}"
 
 # ---------------------------------------------------------------------------
-# Step 7: Deploy static demo website to Cloud Run
-# ---------------------------------------------------------------------------
-echo "=== Deploying static demo website ==="
-bash "${SCRIPT_DIR}/website/deploy.sh"
-WEBSITE_URL=$(gcloud run services describe fsi-kc-demo-ui --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
-
-# ---------------------------------------------------------------------------
-# Step 8: Deploy live WebSocket website
+# Step 7: Deploy website to Cloud Run
 # ---------------------------------------------------------------------------
 if [[ -n "${BASIC_AGENT_ID:-}" && -n "${SCALED_AGENT_ID:-}" && -n "${KC_AGENT_ID:-}" ]]; then
-    echo "=== Deploying live WebSocket website ==="
+    echo "=== Deploying website ==="
     bash "${SCRIPT_DIR}/website-live/deploy.sh"
-    LIVE_URL=$(gcloud run services describe fsi-kc-demo-ui-live --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
+    WEBSITE_URL=$(gcloud run services describe fsi-kc-demo-ui-live --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
 else
-    LIVE_URL="not deployed (agent IDs not captured)"
-    echo "=== Skipping live website (agent IDs not captured) ==="
+    WEBSITE_URL="not deployed (agent IDs not captured)"
+    echo "=== Skipping website (agent IDs not captured) ==="
     echo "  To deploy manually, set BASIC_AGENT_ID, SCALED_AGENT_ID, KC_AGENT_ID and run:"
     echo "    bash website-live/deploy.sh"
 fi
@@ -187,8 +180,7 @@ echo "============================================================"
 echo "  Project:    ${GOOGLE_CLOUD_PROJECT}"
 echo "  Region:     ${GOOGLE_CLOUD_LOCATION}"
 echo ""
-echo "  Website (static):  ${WEBSITE_URL}"
-echo "  Website (live):    ${LIVE_URL}"
+echo "  Website:    ${WEBSITE_URL}"
 echo "  BigQuery:   https://console.cloud.google.com/bigquery?project=${GOOGLE_CLOUD_PROJECT}"
 echo "  Dataplex:   https://console.cloud.google.com/dataplex?project=${GOOGLE_CLOUD_PROJECT}"
 echo "  Agents:     https://console.cloud.google.com/vertex-ai/agents?project=${GOOGLE_CLOUD_PROJECT}"
