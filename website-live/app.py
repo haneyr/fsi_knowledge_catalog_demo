@@ -11,8 +11,10 @@ Env vars:
     BASIC_AGENT_ID — Agent Engine ID for basic agent
     SCALED_AGENT_ID — Agent Engine ID for scaled agent
     KC_AGENT_ID — Agent Engine ID for KC agent
+    OAUTH_CLIENT_ID — Google OAuth 2.0 client ID (optional, enables auth)
 """
 
+import functools
 import json
 import os
 import re
@@ -21,6 +23,7 @@ import logging
 
 import google.auth
 import google.auth.transport.requests
+from google.oauth2 import id_token as google_id_token
 import requests as http_requests
 from flask import Flask, send_from_directory, request, jsonify
 
@@ -37,6 +40,8 @@ AGENT_IDS = {
     "scaled": os.environ.get("SCALED_AGENT_ID", ""),
     "kc": os.environ.get("KC_AGENT_ID", ""),
 }
+
+OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID", "")
 
 AE_BASE = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
 _sessions = {}
@@ -216,6 +221,38 @@ def _parse_stream_chunk(raw_text):
     return events
 
 
+# ---- Auth ----
+
+def _verify_id_token(token):
+    if not token:
+        return None
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            token, google.auth.transport.requests.Request(), OAUTH_CLIENT_ID
+        )
+        return {
+            "email": idinfo.get("email", ""),
+            "name": idinfo.get("name", ""),
+            "picture": idinfo.get("picture", ""),
+        }
+    except (ValueError, Exception):
+        return None
+
+
+def login_required(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        if not OAUTH_CLIENT_ID:
+            return f(*args, **kwargs)
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        user = _verify_id_token(token)
+        if not user:
+            return jsonify({"error": "Authentication required"}), 401
+        request.user = user
+        return f(*args, **kwargs)
+    return wrapper
+
+
 # ---- Routes ----
 
 @app.route("/")
@@ -233,6 +270,7 @@ def config():
     return jsonify({
         "project_id": PROJECT_ID,
         "project_number": _get_project_number(),
+        "oauth_client_id": OAUTH_CLIENT_ID,
         "live_mode": any(AGENT_IDS.values()),
         "agents": {k: bool(v) for k, v in AGENT_IDS.items()},
     })
@@ -266,6 +304,7 @@ def _get_tier(table_name):
 
 
 @app.route("/api/table-info")
+@login_required
 def table_info():
     table = request.args.get("table", "")
     if not table or not PROJECT_ID:
@@ -349,6 +388,7 @@ TERM_SLUG_MAP = {
 
 
 @app.route("/api/term-info")
+@login_required
 def term_info():
     term = request.args.get("term", "")
     if not term or not PROJECT_ID:
@@ -407,7 +447,15 @@ try:
 
     @sock.route("/api/ws")
     def websocket_chat(ws):
-        user_id = f"ws_user_{id(ws)}"
+        if OAUTH_CLIENT_ID:
+            token = request.args.get("token", "")
+            user = _verify_id_token(token)
+            if not user:
+                ws.send(json.dumps({"type": "error", "message": "Authentication required"}))
+                return
+            user_id = user["email"]
+        else:
+            user_id = f"ws_user_{id(ws)}"
 
         while True:
             raw = ws.receive()

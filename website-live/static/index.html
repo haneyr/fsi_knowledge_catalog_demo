@@ -5,8 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Meridian National Bank — Knowledge Catalog Agent Demo (Live)</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="agent-basic">
+
+  <div id="loginScreen" class="login-screen hidden">
+    <div class="login-card">
+      <div class="login-logo">Meridian <span>National Bank</span></div>
+      <p class="login-subtitle">Knowledge Catalog Agent Demo</p>
+      <div id="gsiButtonContainer"></div>
+    </div>
+  </div>
 
   <header class="app-header">
     <div class="logo">Meridian <span>National Bank</span></div>
@@ -14,6 +23,11 @@
       <button class="agent-tab active" data-agent="basic" onclick="switchAgent('basic')">Basic Agent</button>
       <button class="agent-tab" data-agent="scaled" onclick="switchAgent('scaled')">Scaled Agent</button>
       <button class="agent-tab" data-agent="kc" onclick="switchAgent('kc')">KC Agent</button>
+    </div>
+    <div class="user-profile hidden" id="userProfile">
+      <img id="userAvatar" class="user-avatar" src="" alt="">
+      <span id="userName" class="user-name"></span>
+      <button class="sign-out-btn" onclick="signOut()">Sign out</button>
     </div>
     <span id="modeBadge" class="mode-badge static">STATIC</span>
   </header>
@@ -182,6 +196,78 @@
     window.addEventListener('resize', () => viz.resize());
     renderNarrativeTabs();
     switchAgent('basic');
+
+    // ---- Auth ----
+    let authToken = localStorage.getItem('id_token');
+    let oauthClientId = '';
+
+    function handleCredentialResponse(response) {
+      authToken = response.credential;
+      localStorage.setItem('id_token', authToken);
+      const payload = JSON.parse(atob(authToken.split('.')[1]));
+      showAuthenticatedUI(payload);
+    }
+    window.handleCredentialResponse = handleCredentialResponse;
+
+    function showAuthenticatedUI(user) {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.querySelector('.main-container').style.display = '';
+      document.querySelector('.app-header').style.display = '';
+      const profile = document.getElementById('userProfile');
+      if (user.picture) {
+        document.getElementById('userAvatar').src = user.picture;
+        document.getElementById('userAvatar').style.display = '';
+      }
+      document.getElementById('userName').textContent = user.name || user.email || '';
+      profile.classList.remove('hidden');
+    }
+
+    function showLoginScreen() {
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.querySelector('.main-container').style.display = 'none';
+      document.querySelector('.app-header').style.display = 'none';
+      if (oauthClientId && typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.initialize({
+          client_id: oauthClientId,
+          callback: handleCredentialResponse,
+        });
+        google.accounts.id.renderButton(
+          document.getElementById('gsiButtonContainer'),
+          { theme: 'filled_black', size: 'large', text: 'signin_with', width: 280 }
+        );
+      }
+    }
+
+    function signOut() {
+      localStorage.removeItem('id_token');
+      authToken = null;
+      document.getElementById('userProfile').classList.add('hidden');
+      if (typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.disableAutoSelect();
+      }
+      showLoginScreen();
+    }
+    window.signOut = signOut;
+
+    // Check auth state on load
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      oauthClientId = cfg.oauth_client_id || '';
+      if (!oauthClientId) return; // no auth configured
+
+      if (authToken) {
+        try {
+          const payload = JSON.parse(atob(authToken.split('.')[1]));
+          const exp = payload.exp * 1000;
+          if (Date.now() < exp) {
+            showAuthenticatedUI(payload);
+            return;
+          }
+        } catch (e) {}
+        localStorage.removeItem('id_token');
+        authToken = null;
+      }
+      showLoginScreen();
+    });
 
     // Resize handle drag
     const handle = document.getElementById('resizeHandle');

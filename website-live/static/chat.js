@@ -374,7 +374,11 @@ class ChatPanel {
   async _sendWebSocket(question) {
     return new Promise((resolve) => {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${proto}//${location.host}/api/ws`);
+      const token = localStorage.getItem('id_token') || '';
+      const wsUrl = token
+        ? `${proto}//${location.host}/api/ws?token=${encodeURIComponent(token)}`
+        : `${proto}//${location.host}/api/ws`;
+      const ws = new WebSocket(wsUrl);
       let resolved = false;
       const done = () => { if (!resolved) { resolved = true; resolve(); } };
 
@@ -519,7 +523,10 @@ class ChatPanel {
     popup.style.top = top + 'px';
 
     try {
-      const resp = await fetch(`/api/table-info?table=${encodeURIComponent(tableName)}`);
+      const headers = {};
+      const idToken = localStorage.getItem('id_token');
+      if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+      const resp = await fetch(`/api/table-info?table=${encodeURIComponent(tableName)}`, { headers });
       const info = await resp.json();
 
       popup.classList.remove('loading');
@@ -576,7 +583,10 @@ class ChatPanel {
     popup.style.top = top + 'px';
 
     try {
-      const resp = await fetch(`/api/term-info?term=${encodeURIComponent(termName)}`);
+      const headers = {};
+      const idToken = localStorage.getItem('id_token');
+      if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+      const resp = await fetch(`/api/term-info?term=${encodeURIComponent(termName)}`, { headers });
       const info = await resp.json();
 
       popup.classList.remove('loading');
