@@ -22,7 +22,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)"
 cd "${SCRIPT_DIR}"
 
-TOTAL=16
+TOTAL=15
 FAILED=0
 SUCCEEDED=0
 
@@ -54,9 +54,8 @@ run_step 10 "Creating reusable rule library"        "python3 10_create_rule_libr
 run_step 11 "Running profile and insights scans"    "python3 11_run_scans_and_apply_insights.py"
 run_step 12 "Enriching glossary term overviews"     "python3 12_enrich_glossary.py"
 run_step 13 "Applying insights descriptions"        "python3 13_apply_insights_descriptions.py"
-run_step 14 "Linking glossary terms to data assets" "python3 14_link_glossary_to_assets.py"
-run_step 15 "Injecting dirty data for DQ failures"  "python3 15_inject_dirty_data.py"
-run_step 16 "Creating column-level policy tags"     "python3 16_create_policy_tags.py"
+run_step 14 "Injecting dirty data for DQ failures"  "python3 15_inject_dirty_data.py"
+run_step 15 "Creating column-level policy tags"     "python3 16_create_policy_tags.py"
 
 echo ""
 echo "=== Post-Deploy Complete ==="
