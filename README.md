@@ -208,6 +208,64 @@ python3 agent.py
 - Cites glossary terms, data quality scores, and lineage in answers
 - Uses native Dataplex REST API calls (no external MCP Toolbox binary needed)
 
+## Website Authentication (Optional)
+
+The demo website supports Google Sign-In via OAuth 2.0. Without it, the site
+is open to anyone who has the URL. With it, users must sign in with a Google
+account before they can interact with the agents.
+
+### Creating an OAuth Client ID
+
+1. Open the [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials) page for your project.
+
+2. If you haven't configured the **OAuth consent screen** yet:
+   - Click **OAuth consent screen** in the left nav.
+   - Choose **Internal** (restricts to your Google Workspace org) or **External** (allows any Google account).
+   - Fill in the required fields: **App name**, **User support email**, and **Developer contact email**.
+   - Click **Save and Continue** through the remaining steps (Scopes, Test Users). No scopes need to be added — the app only uses the ID token for identity.
+
+3. Go back to **Credentials** and click **+ Create Credentials → OAuth client ID**.
+   - Application type: **Web application**
+   - Name: `FSI KC Demo` (or any name you prefer)
+   - **Authorized JavaScript origins**: Add the Cloud Run URL from your deployment output (e.g. `https://fsi-kc-demo-ui-live-xxxxx-uc.a.run.app`). If running locally, also add `http://localhost:8080`.
+   - Leave **Authorized redirect URIs** empty — the app uses Google Identity Services (popup/one-tap), not a server-side redirect flow.
+   - Click **Create**.
+
+4. Copy the **Client ID** (looks like `123456789-abcdef.apps.googleusercontent.com`).
+
+### Deploying with OAuth
+
+Pass the client ID as an environment variable when deploying:
+
+```bash
+export OAUTH_CLIENT_ID=123456789-abcdef.apps.googleusercontent.com
+bash website-live/deploy.sh
+```
+
+Or as part of the full deploy:
+
+```bash
+export OAUTH_CLIENT_ID=123456789-abcdef.apps.googleusercontent.com
+bash deploy-full.sh
+```
+
+After deployment, the deploy script will remind you to add the Cloud Run URL as
+an authorized JavaScript origin if you haven't already.
+
+### Updating the Authorized Origin After Deploy
+
+The Cloud Run URL isn't known until after the first deploy. To update it:
+
+1. Go to [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials).
+2. Click your OAuth client ID.
+3. Under **Authorized JavaScript origins**, add the Cloud Run URL printed at the end of the deploy.
+4. Click **Save**. Changes take effect within a few minutes.
+
+### Running Without OAuth
+
+If `OAUTH_CLIENT_ID` is not set (the default), the website runs without
+authentication. All endpoints are publicly accessible to anyone with the URL.
+
 ## Demo Questions
 
 See `demo/demo_questions.md` for 15 curated questions across 3 tiers:
