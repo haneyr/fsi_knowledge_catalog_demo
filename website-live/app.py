@@ -25,7 +25,7 @@ import google.auth
 import google.auth.transport.requests
 from google.oauth2 import id_token as google_id_token
 import requests as http_requests
-from flask import Flask, send_from_directory, request, jsonify
+from flask import Flask, g, send_from_directory, request, jsonify
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__, static_folder="static")
@@ -44,7 +44,9 @@ AGENT_IDS = {
 OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID", "")
 
 AE_BASE = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
+_SESSION_TTL = 3600
 _sessions = {}
+_session_times = {}
 
 _BASE_SUFFIXES = [
     'customers','accounts','transactions','loans','loan_payments','credit_cards',
@@ -141,7 +143,10 @@ def _ae_url(agent_id):
 def _get_or_create_session(agent_id, user_id):
     key = f"{agent_id}:{user_id}"
     if key in _sessions:
-        return _sessions[key]
+        if time.time() - _session_times.get(key, 0) < _SESSION_TTL:
+            return _sessions[key]
+        del _sessions[key]
+        del _session_times[key]
 
     try:
         token = _get_token()
@@ -158,6 +163,7 @@ def _get_or_create_session(agent_id, user_id):
             output = resp.json().get("output", {})
             session_id = output.get("id", "") if isinstance(output, dict) else str(output)
             _sessions[key] = session_id
+            _session_times[key] = time.time()
             return session_id
         return None
     except Exception as e:
@@ -223,19 +229,22 @@ def _parse_stream_chunk(raw_text):
 
 # ---- Auth ----
 
+_auth_request = google.auth.transport.requests.Request()
+
+
 def _verify_id_token(token):
     if not token:
         return None
     try:
         idinfo = google_id_token.verify_oauth2_token(
-            token, google.auth.transport.requests.Request(), OAUTH_CLIENT_ID
+            token, _auth_request, OAUTH_CLIENT_ID
         )
         return {
             "email": idinfo.get("email", ""),
             "name": idinfo.get("name", ""),
             "picture": idinfo.get("picture", ""),
         }
-    except (ValueError, Exception):
+    except Exception:
         return None
 
 
@@ -248,7 +257,7 @@ def login_required(f):
         user = _verify_id_token(token)
         if not user:
             return jsonify({"error": "Authentication required"}), 401
-        request.user = user
+        g.user = user
         return f(*args, **kwargs)
     return wrapper
 

@@ -101,6 +101,11 @@ function _linkifyEntities(container, agentMode, projectId) {
 }
 
 class ChatPanel {
+  _authHeaders() {
+    const token = localStorage.getItem('id_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   constructor(viz) {
     this.viz = viz;
     this.messagesEl = document.getElementById('chatMessages');
@@ -143,7 +148,6 @@ class ChatPanel {
     });
 
     this._loadStaticData();
-    this._checkLiveMode();
   }
 
   async _loadStaticData() {
@@ -153,16 +157,19 @@ class ChatPanel {
     } catch (e) { /* no static data */ }
   }
 
+  applyConfig(config) {
+    this.liveMode = config.live_mode;
+    this.projectId = config.project_id || '';
+    _projectNumber = config.project_number || '';
+    const badge = document.getElementById('modeBadge');
+    badge.className = 'mode-badge ' + (this.liveMode ? 'live' : 'static');
+    badge.textContent = this.liveMode ? 'LIVE' : 'STATIC';
+  }
+
   async _checkLiveMode() {
     try {
       const resp = await fetch('/api/config');
-      const config = await resp.json();
-      this.liveMode = config.live_mode;
-      this.projectId = config.project_id || '';
-      _projectNumber = config.project_number || '';
-      const badge = document.getElementById('modeBadge');
-      badge.className = 'mode-badge ' + (this.liveMode ? 'live' : 'static');
-      badge.textContent = this.liveMode ? 'LIVE' : 'STATIC';
+      this.applyConfig(await resp.json());
     } catch (e) {
       document.getElementById('modeBadge').className = 'mode-badge static';
       document.getElementById('modeBadge').textContent = 'STATIC';
@@ -523,10 +530,7 @@ class ChatPanel {
     popup.style.top = top + 'px';
 
     try {
-      const headers = {};
-      const idToken = localStorage.getItem('id_token');
-      if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
-      const resp = await fetch(`/api/table-info?table=${encodeURIComponent(tableName)}`, { headers });
+      const resp = await fetch(`/api/table-info?table=${encodeURIComponent(tableName)}`, { headers: this._authHeaders() });
       const info = await resp.json();
 
       popup.classList.remove('loading');
@@ -583,10 +587,7 @@ class ChatPanel {
     popup.style.top = top + 'px';
 
     try {
-      const headers = {};
-      const idToken = localStorage.getItem('id_token');
-      if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
-      const resp = await fetch(`/api/term-info?term=${encodeURIComponent(termName)}`, { headers });
+      const resp = await fetch(`/api/term-info?term=${encodeURIComponent(termName)}`, { headers: this._authHeaders() });
       const info = await resp.json();
 
       popup.classList.remove('loading');
