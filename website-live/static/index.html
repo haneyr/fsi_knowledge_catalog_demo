@@ -249,10 +249,12 @@
     }
     window.signOut = signOut;
 
-    // Check auth state on load
+    // Single /api/config fetch shared between ChatPanel and auth
     fetch('/api/config').then(r => r.json()).then(cfg => {
+      chat.applyConfig(cfg);
+
       oauthClientId = cfg.oauth_client_id || '';
-      if (!oauthClientId) return; // no auth configured
+      if (!oauthClientId) return;
 
       if (authToken) {
         try {

@@ -28,7 +28,7 @@
 
 /* User profile in header */
 .user-profile {
-  display: flex; align-items: center; gap: 8px; margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
 }
 .user-avatar {
   width: 28px; height: 28px; border-radius: 50%;
