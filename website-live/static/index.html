@@ -84,6 +84,8 @@
   <script src="/visualization.js"></script>
   <script src="/chat.js"></script>
   <script>
+    let _snowflakeEnabled = false;
+
     const NARRATIVES = {
       executive: {
         label: 'Executive Briefing',
@@ -113,6 +115,16 @@
           { cat: 'CUSIP Quality', q: 'We\'re seeing issues with our securities data. Can you check the quality of CUSIP identifiers?' },
           { cat: 'Lineage', q: 'Where does our customer data originate and how does it flow through the system?' },
           { cat: 'AML', q: 'I need to investigate AML risk. Show me high-risk customers with their KYC status and any recent wire transfer activity.' },
+        ],
+      },
+      multicloud: {
+        label: 'Multi-Cloud',
+        desc: 'Cross-platform queries spanning BigQuery and Snowflake.',
+        steps: [
+          { cat: 'Benchmarks', q: 'How do our portfolios compare to their benchmark indices this year? Use the external benchmark returns data.' },
+          { cat: 'Yield Curve', q: 'Show me the current SOFR and Treasury yield curve alongside our net interest margin.' },
+          { cat: 'Credit Spreads', q: 'What\'s our credit spread exposure by sector? Show current market spreads alongside our portfolio risk.' },
+          { cat: 'FX Rates', q: 'Compare our internal FX rates with the NEXUS spot rates. Are there any significant discrepancies?' },
         ],
       },
     };
@@ -168,6 +180,7 @@
       const container = document.getElementById('narrativeTabs');
       container.innerHTML = '';
       for (const [key, nar] of Object.entries(NARRATIVES)) {
+        if (key === 'multicloud' && !_snowflakeEnabled) continue;
         const btn = document.createElement('button');
         btn.className = 'narrative-tab' + (key === activeNarrative ? ' active' : '');
         btn.dataset.narrative = key;
@@ -252,6 +265,23 @@
     // Single /api/config fetch shared between ChatPanel and auth
     fetch('/api/config').then(r => r.json()).then(cfg => {
       chat.applyConfig(cfg);
+      _snowflakeEnabled = cfg.snowflake_enabled || false;
+      renderNarrativeTabs();
+
+      if (_snowflakeEnabled) {
+        AGENT_INFO.kc.desc = '150+ tables across BigQuery and Snowflake, navigated through Knowledge Catalog. Discovers data across clouds, queries both platforms, and combines results.';
+        AGENT_INFO.kc.title = 'Multi-cloud KC Agent';
+        if (document.querySelector('[data-agent="kc"].active')) {
+          document.getElementById('vizTitle').textContent = AGENT_INFO.kc.title;
+          document.getElementById('vizDesc').textContent = AGENT_INFO.kc.desc;
+        }
+
+        const legend = document.querySelector('.viz-legend');
+        const sfItem = document.createElement('div');
+        sfItem.className = 'legend-item';
+        sfItem.innerHTML = '<div class="legend-dot" style="background:#00BCD4"></div> Snowflake (' + (cfg.snowflake_tables || []).length + ')';
+        legend.appendChild(sfItem);
+      }
 
       oauthClientId = cfg.oauth_client_id || '';
       if (!oauthClientId) return;
