@@ -305,27 +305,36 @@ _SNOWFLAKE_SCHEMA_MAP = {}
 
 def _discover_snowflake_tables():
     global _SNOWFLAKE_TABLES, _SNOWFLAKE_SCHEMA_MAP
+    if _SNOWFLAKE_TABLES:
+        return
     if not PROJECT_ID or not os.environ.get("SNOWFLAKE_ACCOUNT"):
         return
     try:
         token = _get_token()
-        url = f"https://dataplex.googleapis.com/v1/projects/{PROJECT_ID}/locations/us/entryGroups/snowflake-nexus/entries"
-        resp = _get_http_session().get(url, headers={"Authorization": f"Bearer {token}"}, timeout=15)
-        if resp.status_code != 200:
-            logger.warning("Snowflake table discovery failed: %d", resp.status_code)
-            return
-        entries = resp.json().get("entries", [])
-        for entry in entries:
-            fqn = entry.get("fullyQualifiedName", "")
-            entry_type = entry.get("entryType", "")
-            if "snowflake-table" not in entry_type:
-                continue
-            parts = fqn.split(".")
-            if len(parts) >= 4:
-                schema = parts[-2].lower()
-                table = parts[-1].lower()
-                _SNOWFLAKE_TABLES.append(table)
-                _SNOWFLAKE_SCHEMA_MAP[table] = schema
+        base_url = f"https://dataplex.googleapis.com/v1/projects/{PROJECT_ID}/locations/us/entryGroups/snowflake-nexus/entries"
+        page_token = None
+        while True:
+            url = base_url + (f"?pageToken={page_token}" if page_token else "")
+            resp = _get_http_session().get(url, headers={"Authorization": f"Bearer {token}"}, timeout=15)
+            if resp.status_code != 200:
+                logger.warning("Snowflake table discovery failed: %d", resp.status_code)
+                return
+            data = resp.json()
+            for entry in data.get("entries", []):
+                fqn = entry.get("fullyQualifiedName", "")
+                entry_type = entry.get("entryType", "")
+                if "snowflake-table" not in entry_type:
+                    continue
+                parts = fqn.split(".")
+                if len(parts) >= 4:
+                    schema = parts[-2].lower()
+                    table = parts[-1].lower()
+                    if table not in _SNOWFLAKE_SCHEMA_MAP:
+                        _SNOWFLAKE_TABLES.append(table)
+                        _SNOWFLAKE_SCHEMA_MAP[table] = schema
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
         if _SNOWFLAKE_TABLES:
             ALL_TABLE_NAMES.extend(_SNOWFLAKE_TABLES)
             logger.info("Discovered %d Snowflake tables: %s", len(_SNOWFLAKE_TABLES), _SNOWFLAKE_TABLES)
