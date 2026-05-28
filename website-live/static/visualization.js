@@ -3,7 +3,8 @@
 const COLORS = {
   basic: '#4285F4', scaled: '#EA4335', kc: '#34A853',
   bronze: '#FF8F00', silver: '#90A4AE', gold: '#FFD600',
-  ref: '#546E7A', bg: '#0a0e1a', metadata: 'rgba(52,168,83,0.15)',
+  ref: '#546E7A', snowflake: '#00BCD4',
+  bg: '#0a0e1a', metadata: 'rgba(52,168,83,0.15)',
   lineage: 'rgba(255,255,255,0.35)', glossaryArc: 'rgba(52,168,83,0.6)',
 };
 
@@ -129,6 +130,26 @@ class PointCloud {
     this._animate();
   }
 
+  setSnowflakeTables(tableNames) {
+    if (!tableNames || tableNames.length === 0) return;
+    TABLES.snowflake = tableNames;
+    for (const name of tableNames) {
+      const node = {
+        id: this.nodes.length, name, layer: 'snowflake',
+        x: 0, y: 0, baseX: 0, baseY: 0,
+        radius: 3.5,
+        color: COLORS.snowflake,
+        alpha: 1, glow: 0, label: '', labelAlpha: 0,
+        orbitAngle: Math.random() * Math.PI * 2,
+        orbitSpeed: (0.0002 + Math.random() * 0.0003) * (Math.random() > 0.5 ? 1 : -1),
+        jitterX: 0, jitterY: 0,
+      };
+      this.nodes.push(node);
+      this.nodeMap[name] = node;
+    }
+    this._positionNodes();
+  }
+
   resize() {
     const rect = this.canvas.parentElement.getBoundingClientRect();
     this.canvas.width = rect.width * window.devicePixelRatio;
@@ -167,7 +188,8 @@ class PointCloud {
   _positionNodes() {
     const maxR = Math.min(this.cx, this.cy) * 0.85;
     for (const node of this.nodes) {
-      if (this.agentMode === 'basic') this._positionBasic(node, maxR);
+      if (node.layer === 'snowflake') this._positionSnowflake(node, maxR);
+      else if (this.agentMode === 'basic') this._positionBasic(node, maxR);
       else if (this.agentMode === 'scaled') this._positionScaled(node, maxR);
       else this._positionKC(node, maxR);
     }
@@ -206,6 +228,26 @@ class PointCloud {
     node.baseY = this.cy + Math.sin(angle) * ringR;
     node.alpha = node.layer === 'ref' ? 0.3 : 0.7;
     node.radius = node.layer === 'gold' ? 4.5 : node.layer === 'ref' ? 2 : 3;
+  }
+
+  _positionSnowflake(node, maxR) {
+    if (this.agentMode !== 'kc') {
+      node.alpha = 0;
+      node.baseX = this.cx + maxR * 1.2;
+      node.baseY = this.cy + maxR * 1.2;
+      return;
+    }
+    const tables = TABLES.snowflake || [];
+    const idx = tables.indexOf(node.name);
+    const count = tables.length || 1;
+    const clusterCx = this.cx + maxR * 0.65;
+    const clusterCy = this.cy + maxR * 0.7;
+    const clusterR = Math.min(55, maxR * 0.25);
+    const angle = (idx / count) * Math.PI * 2 - Math.PI / 2;
+    node.baseX = clusterCx + Math.cos(angle) * clusterR;
+    node.baseY = clusterCy + Math.sin(angle) * clusterR;
+    node.alpha = 0.7;
+    node.radius = 3.5;
   }
 
   setMode(mode) {
@@ -464,6 +506,28 @@ class PointCloud {
       }
     }
 
+    // Snowflake cluster boundary and label (KC mode only)
+    if (this.agentMode === 'kc' && TABLES.snowflake && TABLES.snowflake.length > 0) {
+      const maxR = Math.min(this.cx, this.cy) * 0.85;
+      const clusterCx = this.cx + maxR * 0.65;
+      const clusterCy = this.cy + maxR * 0.7;
+      const clusterR = Math.min(55, maxR * 0.25);
+
+      ctx.beginPath();
+      ctx.arc(clusterCx, clusterCy, clusterR + 15, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0,188,212,0.15)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = '10px system-ui';
+      ctx.fillStyle = 'rgba(0,188,212,0.5)';
+      ctx.textAlign = 'center';
+      ctx.fillText('NEXUS (Snowflake)', clusterCx, clusterCy - clusterR - 22);
+      ctx.textAlign = 'left';
+    }
+
     // Search pulse
     if (this._searchPulseRadius > 0 && this._searchPulseAlpha > 0) {
       ctx.beginPath();
@@ -540,6 +604,28 @@ class PointCloud {
         ctx.strokeStyle = `${col}${Math.floor(n.glow * 160).toString(16).padStart(2, '0')}`;
         ctx.lineWidth = 2;
         ctx.stroke();
+      }
+    }
+
+    // Cross-platform dashed lines (BQ <-> Snowflake)
+    if (this.agentMode === 'kc') {
+      const activeBQ = this.activeNodes.filter(n => n.layer !== 'snowflake' && n.glow > 0.3);
+      const activeSF = this.activeNodes.filter(n => n.layer === 'snowflake' && n.glow > 0.3);
+      if (activeBQ.length > 0 && activeSF.length > 0) {
+        for (const bq of activeBQ) {
+          for (const sf of activeSF) {
+            const mx = (bq.x + sf.x) / 2;
+            const my = (bq.y + sf.y) / 2 - 20;
+            ctx.beginPath();
+            ctx.moveTo(bq.x, bq.y);
+            ctx.quadraticCurveTo(mx, my, sf.x, sf.y);
+            ctx.strokeStyle = 'rgba(0,188,212,0.25)';
+            ctx.setLineDash([3, 3]);
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
       }
     }
 
