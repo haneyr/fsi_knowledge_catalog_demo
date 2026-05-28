@@ -136,13 +136,26 @@ def build_import_entries(cfg, tables, columns, tags, tag_refs):
         table_entry_name = f"{entry_group}/entries/snowflake-table-{DATABASE.lower()}-{schema.lower()}-{table_name.lower()}"
 
         # Build schema aspect with column info
+        # Dataplex metadataType is an enum: STRING, NUMBER, BOOLEAN, TIMESTAMP, DATE, etc.
+        _SF_TO_DATAPLEX_TYPE = {
+            "TEXT": "STRING", "VARCHAR": "STRING", "CHAR": "STRING", "STRING": "STRING",
+            "NUMBER": "NUMBER", "DECIMAL": "NUMBER", "NUMERIC": "NUMBER", "INT": "NUMBER",
+            "INTEGER": "NUMBER", "BIGINT": "NUMBER", "FLOAT": "NUMBER", "DOUBLE": "NUMBER",
+            "BOOLEAN": "BOOLEAN",
+            "DATE": "DATE",
+            "TIMESTAMP_TZ": "TIMESTAMP", "TIMESTAMP_LTZ": "TIMESTAMP",
+            "TIMESTAMP_NTZ": "TIMESTAMP", "TIMESTAMP": "TIMESTAMP",
+        }
         table_columns = col_map.get((schema, table_name), [])
         schema_fields = []
         for col in table_columns:
+            sf_type = col[5] or "STRING"
+            metadata_type = _SF_TO_DATAPLEX_TYPE.get(sf_type.split("(")[0].upper(), "STRING")
             field = {
                 "name": col[2],
                 "mode": "NULLABLE" if col[4] == "YES" else "REQUIRED",
-                "type": col[5] or "STRING",
+                "dataType": sf_type,
+                "metadataType": metadata_type,
             }
             if col[6]:
                 field["description"] = col[6]

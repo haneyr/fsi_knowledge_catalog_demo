@@ -51,23 +51,37 @@ GLOSSARY_LINKS = {
 
 
 def apply_glossary_links(cfg):
-    """Create definition links from glossary terms to Snowflake table columns."""
+    """Create definition links from glossary terms to Snowflake table columns.
+
+    Uses the entryLinks API (same pattern as scripts/01_create_glossary.py).
+
+    NOTE: This currently fails because the snowflake-nexus entry group is in
+    us-central1 but the glossary is in the us multi-region. Dataplex requires
+    entry links and their referenced entries to be in the same region. The
+    entries are still discoverable via KC search based on descriptions and
+    column comments. Glossary links will work once the entry group is moved
+    to the us multi-region.
+    """
     logger.info("=== Linking Snowflake columns to glossary terms ===")
     pid = cfg["project_id"]
-    loc = cfg["multi_region"]
+    loc = cfg["location"]
+    multi = cfg["multi_region"]
     count = 0
 
     for (schema, table), links in GLOSSARY_LINKS.items():
         entry = snowflake_table_entry(cfg, schema, table)
         for col_name, term_id in links:
-            term_entry = glossary_term_entry(cfg, term_id)
+            link_id = f"def-{term_id}-sf-{table.lower().replace('_', '-')}-{col_name.replace('_', '-')}"[:63]
             link_url = (
-                f"{DATAPLEX_URL}/projects/{pid}/locations/{loc}/entryGroups/@dataplex/entries/"
-                f"projects/{pid}/locations/{loc}/glossaries/meridian-national-bank-glossary-us/terms/{term_id}"
-                f":definitionLinks"
+                f"{DATAPLEX_URL}/projects/{pid}/locations/{loc}"
+                f"/entryGroups/snowflake-nexus/entryLinks?entryLinkId={link_id}"
             )
             body = {
-                "references": [{"resource": entry, "field": col_name}],
+                "entryLinkType": "projects/dataplex-types/locations/global/entryLinkTypes/definition",
+                "entryReferences": [
+                    {"name": entry, "type": "SOURCE", "path": f"Schema.{col_name}"},
+                    {"name": glossary_term_entry(cfg, term_id), "type": "TARGET"},
+                ],
             }
             try:
                 api_call(link_url, "POST", body)
