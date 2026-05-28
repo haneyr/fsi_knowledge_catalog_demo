@@ -266,6 +266,34 @@ The Cloud Run URL isn't known until after the first deploy. To update it:
 If `OAUTH_CLIENT_ID` is not set (the default), the website runs without
 authentication. All endpoints are publicly accessible to anyone with the URL.
 
+## Snowflake Integration (Optional)
+
+The demo optionally integrates with Snowflake to demonstrate Knowledge Catalog's
+multi-cloud data discovery. A 4th source system — NEXUS, an external market data
+provider — lives in Snowflake. The KC agent discovers NEXUS data through KC and
+queries both BigQuery and Snowflake in a single response.
+
+See `snowflake/README.md` for full setup instructions.
+
+### Quick Start
+
+```bash
+# Set Snowflake credentials (setup user)
+export SNOWFLAKE_ACCOUNT=your-account-id
+export SNOWFLAKE_USER=FSI_KC_SETUP
+export SNOWFLAKE_PASSWORD=your-setup-password
+
+# Set agent credentials (read-only user, created after setup)
+export SNOWFLAKE_AGENT_USER=FSI_KC_AGENT
+export SNOWFLAKE_AGENT_PASSWORD=your-agent-password
+
+# Deploy everything including Snowflake
+bash deploy-full.sh
+```
+
+Without `SNOWFLAKE_ACCOUNT` set, the Snowflake integration is skipped entirely
+and the demo works exactly as before with BigQuery only.
+
 ## Demo Questions
 
 See `demo/demo_questions.md` for 15 curated questions across 3 tiers:
