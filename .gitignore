@@ -247,3 +247,6 @@ docs/
 
 # Snowflake metadata ingestion output (generated)
 snowflake/output/
+
+# Design mockups (internal)
+mockups/
