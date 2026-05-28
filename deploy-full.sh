@@ -137,6 +137,16 @@ echo "=== Running post-deploy scripts ==="
 bash "${SCRIPT_DIR}/post_deploy.sh"
 
 # ---------------------------------------------------------------------------
+# Step 4b: Snowflake NEXUS integration (optional)
+# ---------------------------------------------------------------------------
+if [ -n "${SNOWFLAKE_ACCOUNT:-}" ]; then
+    echo "=== Deploying Snowflake (NEXUS) integration ==="
+    bash "${SCRIPT_DIR}/snowflake/deploy.sh"
+else
+    echo "=== Skipping Snowflake (SNOWFLAKE_ACCOUNT not set) ==="
+fi
+
+# ---------------------------------------------------------------------------
 # Step 5: Create agent_analytics dataset
 # ---------------------------------------------------------------------------
 echo "=== Creating agent_analytics dataset ==="

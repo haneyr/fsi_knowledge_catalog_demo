@@ -63,6 +63,21 @@ EOF
     cat >> "${SCRIPT_DIR}/agent_kc/.env" << EOF
 DATAPLEX_PROJECT=${PROJECT_ID}
 EOF
+    # Snowflake integration (optional)
+    if [ -n "${SNOWFLAKE_ACCOUNT:-}" ]; then
+        cat >> "${SCRIPT_DIR}/agent_kc/.env" << SFEOF
+SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT}
+SNOWFLAKE_AGENT_USER=${SNOWFLAKE_AGENT_USER:-}
+SNOWFLAKE_AGENT_PASSWORD=${SNOWFLAKE_AGENT_PASSWORD:-}
+SNOWFLAKE_WAREHOUSE=${SNOWFLAKE_WAREHOUSE:-NEXUS_WH}
+SNOWFLAKE_DATABASE=${SNOWFLAKE_DATABASE:-NEXUS_MARKET_DATA}
+SFEOF
+        # Add snowflake-connector-python to KC agent requirements
+        if ! grep -q snowflake-connector-python "${SCRIPT_DIR}/agent_kc/requirements.txt"; then
+            echo "snowflake-connector-python>=3.0" >> "${SCRIPT_DIR}/agent_kc/requirements.txt"
+        fi
+        echo "  Added Snowflake config to KC agent"
+    fi
     echo "Created .env files for all agents"
 }
 
