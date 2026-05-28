@@ -144,3 +144,34 @@ Multi-table, multi-domain questions that require discovering relationships betwe
 4. **"It checked data quality"** — DQ rules and trust assessment
 5. **"It traced the lineage"** — source system attribution (ATLAS / FORTUNA / ARGUS)
 6. **"It flagged sensitivity"** — data classification level in the response
+
+---
+
+## Category 7: Multi-Cloud Discovery (KC agent with Snowflake enabled)
+
+Demonstrates that the KC agent discovers and queries data across BigQuery and Snowflake.
+Requires Snowflake integration to be configured (`SNOWFLAKE_ACCOUNT` set).
+
+### Scenario 7.1 — Portfolio Market Value
+> "What's the current market value of our top wealth portfolios?"
+
+- **KC advantage:** Searches "portfolio holdings market value" -> discovers `gold_portfolio_performance` (BQ) and `security_prices` (Snowflake) -> queries both -> combines on CUSIP -> presents unified portfolio valuation
+- **Key talking point:** *"The agent didn't know pricing data lives in Snowflake. It searched Knowledge Catalog, discovered entries from two platforms, and combined the results."*
+
+### Scenario 7.2 — Benchmark Comparison
+> "How do our portfolios compare to their benchmark indices this year?"
+
+- **KC advantage:** Finds `gold_portfolio_performance` (BQ) + `benchmark_returns` (Snowflake) -> calculates over/under-performance against live benchmark data
+- **Key talking point:** *"Portfolio returns from our internal system, benchmark returns from an external vendor in Snowflake -- the KC agent bridges both seamlessly."*
+
+### Scenario 7.3 — Yield Curve Sensitivity
+> "What's our NIM exposure given the current yield curve?"
+
+- **KC advantage:** Finds `gold_net_interest_margin` (BQ) + `interest_rate_curves` (Snowflake, with SOFR/Treasury yields) -> presents NIM with current rate environment context
+- **Key talking point:** *"The yield curve comes from NEXUS in Snowflake, NIM from our internal analytics in BigQuery. Knowledge Catalog connects them."*
+
+### Scenario 7.4 — Credit Spread Risk
+> "What's our credit spread exposure by sector?"
+
+- **KC advantage:** Finds `gold_market_risk_var` (BQ) + `credit_spreads` (Snowflake) -> combines risk metrics with current market spreads
+- **Key talking point:** *"Risk models in BigQuery, market spreads in Snowflake -- the KC agent discovers the right data regardless of where it lives."*

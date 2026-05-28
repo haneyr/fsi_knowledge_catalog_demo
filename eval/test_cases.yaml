@@ -294,3 +294,51 @@ cases:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
       kc:     { outcome: success, tables: [gold_regulatory_dashboard, silver_regulatory_filings, bronze_regulatory_filings, gold_capital_adequacy], lineage: true }
+
+  # ============================================================
+  # MULTI-CLOUD — Requires Snowflake NEXUS integration
+  # ============================================================
+
+  - id: portfolio_market_value
+    question: "What's the current market value of our top wealth portfolios?"
+    tags:
+      complexity: multi_cloud
+      audience: wealth_management
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, tables: [gold_portfolio_performance], snowflake_tables: [security_prices], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+
+  - id: benchmark_comparison
+    question: "How do our portfolios compare to their benchmark indices this year?"
+    tags:
+      complexity: multi_cloud
+      audience: wealth_management
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, tables: [gold_portfolio_performance], snowflake_tables: [benchmark_returns], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+
+  - id: yield_curve_sensitivity
+    question: "What's our NIM exposure given the current yield curve?"
+    tags:
+      complexity: multi_cloud
+      audience: risk_compliance
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, tables: [gold_net_interest_margin], snowflake_tables: [interest_rate_curves], glossary: [NIM], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+
+  - id: credit_spread_risk
+    question: "What's our credit spread exposure by sector?"
+    tags:
+      complexity: multi_cloud
+      audience: risk_compliance
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, tables: [gold_market_risk_var], snowflake_tables: [credit_spreads], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
