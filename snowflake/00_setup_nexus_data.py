@@ -77,7 +77,7 @@ def create_tables(cur):
         market_cap_mm    DECIMAL(18,2),
         currency         VARCHAR(3) DEFAULT 'USD',
         exchange         VARCHAR(20),
-        as_of_timestamp  TIMESTAMP_TZ DEFAULT '2026-04-30 16:00:00 -0400'
+        as_of_timestamp  TIMESTAMP_TZ
     )
     """)
     cur.execute(f"COMMENT ON TABLE {DATABASE}.SECURITIES.SECURITY_PRICES IS 'Daily closing prices by CUSIP/ISIN from NEXUS market data feed. Join to BigQuery silver_holdings on CUSIP for portfolio valuation.'")
@@ -142,7 +142,7 @@ def create_tables(cur):
         instrument_name  VARCHAR(100),
         rate_pct         DECIMAL(8,4),
         change_bps       DECIMAL(8,2),
-        as_of_timestamp  TIMESTAMP_TZ DEFAULT '2026-04-30 16:00:00 -0400'
+        as_of_timestamp  TIMESTAMP_TZ
     )
     """)
     cur.execute(f"COMMENT ON TABLE {DATABASE}.ECONOMICS.INTEREST_RATE_CURVES IS 'SOFR, Fed Funds Effective, and Treasury yields (2Y/5Y/10Y/30Y). Join to BigQuery gold_net_interest_margin on date for NIM sensitivity analysis.'")
