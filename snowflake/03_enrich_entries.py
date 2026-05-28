@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 def snowflake_table_entry(cfg, schema, table):
     """Build the Dataplex entry path for a Snowflake table."""
     pid = cfg["project_id"]
-    loc = cfg["location"]
-    return f"projects/{pid}/locations/{loc}/entryGroups/snowflake-nexus/entries/snowflake-table-{DATABASE.lower()}-{schema.lower()}-{table.lower()}"
+    multi = cfg["multi_region"]
+    return f"projects/{pid}/locations/{multi}/entryGroups/snowflake-nexus/entries/snowflake-table-{DATABASE.lower()}-{schema.lower()}-{table.lower()}"
 
 
 GLOSSARY_LINKS = {
@@ -54,17 +54,10 @@ def apply_glossary_links(cfg):
     """Create definition links from glossary terms to Snowflake table columns.
 
     Uses the entryLinks API (same pattern as scripts/01_create_glossary.py).
-
-    NOTE: This currently fails because the snowflake-nexus entry group is in
-    us-central1 but the glossary is in the us multi-region. Dataplex requires
-    entry links and their referenced entries to be in the same region. The
-    entries are still discoverable via KC search based on descriptions and
-    column comments. Glossary links will work once the entry group is moved
-    to the us multi-region.
+    Entry group and glossary are both in the multi-region location.
     """
     logger.info("=== Linking Snowflake columns to glossary terms ===")
     pid = cfg["project_id"]
-    loc = cfg["location"]
     multi = cfg["multi_region"]
     count = 0
 
@@ -73,13 +66,13 @@ def apply_glossary_links(cfg):
         for col_name, term_id in links:
             link_id = f"def-{term_id}-sf-{table.lower().replace('_', '-')}-{col_name.replace('_', '-')}"[:63]
             link_url = (
-                f"{DATAPLEX_URL}/projects/{pid}/locations/{loc}"
+                f"{DATAPLEX_URL}/projects/{pid}/locations/{multi}"
                 f"/entryGroups/snowflake-nexus/entryLinks?entryLinkId={link_id}"
             )
             body = {
                 "entryLinkType": "projects/dataplex-types/locations/global/entryLinkTypes/definition",
                 "entryReferences": [
-                    {"name": entry, "type": "SOURCE", "path": f"Schema.{col_name}"},
+                    {"name": entry, "type": "SOURCE", "path": f"Schema.{col_name.upper()}"},
                     {"name": glossary_term_entry(cfg, term_id), "type": "TARGET"},
                 ],
             }

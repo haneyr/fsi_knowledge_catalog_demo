@@ -18,14 +18,15 @@ def main():
     cfg = load_snowflake_config()
     pid = cfg["project_id"]
     loc = cfg["location"]
+    multi = cfg["multi_region"]
     DP = DATAPLEX_URL
 
-    # --- Entry Group ---
-    logger.info("Creating entry group: snowflake-nexus")
+    # --- Entry Group (in multi-region to match glossary for entry links) ---
+    logger.info("Creating entry group: snowflake-nexus (location=%s)", multi)
     for attempt in range(5):
         try:
             result = api_call(
-                f"{DP}/projects/{pid}/locations/{loc}/entryGroups?entryGroupId=snowflake-nexus",
+                f"{DP}/projects/{pid}/locations/{multi}/entryGroups?entryGroupId=snowflake-nexus",
                 "POST",
                 {"displayName": "NEXUS Market Data (Snowflake)", "description": "Snowflake Horizon metadata for NEXUS external market data provider"},
             )
@@ -41,7 +42,7 @@ def main():
                 raise
     time.sleep(5)
 
-    # --- Entry Types ---
+    # --- Entry Types (global so they work with any entry group region) ---
     entry_types = [
         ("snowflake-account", "Snowflake Account", ["DATABASE"], "Snowflake", "Snowflake"),
         ("snowflake-database", "Snowflake Database", ["DATABASE"], "Snowflake", "Snowflake"),
@@ -57,7 +58,7 @@ def main():
         for attempt in range(5):
             try:
                 result = api_call(
-                    f"{DP}/projects/{pid}/locations/{loc}/entryTypes?entryTypeId={et_id}",
+                    f"{DP}/projects/{pid}/locations/global/entryTypes?entryTypeId={et_id}",
                     "POST",
                     {"displayName": name, "description": f"Represents a {name.lower()}", "typeAliases": aliases, "platform": platform, "system": system},
                 )
@@ -100,7 +101,7 @@ def main():
         for attempt in range(5):
             try:
                 result = api_call(
-                    f"{DP}/projects/{pid}/locations/{loc}/aspectTypes?aspectTypeId={at_id}",
+                    f"{DP}/projects/{pid}/locations/global/aspectTypes?aspectTypeId={at_id}",
                     "POST",
                     {"displayName": name, "description": desc, "metadataTemplate": template},
                 )

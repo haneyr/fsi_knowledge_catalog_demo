@@ -69,19 +69,20 @@ def extract_tag_references(cur):
 def build_import_entries(cfg, tables, columns, tags, tag_refs):
     """Build JSONL entries for Dataplex metadata import."""
     pid = cfg["project_id"]
-    loc = cfg["location"]
+    loc = cfg["location"]  # regional — for entry types and aspect types
+    multi = cfg["multi_region"]  # multi-region — for entry group (matches glossary)
     sf_account = cfg["snowflake_account"]
-    entry_group = f"projects/{pid}/locations/{loc}/entryGroups/snowflake-nexus"
+    entry_group = f"projects/{pid}/locations/{multi}/entryGroups/snowflake-nexus"
     entries = []
 
     # Account entry
     entries.append({
         "name": f"{entry_group}/entries/snowflake-account-{sf_account.replace('.', '-')}",
-        "entryType": f"projects/{pid}/locations/{loc}/entryTypes/snowflake-account",
+        "entryType": f"projects/{pid}/locations/global/entryTypes/snowflake-account",
         "fullyQualifiedName": f"snowflake:{sf_account}",
         "aspects": {
-            f"{pid}.{loc}.snowflake-account": {
-                "aspectType": f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-account",
+            f"{pid}.global.snowflake-account": {
+                "aspectType": f"projects/{pid}/locations/global/aspectTypes/snowflake-account",
                 "data": {},
             }
         },
@@ -92,12 +93,12 @@ def build_import_entries(cfg, tables, columns, tags, tag_refs):
     db_entry_name = f"{entry_group}/entries/snowflake-db-{DATABASE.lower()}"
     entries.append({
         "name": db_entry_name,
-        "entryType": f"projects/{pid}/locations/{loc}/entryTypes/snowflake-database",
+        "entryType": f"projects/{pid}/locations/global/entryTypes/snowflake-database",
         "fullyQualifiedName": f"snowflake:{sf_account}.{DATABASE}",
         "parentEntry": entries[0]["name"],
         "aspects": {
-            f"{pid}.{loc}.snowflake-database": {
-                "aspectType": f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-database",
+            f"{pid}.global.snowflake-database": {
+                "aspectType": f"projects/{pid}/locations/global/aspectTypes/snowflake-database",
                 "data": {},
             }
         },
@@ -111,12 +112,12 @@ def build_import_entries(cfg, tables, columns, tags, tag_refs):
         schema_entries[schema] = schema_entry_name
         entries.append({
             "name": schema_entry_name,
-            "entryType": f"projects/{pid}/locations/{loc}/entryTypes/snowflake-schema",
+            "entryType": f"projects/{pid}/locations/global/entryTypes/snowflake-schema",
             "fullyQualifiedName": f"snowflake:{sf_account}.{DATABASE}.{schema}",
             "parentEntry": db_entry_name,
             "aspects": {
-                f"{pid}.{loc}.snowflake-schema": {
-                    "aspectType": f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-schema",
+                f"{pid}.global.snowflake-schema": {
+                    "aspectType": f"projects/{pid}/locations/global/aspectTypes/snowflake-schema",
                     "data": {},
                 }
             },
@@ -163,12 +164,12 @@ def build_import_entries(cfg, tables, columns, tags, tag_refs):
 
         entry = {
             "name": table_entry_name,
-            "entryType": f"projects/{pid}/locations/{loc}/entryTypes/{entry_type_id}",
+            "entryType": f"projects/{pid}/locations/global/entryTypes/{entry_type_id}",
             "fullyQualifiedName": f"snowflake:{sf_account}.{DATABASE}.{schema}.{table_name}",
             "parentEntry": schema_entries.get(schema, db_entry_name),
             "aspects": {
-                f"{pid}.{loc}.{entry_type_id}": {
-                    "aspectType": f"projects/{pid}/locations/{loc}/aspectTypes/{entry_type_id}",
+                f"{pid}.global.{entry_type_id}": {
+                    "aspectType": f"projects/{pid}/locations/global/aspectTypes/{entry_type_id}",
                     "data": {},
                 }
             },
@@ -192,11 +193,11 @@ def build_import_entries(cfg, tables, columns, tags, tag_refs):
         tag_entry_name = f"{entry_group}/entries/snowflake-tag-{tag_name.lower()}"
         entries.append({
             "name": tag_entry_name,
-            "entryType": f"projects/{pid}/locations/{loc}/entryTypes/snowflake-tag",
+            "entryType": f"projects/{pid}/locations/global/entryTypes/snowflake-tag",
             "fullyQualifiedName": f"snowflake:{sf_account}.{DATABASE}.tag.{tag_name}",
             "aspects": {
-                f"{pid}.{loc}.snowflake-tag": {
-                    "aspectType": f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-tag",
+                f"{pid}.global.snowflake-tag": {
+                    "aspectType": f"projects/{pid}/locations/global/aspectTypes/snowflake-tag",
                     "data": {
                         "tag_name": tag_name,
                         "allowed_values": str(allowed) if allowed else "",
@@ -216,11 +217,11 @@ def build_import_entries(cfg, tables, columns, tags, tag_refs):
         ref_entry_name = f"{entry_group}/entries/snowflake-tagref-{tag_name.lower()}-{obj_name.lower()}-{i}"
         entries.append({
             "name": ref_entry_name,
-            "entryType": f"projects/{pid}/locations/{loc}/entryTypes/snowflake-tag-ref",
+            "entryType": f"projects/{pid}/locations/global/entryTypes/snowflake-tag-ref",
             "fullyQualifiedName": f"snowflake:{sf_account}.{DATABASE}.tagref.{tag_name}.{obj_name}.{i}",
             "aspects": {
-                f"{pid}.{loc}.snowflake-tag-ref": {
-                    "aspectType": f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-tag-ref",
+                f"{pid}.global.snowflake-tag-ref": {
+                    "aspectType": f"projects/{pid}/locations/global/aspectTypes/snowflake-tag-ref",
                     "data": {
                         "tag_name": tag_name,
                         "tag_value": tag_value or "",
@@ -259,22 +260,22 @@ def import_metadata(cfg, jsonl_path):
             "scope": {
                 "entryGroups": [entry_group],
                 "entryTypes": [
-                    f"projects/{pid}/locations/{loc}/entryTypes/snowflake-account",
-                    f"projects/{pid}/locations/{loc}/entryTypes/snowflake-database",
-                    f"projects/{pid}/locations/{loc}/entryTypes/snowflake-schema",
-                    f"projects/{pid}/locations/{loc}/entryTypes/snowflake-table",
-                    f"projects/{pid}/locations/{loc}/entryTypes/snowflake-view",
-                    f"projects/{pid}/locations/{loc}/entryTypes/snowflake-tag",
-                    f"projects/{pid}/locations/{loc}/entryTypes/snowflake-tag-ref",
+                    f"projects/{pid}/locations/global/entryTypes/snowflake-account",
+                    f"projects/{pid}/locations/global/entryTypes/snowflake-database",
+                    f"projects/{pid}/locations/global/entryTypes/snowflake-schema",
+                    f"projects/{pid}/locations/global/entryTypes/snowflake-table",
+                    f"projects/{pid}/locations/global/entryTypes/snowflake-view",
+                    f"projects/{pid}/locations/global/entryTypes/snowflake-tag",
+                    f"projects/{pid}/locations/global/entryTypes/snowflake-tag-ref",
                 ],
                 "aspectTypes": [
-                    f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-account",
-                    f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-database",
-                    f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-schema",
-                    f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-table",
-                    f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-view",
-                    f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-tag",
-                    f"projects/{pid}/locations/{loc}/aspectTypes/snowflake-tag-ref",
+                    f"projects/{pid}/locations/global/aspectTypes/snowflake-account",
+                    f"projects/{pid}/locations/global/aspectTypes/snowflake-database",
+                    f"projects/{pid}/locations/global/aspectTypes/snowflake-schema",
+                    f"projects/{pid}/locations/global/aspectTypes/snowflake-table",
+                    f"projects/{pid}/locations/global/aspectTypes/snowflake-view",
+                    f"projects/{pid}/locations/global/aspectTypes/snowflake-tag",
+                    f"projects/{pid}/locations/global/aspectTypes/snowflake-tag-ref",
                     "projects/dataplex-types/locations/global/aspectTypes/schema",
                 ],
             },
