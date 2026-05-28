@@ -60,6 +60,7 @@
   --silver: #90A4AE;
   --gold: #FFD600;
   --ref: #546E7A;
+  --snowflake: #00BCD4;
 }
 
 body {
@@ -572,6 +573,7 @@ body {
 .popup-tier.bronze { background: rgba(255,143,0,0.15); color: var(--bronze); }
 .popup-tier.ref { background: rgba(84,110,122,0.15); color: var(--ref); }
 .popup-tier.glossary { background: rgba(52,168,83,0.15); color: var(--kc-color); }
+.popup-tier.snowflake { background: rgba(0,188,212,0.15); color: var(--snowflake); }
 .popup-name {
   font-weight: 600;
   color: #fff;
