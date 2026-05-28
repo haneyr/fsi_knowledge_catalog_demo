@@ -282,6 +282,8 @@ def config():
         "oauth_client_id": OAUTH_CLIENT_ID,
         "live_mode": any(AGENT_IDS.values()),
         "agents": {k: bool(v) for k, v in AGENT_IDS.items()},
+        "snowflake_enabled": bool(os.environ.get("SNOWFLAKE_ACCOUNT")),
+        "snowflake_tables": _SNOWFLAKE_TABLES,
     })
 
 
@@ -297,8 +299,50 @@ _term_info_cache = {}
 
 GLOSSARY_ID = os.environ.get("GLOSSARY_ID", "meridian-national-bank-glossary-us")
 
+_SNOWFLAKE_TABLES = []
+_SNOWFLAKE_SCHEMA_MAP = {}
+
+
+def _discover_snowflake_tables():
+    global _SNOWFLAKE_TABLES, _SNOWFLAKE_SCHEMA_MAP
+    if not PROJECT_ID or not os.environ.get("SNOWFLAKE_ACCOUNT"):
+        return
+    try:
+        token = _get_token()
+        url = f"https://dataplex.googleapis.com/v1/projects/{PROJECT_ID}/locations/us/entryGroups/snowflake-nexus/entries"
+        resp = _get_http_session().get(url, headers={"Authorization": f"Bearer {token}"}, timeout=15)
+        if resp.status_code != 200:
+            logger.warning("Snowflake table discovery failed: %d", resp.status_code)
+            return
+        entries = resp.json().get("entries", [])
+        for entry in entries:
+            fqn = entry.get("fullyQualifiedName", "")
+            entry_type = entry.get("entryType", "")
+            if "snowflake-table" not in entry_type:
+                continue
+            parts = fqn.split(".")
+            if len(parts) >= 4:
+                schema = parts[-2].lower()
+                table = parts[-1].lower()
+                _SNOWFLAKE_TABLES.append(table)
+                _SNOWFLAKE_SCHEMA_MAP[table] = schema
+        if _SNOWFLAKE_TABLES:
+            ALL_TABLE_NAMES.extend(_SNOWFLAKE_TABLES)
+            logger.info("Discovered %d Snowflake tables: %s", len(_SNOWFLAKE_TABLES), _SNOWFLAKE_TABLES)
+    except Exception as e:
+        logger.warning("Snowflake table discovery error: %s", e)
+
+
+# Run discovery at import time for production (gunicorn/Cloud Run)
+try:
+    _discover_snowflake_tables()
+except Exception:
+    pass
+
 
 def _get_dataset(table_name):
+    if table_name in _SNOWFLAKE_SCHEMA_MAP:
+        return 'snowflake'
     for prefix, ds in DATASET_MAP.items():
         if table_name.startswith(prefix):
             return ds
@@ -306,6 +350,8 @@ def _get_dataset(table_name):
 
 
 def _get_tier(table_name):
+    if table_name in _SNOWFLAKE_SCHEMA_MAP:
+        return 'snowflake'
     for prefix in ('gold_', 'silver_', 'bronze_', 'ref_', 'staging_', 'snapshot_', 'audit_', 'vw_'):
         if table_name.startswith(prefix):
             return prefix.rstrip('_')
@@ -324,6 +370,60 @@ def table_info():
 
     dataset = _get_dataset(table)
     tier = _get_tier(table)
+
+    if tier == 'snowflake':
+        sf_schema = _SNOWFLAKE_SCHEMA_MAP.get(table, '')
+        entry_id = f"snowflake-table-nexus_market_data-{sf_schema}-{table}"
+        entry_path = f"projects/{PROJECT_ID}/locations/us/entryGroups/snowflake-nexus/entries/{entry_id}"
+        catalog_url = (
+            f"https://console.cloud.google.com/dataplex/dp-entries/projects/{PROJECT_ID}/locations/us/"
+            f"entryGroups/snowflake-nexus/entries/{entry_id}?project={PROJECT_ID}"
+        )
+        fallback_url = (
+            f"https://console.cloud.google.com/dataplex/dp-entries/projects/{PROJECT_ID}/locations/us/"
+            f"entryGroups/snowflake-nexus?project={PROJECT_ID}"
+        )
+        try:
+            token = _get_token()
+            resp = _get_http_session().get(
+                f"https://dataplex.googleapis.com/v1/{entry_path}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                result = {
+                    "name": table, "tier": tier, "description": "Metadata not available",
+                    "column_count": 0, "columns": [], "catalog_url": fallback_url,
+                }
+                _table_info_cache[table] = result
+                return jsonify(result)
+
+            data = resp.json()
+            desc = (data.get("entrySource", {}).get("description", "") or "Metadata not available")[:200]
+            aspects = data.get("aspects", {})
+            schema_data = {}
+            for k, v in aspects.items():
+                if "schema" in k:
+                    schema_data = v.get("data", {})
+                    break
+            fields = schema_data.get("fields", [])
+            col_names = [f.get("name", "") for f in fields]
+            result = {
+                "name": table, "tier": tier, "description": desc,
+                "column_count": len(fields),
+                "columns": col_names[:8],
+                "catalog_url": catalog_url,
+            }
+            _table_info_cache[table] = result
+            return jsonify(result)
+        except Exception as e:
+            logger.exception("Snowflake table-info error: %s", e)
+            result = {
+                "name": table, "tier": tier, "description": "Metadata not available",
+                "column_count": 0, "columns": [], "catalog_url": fallback_url,
+            }
+            return jsonify(result)
+
     entry_path = (
         f"projects/{PROJECT_ID}/locations/us/entryGroups/@bigquery/entries/"
         f"bigquery.googleapis.com/projects/{PROJECT_ID}/datasets/{dataset}/tables/{table}"
@@ -541,5 +641,6 @@ except ImportError:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     _get_project_number()
+    _discover_snowflake_tables()
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=True)
