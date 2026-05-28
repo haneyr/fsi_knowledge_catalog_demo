@@ -294,3 +294,76 @@ cases:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
       kc:     { outcome: success, tables: [gold_regulatory_dashboard, silver_regulatory_filings, bronze_regulatory_filings, gold_capital_adequacy], lineage: true }
+
+  # ============================================================
+  # MULTI-CLOUD — Requires Snowflake NEXUS integration
+  # These cases require the Multi-cloud KC agent which has the
+  # query_snowflake tool. Basic, Scaled, and BQ-only KC agents
+  # should fail gracefully or give partial answers.
+  # ============================================================
+
+  - id: portfolio_current_pricing
+    question: "What are the latest closing prices from NEXUS for the securities in our top wealth portfolios?"
+    tags:
+      complexity: multi_cloud
+      audience: wealth_management
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, tables: [gold_portfolio_performance], snowflake_tables: [security_prices], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+
+  - id: benchmark_comparison
+    question: "How do our portfolios compare to their benchmark indices this year? Use the external benchmark returns data."
+    tags:
+      complexity: multi_cloud
+      audience: wealth_management
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, tables: [gold_portfolio_performance], snowflake_tables: [benchmark_returns], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+
+  - id: yield_curve_nim
+    question: "Show me the current SOFR and Treasury yield curve alongside our net interest margin. How sensitive is our NIM to rate changes?"
+    tags:
+      complexity: multi_cloud
+      audience: risk_compliance
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, tables: [gold_net_interest_margin], snowflake_tables: [interest_rate_curves], glossary: [NIM], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+
+  - id: credit_spread_exposure
+    question: "What's our credit spread exposure by sector? Show current market spreads alongside our portfolio risk."
+    tags:
+      complexity: multi_cloud
+      audience: risk_compliance
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, tables: [gold_market_risk_var], snowflake_tables: [credit_spreads], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+
+  - id: fx_rate_comparison
+    question: "Compare our internal FX rates with the NEXUS spot rates. Are there any significant discrepancies?"
+    tags:
+      complexity: multi_cloud
+      audience: risk_compliance
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, snowflake_tables: [fx_spot_rates], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+
+  - id: security_fundamentals
+    question: "What are the P/E ratios and dividend yields for the securities in our largest portfolios? Use NEXUS fundamentals data."
+    tags:
+      complexity: multi_cloud
+      audience: wealth_management
+      kc_feature: cross_platform_discovery
+    expected:
+      basic:  { outcome: fail_gracefully }
+      scaled: { outcome: fail_gracefully }
+      kc:     { outcome: success, snowflake_tables: [security_fundamentals], tool_calls: [search_entries, get_context, query_snowflake] }

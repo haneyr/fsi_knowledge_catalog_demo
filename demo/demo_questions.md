@@ -144,3 +144,53 @@ Multi-table, multi-domain questions that require discovering relationships betwe
 4. **"It checked data quality"** — DQ rules and trust assessment
 5. **"It traced the lineage"** — source system attribution (ATLAS / FORTUNA / ARGUS)
 6. **"It flagged sensitivity"** — data classification level in the response
+
+---
+
+## Category 7: Multi-Cloud Discovery (Multi-cloud KC agent with Snowflake enabled)
+
+Demonstrates that the Multi-cloud KC agent discovers and queries data across BigQuery and Snowflake.
+Requires Snowflake integration to be configured (`SNOWFLAKE_ACCOUNT` set).
+Basic, Scaled, and BQ-only KC agents cannot answer these questions — they lack the `query_snowflake` tool.
+
+### Scenario 7.1 — Current Security Pricing
+> "What are the latest closing prices from NEXUS for the securities in our top wealth portfolios?"
+
+- **Other agents fail:** No access to NEXUS pricing data in Snowflake
+- **Multi-cloud KC:** Searches KC → discovers `gold_portfolio_performance` (BQ) + `security_prices` (Snowflake) → queries both → combines on CUSIP
+- **Key talking point:** *"The agent discovered that current pricing lives in an external vendor's Snowflake database. No hardcoded connections — Knowledge Catalog told it where to look."*
+
+### Scenario 7.2 — Benchmark Comparison
+> "How do our portfolios compare to their benchmark indices this year? Use the external benchmark returns data."
+
+- **Other agents fail:** Can only see internal BQ data, not external benchmark returns
+- **Multi-cloud KC:** Finds `gold_portfolio_performance` (BQ) + `benchmark_returns` (Snowflake) → calculates over/under-performance
+- **Key talking point:** *"Portfolio returns from our internal system, benchmark returns from an external vendor in Snowflake — the Multi-cloud KC agent bridges both seamlessly."*
+
+### Scenario 7.3 — Yield Curve + NIM
+> "Show me the current SOFR and Treasury yield curve alongside our net interest margin. How sensitive is our NIM to rate changes?"
+
+- **Other agents fail:** No access to real-time yield curve data
+- **Multi-cloud KC:** Finds `gold_net_interest_margin` (BQ) + `interest_rate_curves` (Snowflake with SOFR, Fed Funds, Treasury 2Y/5Y/10Y/30Y) → presents NIM with rate context
+- **Key talking point:** *"The yield curve comes from NEXUS in Snowflake, NIM from our internal analytics in BigQuery. Knowledge Catalog connects them."*
+
+### Scenario 7.4 — Credit Spread Exposure
+> "What's our credit spread exposure by sector? Show current market spreads alongside our portfolio risk."
+
+- **Other agents fail:** Can see internal risk metrics but not current market spreads
+- **Multi-cloud KC:** Finds `gold_market_risk_var` (BQ) + `credit_spreads` (Snowflake) → combines risk metrics with live market spreads
+- **Key talking point:** *"Risk models in BigQuery, market spreads in Snowflake — the agent discovers the right data regardless of where it lives."*
+
+### Scenario 7.5 — FX Rate Discrepancy
+> "Compare our internal FX rates with the NEXUS spot rates. Are there any significant discrepancies?"
+
+- **Other agents fail:** Only see internal FX rates
+- **Multi-cloud KC:** Finds `bronze_fx_rates` (BQ) + `fx_spot_rates` (Snowflake) → compares internal vs external rates
+- **Key talking point:** *"Reconciling internal and external data sources is a common banking workflow. The agent finds both through KC without being told where they are."*
+
+### Scenario 7.6 — Security Fundamentals
+> "What are the P/E ratios and dividend yields for the securities in our largest portfolios? Use NEXUS fundamentals data."
+
+- **Other agents fail:** No access to NEXUS fundamentals in Snowflake
+- **Multi-cloud KC:** Finds `security_fundamentals` (Snowflake) → queries P/E, EPS, dividend yield, market cap
+- **Key talking point:** *"External market data enriches internal portfolio analysis. The agent finds it through catalog metadata, not hardcoded table lists."*

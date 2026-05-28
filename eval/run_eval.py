@@ -224,6 +224,14 @@ def run_evaluation(args):
             print(f"ERROR: No cases match filter '{args.filter}'")
             sys.exit(1)
 
+    # Skip multi-cloud cases when Snowflake is not configured
+    if not os.environ.get("SNOWFLAKE_ACCOUNT"):
+        original_count = len(cases)
+        cases = [c for c in cases if c.get("tags", {}).get("complexity") != "multi_cloud"]
+        skipped = original_count - len(cases)
+        if skipped:
+            print(f"  Skipping {skipped} multi-cloud cases (SNOWFLAKE_ACCOUNT not set)")
+
     total_runs = len(cases) * len(agents_to_run)
     print(f"\n{'=' * 60}")
     print(f"  FSI Knowledge Catalog Agent Evaluation")

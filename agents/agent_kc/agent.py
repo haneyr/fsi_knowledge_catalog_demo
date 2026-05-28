@@ -250,11 +250,88 @@ def run_sql(sql: str) -> str:
         return f"SQL Error: {str(e)}"
 
 
+# --- Conditional Snowflake integration ---
+_sf_conn = None
+SNOWFLAKE_ENABLED = bool(os.environ.get("SNOWFLAKE_ACCOUNT"))
+
+if SNOWFLAKE_ENABLED:
+    import snowflake.connector
+
+    def _get_sf_connection():
+        global _sf_conn
+        if _sf_conn is None:
+            _sf_conn = snowflake.connector.connect(
+                account=os.environ["SNOWFLAKE_ACCOUNT"],
+                user=os.environ["SNOWFLAKE_AGENT_USER"],
+                password=os.environ["SNOWFLAKE_AGENT_PASSWORD"],
+                warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", "NEXUS_WH"),
+                database=os.environ.get("SNOWFLAKE_DATABASE", "NEXUS_MARKET_DATA"),
+            )
+        return _sf_conn
+
+    @FunctionTool
+    def query_snowflake(sql: str) -> str:
+        """Execute a SQL query against Snowflake and return results.
+
+        Use this when Knowledge Catalog search reveals data in Snowflake
+        (NEXUS market data). Use fully qualified names: DATABASE.SCHEMA.TABLE.
+        For example: NEXUS_MARKET_DATA.SECURITIES.SECURITY_PRICES
+        """
+        try:
+            conn = _get_sf_connection()
+            cur = conn.cursor()
+            cur.execute(sql)
+            rows = cur.fetchmany(50)
+            if not rows:
+                return "Query returned 0 rows."
+
+            col_names = [desc[0] for desc in cur.description]
+            header = " | ".join(col_names)
+            lines = [header, "-" * len(header)]
+            for row in rows:
+                lines.append(" | ".join(str(v) for v in row))
+
+            total = cur.rowcount if cur.rowcount >= 0 else len(rows)
+            return f"Query returned {total} rows (showing first {len(rows)}):\n\n" + "\n".join(lines)
+        except Exception as e:
+            return f"Snowflake SQL Error: {str(e)}"
+
+    SNOWFLAKE_PROMPT_EXTENSION = """
+
+## Snowflake (NEXUS Market Data)
+
+You also have access to Snowflake for querying external market data from the NEXUS data provider.
+When Knowledge Catalog search results include Snowflake entries (entry type `snowflake-table`),
+use `query_snowflake` instead of `run_sql`. Use fully qualified Snowflake table names:
+`NEXUS_MARKET_DATA.SCHEMA.TABLE` (e.g., `NEXUS_MARKET_DATA.SECURITIES.SECURITY_PRICES`).
+
+For cross-platform questions, you may need to query both BigQuery and Snowflake, then combine
+the results in your response. For example, portfolio holdings live in BigQuery while current
+security prices live in Snowflake.
+
+When querying Snowflake for pricing data, prefer broad filters (date range, asset class) over
+large IN-lists of identifiers. If a BigQuery result returns more than ~20 securities, query
+Snowflake for the full pricing universe for that date and match in your analysis rather than
+passing all CUSIPs into a single WHERE clause.
+
+NEXUS provides: security prices, fundamentals, corporate actions, benchmark returns,
+index constituents, interest rate curves (SOFR, Fed Funds, Treasuries), economic indicators,
+FX spot rates, credit spreads, and volatility surfaces.
+"""
+
+_kc_tools = [search_entries, get_context, run_sql]
+if SNOWFLAKE_ENABLED:
+    _kc_tools.append(query_snowflake)
+
+_kc_instruction = SYSTEM_INSTRUCTION
+if SNOWFLAKE_ENABLED:
+    _kc_instruction += SNOWFLAKE_PROMPT_EXTENSION
+
 root_agent = Agent(
     name="fsi_kc_agent",
     model="gemini-2.5-flash",
-    instruction=SYSTEM_INSTRUCTION,
-    tools=[search_entries, get_context, run_sql],
+    instruction=_kc_instruction,
+    tools=_kc_tools,
 )
 
 bq_analytics_plugin = BigQueryAgentAnalyticsPlugin(
