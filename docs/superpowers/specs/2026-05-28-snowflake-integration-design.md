@@ -45,7 +45,7 @@ NEXUS_MARKET_DATA (database)
 │   ├── benchmark_returns      — Daily/monthly returns for S&P 500, Russell, etc.
 │   └── index_constituents     — Which securities are in which index
 ├── ECONOMICS (schema)
-│   ├── interest_rate_curves   — Treasury yield curves, SOFR, Fed Funds
+│   ├── interest_rate_curves   — SOFR, Fed Funds Effective, Treasury yields (2Y/5Y/10Y/30Y)
 │   ├── economic_indicators    — GDP, CPI, unemployment, housing starts
 │   └── fx_spot_rates          — Real-time FX rates (complements bronze_fx_rates)
 └── RISK_ANALYTICS (schema)
@@ -68,7 +68,8 @@ NEXUS_MARKET_DATA (database)
 
 - CUSIPs and ISINs must match the values used in `ref_cusip_master` and `ref_isin_mapping` in BigQuery
 - Benchmark names must match those in `gold_portfolio_performance`
-- Date ranges must overlap with existing BQ data
+- Date ranges must overlap with existing BQ data, aligned to **US business days only** (no weekends, no NYSE holidays). Timestamps standardized to Eastern time market close (16:00 ET) to avoid missing join keys when crossing platforms
+- Interest rate curves must include standard benchmarks that banking audiences expect: SOFR (Secured Overnight Financing Rate), Fed Funds Effective Rate, and Treasury yields (2Y, 5Y, 10Y, 30Y). These make cross-platform NIM sensitivity questions realistic
 - All data generated deterministically (seeded random) for reproducibility
 
 ### Horizon Governance Tags
@@ -149,6 +150,8 @@ export SNOWFLAKE_AGENT_PASSWORD=your-agent-password
 export SNOWFLAKE_WAREHOUSE=NEXUS_WH
 export SNOWFLAKE_DATABASE=NEXUS_MARKET_DATA
 ```
+
+**Production note:** Environment variables are appropriate for this demo environment. For production deployments, credentials should be stored in Google Cloud Secret Manager (which the Horizon connector natively supports) or Snowflake key-pair authentication. The `snowflake/README.md` will include a section on adapting the credential flow for enterprise use, referencing the Secret Manager integration pattern from the upstream Horizon connector.
 
 ---
 
@@ -269,8 +272,12 @@ When Snowflake is not configured, neither file is modified.
 3. KC returns entries from both BQ (`gold_portfolio_performance`) and Snowflake (`security_prices`)
 4. Agent → `get_context(...)` — reads schemas, sees CUSIP as join key
 5. Agent → `run_sql(...)` — gets portfolio holdings with CUSIPs from BQ
-6. Agent → `query_snowflake(...)` — gets current prices for those CUSIPs from Snowflake
+6. Agent → `query_snowflake(...)` — gets current prices from Snowflake
 7. Agent combines results in response, citing both source systems and their lineage
+
+**Avoiding CUSIP list explosion:** When a BQ query returns many securities (hundreds of CUSIPs), the agent should NOT pass them all as an IN-list to Snowflake. Instead, the system prompt instructs the agent to query Snowflake with broader filters (date range, asset class) and let the agent join the results logically in its response. For targeted lookups (a specific portfolio or small set of securities), passing CUSIPs directly is fine. The system prompt guidance:
+
+> When querying Snowflake for pricing data, prefer broad filters (date range, asset class) over large IN-lists of identifiers. If a BigQuery result returns more than ~20 securities, query Snowflake for the full pricing universe for that date and match in your analysis rather than passing all CUSIPs into a single WHERE clause.
 
 ---
 
