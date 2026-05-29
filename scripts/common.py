@@ -295,10 +295,14 @@ def entry_group_location(cfg: Dict[str, str]) -> str:
 def entry_type_location(cfg: Dict[str, str]) -> str:
     """Location for entry types and aspect types (issue #20).
 
-    These stay regional (e.g. ``us-central1``); they have no cross-region link
-    constraints, so they do not need to move to the multi-region.
+    Types live in ``global``. Dataplex requires an entry's entry type to be in
+    the same region as the entry, in a corresponding multi-region, or in
+    ``global`` -- a regional type (e.g. ``us-central1``) is NOT usable by an
+    entry in the ``us`` multi-region. ``global`` types are usable from any
+    region, which is the proven pattern already used by the Snowflake
+    integration. This is the single source of truth for that decision.
     """
-    return cfg.get("location", cfg.get("region", "us-central1"))
+    return "global"
 
 
 def set_entry_aspect(

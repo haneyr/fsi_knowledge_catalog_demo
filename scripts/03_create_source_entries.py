@@ -142,7 +142,7 @@ def main():
     cfg = load_config()
     pid = cfg["project_id"]
     eg_loc = entry_group_location(cfg)      # entry groups + entries: multi-region (#20)
-    et_loc = entry_type_location(cfg)       # entryType references: regional
+    et_loc = entry_type_location(cfg)       # entryType references: global (#20)
     DP = DATAPLEX_URL
 
     for sys_cfg in SYSTEMS:

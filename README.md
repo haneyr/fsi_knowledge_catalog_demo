@@ -54,16 +54,19 @@ fsi_gold (20 analytics tables)
 
 ### Region model
 
-Knowledge Catalog resources use two regions, kept consistent via `scripts/config.json`:
+Knowledge Catalog resources span three locations, kept consistent via `scripts/config.json`:
 
-| Region value | Applies to |
+| Location | Applies to |
 |---|---|
 | `multi_region` (`us`) | BigQuery datasets, glossary, **user entry groups**, source entries |
-| `region` (`us-central1`) | entry types, aspect types, Vertex AI / Agent Engine |
+| `global` | entry types, aspect types |
+| `region` (`us-central1`) | Vertex AI / Agent Engine |
 
-User entry groups live in the multi-region so that entry-to-glossary-term links resolve.
-Entry and aspect types stay regional. The decision is centralized in
-`scripts/common.py` (`entry_group_location` / `entry_type_location`).
+User entry groups and entries live in the multi-region so that entry-to-glossary-term links
+resolve. Entry/aspect **types** live in `global`: Dataplex requires an entry's type to be in
+the entry's own region, a corresponding multi-region, or `global`, so a regional type is not
+usable by a `us` multi-region entry. The decision is centralized in `scripts/common.py`
+(`entry_group_location` → `us`, `entry_type_location` → `global`).
 
 ## Prerequisites
 

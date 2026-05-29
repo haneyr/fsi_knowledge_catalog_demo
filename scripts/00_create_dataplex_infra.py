@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def main():
     cfg = load_config()
     pid = cfg["project_id"]
-    loc = entry_type_location(cfg)          # entry/aspect types: regional
+    loc = entry_type_location(cfg)          # entry/aspect types: global (#20)
     eg_loc = entry_group_location(cfg)      # entry groups: multi-region (#20)
     DP = DATAPLEX_URL
 

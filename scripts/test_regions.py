@@ -19,13 +19,14 @@ class RegionModelTest(unittest.TestCase):
         # User entry groups must match the glossary/BigQuery region so links resolve.
         self.assertEqual(entry_group_location(self.cfg), "us")
 
-    def test_entry_types_use_regional(self):
-        # Entry/aspect types stay regional (no cross-region link constraints).
-        self.assertEqual(entry_type_location(self.cfg), "us-central1")
+    def test_entry_types_use_global(self):
+        # Types must be global: a regional type is not usable by a us-multi-region
+        # entry (verified live against the Dataplex API).
+        self.assertEqual(entry_type_location(self.cfg), "global")
 
-    def test_entry_type_falls_back_to_region_when_no_location(self):
-        cfg = {"multi_region": "us", "region": "us-central1"}
-        self.assertEqual(entry_type_location(cfg), "us-central1")
+    def test_entry_types_global_regardless_of_config(self):
+        cfg = {"multi_region": "eu", "region": "europe-west1"}
+        self.assertEqual(entry_type_location(cfg), "global")
 
 
 if __name__ == "__main__":
