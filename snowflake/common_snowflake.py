@@ -205,6 +205,7 @@ def get_snowflake_connection() -> snowflake.connector.SnowflakeConnection:
         password=os.environ["SNOWFLAKE_PASSWORD"],
         warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", WAREHOUSE),
         database=os.environ.get("SNOWFLAKE_DATABASE", DATABASE),
+        role="FSI_KC_SETUP_ROLE",
     )
 
 
@@ -216,6 +217,7 @@ def get_agent_snowflake_connection() -> snowflake.connector.SnowflakeConnection:
         password=os.environ["SNOWFLAKE_AGENT_PASSWORD"],
         warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", WAREHOUSE),
         database=os.environ.get("SNOWFLAKE_DATABASE", DATABASE),
+        role="FSI_KC_AGENT_ROLE",
     )
 
 

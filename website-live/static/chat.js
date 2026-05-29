@@ -22,6 +22,8 @@ const _GLOSSARY_TERMS = {
 const _GLOSSARY_ID = 'meridian-national-bank-glossary-us';
 const _TABLE_RE = /\b((?:gold|silver|bronze|ref|vw|staging|snapshot|audit)_[a-z0-9_]+)\b/g;
 let _projectNumber = '';
+let _snowflakeTables = new Set();
+let _snowflakeEnabled = false;
 
 function _renderMarkdown(text) {
   const wrapper = document.createElement('div');
@@ -161,9 +163,15 @@ class ChatPanel {
     this.liveMode = config.live_mode;
     this.projectId = config.project_id || '';
     _projectNumber = config.project_number || '';
+    _snowflakeEnabled = config.snowflake_enabled || false;
+    _snowflakeTables = new Set(config.snowflake_tables || []);
     const badge = document.getElementById('modeBadge');
     badge.className = 'mode-badge ' + (this.liveMode ? 'live' : 'static');
     badge.textContent = this.liveMode ? 'LIVE' : 'STATIC';
+
+    if (_snowflakeEnabled && this.viz) {
+      this.viz.setSnowflakeTables(config.snowflake_tables || []);
+    }
   }
 
   async _checkLiveMode() {
@@ -512,7 +520,8 @@ class ChatPanel {
     popup.querySelector('.popup-cols').innerHTML = '';
     popup.querySelector('.popup-link').href = '#';
 
-    const tier = tableName.match(/^(gold|silver|bronze|ref|staging|snapshot|audit|vw)_/)?.[1] || 'other';
+    const tier = _snowflakeTables.has(tableName) ? 'snowflake'
+      : (tableName.match(/^(gold|silver|bronze|ref|staging|snapshot|audit|vw)_/)?.[1] || 'other');
     const tierEl = popup.querySelector('.popup-tier');
     tierEl.textContent = tier;
     tierEl.className = 'popup-tier ' + tier;
@@ -536,7 +545,7 @@ class ChatPanel {
       popup.classList.remove('loading');
       popup.querySelector('.popup-desc').textContent = info.description || 'No description available.';
       const linkEl = popup.querySelector('.popup-link');
-      if (this.agentMode === 'kc') {
+      if (this.agentMode === 'kc' || _snowflakeTables.has(tableName)) {
         linkEl.href = info.catalog_url || '#';
         linkEl.innerHTML = 'Open in Knowledge Catalog &rarr;';
       } else {
