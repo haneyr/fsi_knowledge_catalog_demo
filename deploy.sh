@@ -14,7 +14,7 @@
 # limitations under the License.
 
 ####################################################################################
-# FSI Knowledge Catalog Demo - Deploy New Project (Terraform)
+# FSI Knowledge Catalog Demo - Deploy (Terraform, ENVIRONMENT-selected: dev|prod)
 # Requires Terraform and Terragrunt. For deployment without Terraform,
 # use deploy-full.sh instead (recommended).
 ####################################################################################
@@ -25,6 +25,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
 echo "=== FSI Knowledge Catalog Demo - Deploy ==="
+
+# Select environment (dev|prod). Defaults to dev for local/manual runs.
+export ENVIRONMENT="${ENVIRONMENT:-dev}"
+TFVARS="${SCRIPT_DIR}/env/${ENVIRONMENT}.tfvars"
+if [ ! -f "${TFVARS}" ]; then
+  echo "ERROR: ${TFVARS} not found. Valid ENVIRONMENT values: dev, prod."
+  exit 1
+fi
+PROJECT_ID=$(grep -E '^[[:space:]]*project_id' "${TFVARS}" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+if [ -z "${PROJECT_ID}" ]; then
+  echo "ERROR: project_id is empty in ${TFVARS}. Fill it in before deploying."
+  exit 1
+fi
+echo "=== ENVIRONMENT=${ENVIRONMENT} -> project ${PROJECT_ID} ==="
+
+# Ensure the Terraform state bucket and secrets exist (required by remote_state).
+GOOGLE_CLOUD_PROJECT="${PROJECT_ID}" bash "${SCRIPT_DIR}/bootstrap.sh"
 
 # Terragrunt deploy all stacks
 cd stacks

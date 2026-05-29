@@ -14,40 +14,15 @@
 # limitations under the License.
 
 ####################################################################################
-# FSI Knowledge Catalog Demo - Deploy to Existing Project (Terraform)
-# Requires Terraform and Terragrunt. For deployment without Terraform,
-# use deploy-full.sh instead (recommended).
+# Deploy to an existing project via Terraform. The dev/prod project is selected by
+# the ENVIRONMENT variable (default: dev) and read from env/<ENVIRONMENT>.tfvars.
+# This is now a thin wrapper around deploy.sh.
 ####################################################################################
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
 
-echo "=== FSI Knowledge Catalog Demo - Deploy (Existing Project) ==="
-
-if [ ! -f "env/existing-project.tfvars" ]; then
-  echo "ERROR: env/existing-project.tfvars not found. Copy from the template and fill in your project details."
-  exit 1
-fi
-
-# Terragrunt deploy all stacks
-cd stacks
-for stack in 01-foundation 02-networking 03-bigquery 04-dataplex-infra; do
-  echo "--- Deploying ${stack} ---"
-  cd "${stack}"
-  terragrunt init
-  terragrunt apply -auto-approve
-  cd ..
-done
-cd ..
-
-# Export Terraform outputs to scripts/config.json
-cd stacks/01-foundation
-terragrunt output -json > "${SCRIPT_DIR}/scripts/config.json"
-cd "${SCRIPT_DIR}"
-
-# Run post-deploy scripts
-source post_deploy.sh
-
-echo "=== Deploy Complete ==="
+export ENVIRONMENT="${ENVIRONMENT:-dev}"
+echo "=== Deploy (existing project) — ENVIRONMENT=${ENVIRONMENT} ==="
+exec bash "${SCRIPT_DIR}/deploy.sh"
