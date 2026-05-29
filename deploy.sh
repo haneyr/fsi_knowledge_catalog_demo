@@ -48,7 +48,10 @@ cd stacks
 for stack in 01-foundation 02-networking 03-bigquery 04-dataplex-infra; do
   echo "--- Deploying ${stack} ---"
   cd "${stack}"
-  terragrunt init
+  # -reconfigure so switching ENVIRONMENT in the same checkout re-points the
+  # GCS backend at the selected env's state bucket (no "Backend configuration
+  # changed" error). Harmless on a fresh checkout (e.g. in CI).
+  terragrunt init -reconfigure
   terragrunt apply -auto-approve
   cd ..
 done
