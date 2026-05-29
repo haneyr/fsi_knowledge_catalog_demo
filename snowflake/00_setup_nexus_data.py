@@ -37,7 +37,7 @@ SECTORS = [
     "Consumer Discretionary", "Industrials", "Utilities", "Real Estate",
 ]
 
-CURRENCIES = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "USD/CAD"]
+CURRENCIES = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "USD/CAD", "USD/CNY", "USD/MXN"]
 
 ECONOMIC_SERIES = [
     ("GDP_GROWTH_QOQ", "GDP Growth Rate (QoQ)", "Quarterly"),
@@ -206,7 +206,7 @@ def create_tables(cur):
 def populate_data(cur):
     logger.info("Populating synthetic data...")
     rng = random.Random(42)
-    biz_days = us_business_days("2025-11-03", 120)  # ~6 months of business days
+    biz_days = us_business_days("2024-01-02", 250)  # ~12 months of business days, overlaps BQ data ranges
 
     # SECURITY_PRICES: 500 CUSIPs x 120 days = 60,000 rows (batched)
     logger.info("  SECURITY_PRICES...")
@@ -314,7 +314,7 @@ def populate_data(cur):
     # FX_SPOT_RATES: 6 pairs x 120 days
     logger.info("  FX_SPOT_RATES...")
     batch = []
-    base_fx = {"EUR/USD": 1.08, "GBP/USD": 1.27, "USD/JPY": 155.0, "USD/CHF": 0.88, "AUD/USD": 0.65, "USD/CAD": 1.37}
+    base_fx = {"EUR/USD": 1.08, "GBP/USD": 1.27, "USD/JPY": 155.0, "USD/CHF": 0.88, "AUD/USD": 0.65, "USD/CAD": 1.37, "USD/CNY": 7.24, "USD/MXN": 17.15}
     for day in biz_days:
         for pair in CURRENCIES:
             mid = round(base_fx[pair] * (1 + rng.gauss(0, 0.003)), 6)
