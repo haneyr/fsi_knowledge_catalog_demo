@@ -281,6 +281,26 @@ def load_config() -> Dict[str, str]:
     return cfg
 
 
+def entry_group_location(cfg: Dict[str, str]) -> str:
+    """Location for user-created entry groups and source entries (issue #20).
+
+    These must live in the same region as the glossary and BigQuery entries
+    (the multi-region, e.g. ``us``) so that entry-to-glossary-term links and
+    other cross-resource references resolve. This is the single source of
+    truth for that decision.
+    """
+    return cfg["multi_region"]
+
+
+def entry_type_location(cfg: Dict[str, str]) -> str:
+    """Location for entry types and aspect types (issue #20).
+
+    These stay regional (e.g. ``us-central1``); they have no cross-region link
+    constraints, so they do not need to move to the multi-region.
+    """
+    return cfg.get("location", cfg.get("region", "us-central1"))
+
+
 def set_entry_aspect(
     cfg: Dict[str, str],
     entry_path: str,
