@@ -24,7 +24,10 @@ Usage: python3 03_create_source_entries.py
 import logging
 import time
 
-from common import load_config, api_call, DATAPLEX_URL
+from common import (
+    load_config, api_call, DATAPLEX_URL,
+    entry_group_location, entry_type_location,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -138,12 +141,13 @@ SYSTEMS = [
 def main():
     cfg = load_config()
     pid = cfg["project_id"]
-    loc = cfg.get("region", "us-central1")
+    eg_loc = entry_group_location(cfg)      # entry groups + entries: multi-region (#20)
+    et_loc = entry_type_location(cfg)       # entryType references: regional
     DP = DATAPLEX_URL
 
     for sys_cfg in SYSTEMS:
-        EG = f"projects/{pid}/locations/{loc}/entryGroups/{sys_cfg['entry_group']}"
-        ET = lambda t: f"projects/{pid}/locations/{loc}/entryTypes/{t}"
+        EG = f"projects/{pid}/locations/{eg_loc}/entryGroups/{sys_cfg['entry_group']}"
+        ET = lambda t: f"projects/{pid}/locations/{et_loc}/entryTypes/{t}"
 
         logger.info("=== %s (%s) ===", sys_cfg["instance_name"], sys_cfg["system"])
 
