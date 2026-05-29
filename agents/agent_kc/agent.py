@@ -266,6 +266,7 @@ if SNOWFLAKE_ENABLED:
                 password=os.environ["SNOWFLAKE_AGENT_PASSWORD"],
                 warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", "NEXUS_WH"),
                 database=os.environ.get("SNOWFLAKE_DATABASE", "NEXUS_MARKET_DATA"),
+                role="FSI_KC_AGENT_ROLE",
             )
         return _sf_conn
 
