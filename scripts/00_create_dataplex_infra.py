@@ -9,7 +9,10 @@ import json
 import logging
 import time
 
-from common import load_config, api_call, poll_operation, DATAPLEX_URL
+from common import (
+    load_config, api_call, poll_operation, DATAPLEX_URL,
+    entry_group_location, entry_type_location,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +20,8 @@ logger = logging.getLogger(__name__)
 def main():
     cfg = load_config()
     pid = cfg["project_id"]
-    loc = cfg["location"]
+    loc = entry_type_location(cfg)          # entry/aspect types: regional
+    eg_loc = entry_group_location(cfg)      # entry groups: multi-region (#20)
     DP = DATAPLEX_URL
 
     # --- Entry Types ---
@@ -165,7 +169,7 @@ def main():
     for eg_id, name, desc in entry_groups:
         for attempt in range(5):
             try:
-                result = api_call(f"{DP}/projects/{pid}/locations/{loc}/entryGroups?entryGroupId={eg_id}", "POST", {
+                result = api_call(f"{DP}/projects/{pid}/locations/{eg_loc}/entryGroups?entryGroupId={eg_id}", "POST", {
                     "displayName": name, "description": desc,
                 })
                 if "name" in result and "operations" in result.get("name", ""):
