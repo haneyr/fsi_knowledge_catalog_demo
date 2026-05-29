@@ -123,7 +123,9 @@ Multi-table, multi-domain questions that require discovering relationships betwe
 
 ---
 
-## Recommended Demo Flow (~20 minutes)
+## Recommended Demo Flow
+
+### Without Snowflake (~20 minutes)
 
 | Step | Scenario | What to show | Time |
 |---|---|---|---|
@@ -135,6 +137,21 @@ Multi-table, multi-domain questions that require discovering relationships betwe
 | 6 | 5.1 — FICO trust | KC cites data quality rules & trust assessment | 3 min |
 | 7 | 6.1 — CRE stress test | Scaled fails completely → KC multi-table reasoning | 3 min |
 | 8 | Knowledge Catalog UI | Walk through glossary, lineage, DQ in the console | 2 min |
+
+### With Snowflake (~28 minutes)
+
+Run steps 1-8 above, then switch to the **Multi-Cloud** narrative tab:
+
+| Step | Scenario | What to show | Time |
+|---|---|---|---|
+| 9 | Visualization | Point out the Snowflake cluster (cyan, bottom-right) | 1 min |
+| 10 | 7.2 — Benchmark comparison | KC queries BQ + Snowflake, calculates over/under-performance | 3 min |
+| 11 | 7.3 — Yield curve + NIM | KC combines SOFR/Treasury yields (Snowflake) with NIM (BQ) | 3 min |
+| 12 | 7.5 — FX rate comparison | KC reconciles internal vs external FX rates across platforms | 1 min |
+
+> **Note:** If Snowflake is not configured (`SNOWFLAKE_ACCOUNT` not set), the Multi-Cloud
+> narrative tab is hidden, the Snowflake cluster is invisible, and the demo works exactly
+> as before with Categories 1-6 only. No changes needed — the app handles this automatically.
 
 ## After Each KC Agent Answer, Highlight:
 
