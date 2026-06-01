@@ -126,6 +126,18 @@ COLUMN_TAGS = [
 ]
 
 
+def _find_taxonomy(url):
+    """Poll the taxonomy list until the target appears (read-after-write lag)."""
+    for attempt in range(6):
+        if attempt:
+            time.sleep(2 * attempt)
+        list_resp = _api("GET", url)
+        for t in list_resp.get("taxonomies", []):
+            if t.get("displayName") == TAXONOMY_DISPLAY:
+                return t["name"]
+    return None
+
+
 def create_taxonomy(pid, location="us"):
     url = f"{CATALOG_URL}/projects/{pid}/locations/{location}/taxonomies"
     body = {
@@ -133,24 +145,18 @@ def create_taxonomy(pid, location="us"):
         "description": "Data classification taxonomy for Meridian National Bank FSI demo. Defines sensitivity levels for column-level policy enforcement.",
         "activatedPolicyTypes": ["FINE_GRAINED_ACCESS_CONTROL"],
     }
-    try:
-        result = _api("POST", url, body)
-        if result.get("_exists"):
-            logger.info("  Taxonomy already exists, looking up...")
-            list_resp = _api("GET", url)
-            for t in list_resp.get("taxonomies", []):
-                if t.get("displayName") == TAXONOMY_DISPLAY:
-                    return t["name"]
-            raise RuntimeError("Taxonomy exists but couldn't find it")
+    result = _api("POST", url, body)
+    if not result.get("_exists"):
         logger.info("  Created taxonomy: %s", result.get("name"))
         return result["name"]
-    except RuntimeError as e:
-        if "already exists" in str(e).lower() or "409" in str(e):
-            list_resp = _api("GET", url)
-            for t in list_resp.get("taxonomies", []):
-                if t.get("displayName") == TAXONOMY_DISPLAY:
-                    return t["name"]
-        raise
+
+    logger.info("  Taxonomy already exists, waiting for it to appear in listings...")
+    name = _find_taxonomy(url)
+    if name:
+        return name
+    raise RuntimeError(
+        f"Taxonomy '{TAXONOMY_DISPLAY}' returned 409 but didn't appear in listings after retries"
+    )
 
 
 def create_policy_tags(taxonomy_name):
