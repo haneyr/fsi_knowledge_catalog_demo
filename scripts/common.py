@@ -281,6 +281,30 @@ def load_config() -> Dict[str, str]:
     return cfg
 
 
+def entry_group_location(cfg: Dict[str, str]) -> str:
+    """Location for user-created entry groups and source entries (issue #20).
+
+    These must live in the same region as the glossary and BigQuery entries
+    (the multi-region, e.g. ``us``) so that entry-to-glossary-term links and
+    other cross-resource references resolve. This is the single source of
+    truth for that decision.
+    """
+    return cfg["multi_region"]
+
+
+def entry_type_location(cfg: Dict[str, str]) -> str:
+    """Location for entry types and aspect types (issue #20).
+
+    Types live in ``global``. Dataplex requires an entry's entry type to be in
+    the same region as the entry, in a corresponding multi-region, or in
+    ``global`` -- a regional type (e.g. ``us-central1``) is NOT usable by an
+    entry in the ``us`` multi-region. ``global`` types are usable from any
+    region, which is the proven pattern already used by the Snowflake
+    integration. This is the single source of truth for that decision.
+    """
+    return "global"
+
+
 def set_entry_aspect(
     cfg: Dict[str, str],
     entry_path: str,

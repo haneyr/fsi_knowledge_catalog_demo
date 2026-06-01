@@ -52,6 +52,22 @@ fsi_gold (20 analytics tables)
               Deployed to Vertex AI Agent Engine
 ```
 
+### Region model
+
+Knowledge Catalog resources span three locations, kept consistent via `scripts/config.json`:
+
+| Location | Applies to |
+|---|---|
+| `multi_region` (`us`) | BigQuery datasets, glossary, **user entry groups**, source entries |
+| `global` | entry types, aspect types |
+| `region` (`us-central1`) | Vertex AI / Agent Engine |
+
+User entry groups and entries live in the multi-region so that entry-to-glossary-term links
+resolve. Entry/aspect **types** live in `global`: Dataplex requires an entry's type to be in
+the entry's own region, a corresponding multi-region, or `global`, so a regional type is not
+usable by a `us` multi-region entry. The decision is centralized in `scripts/common.py`
+(`entry_group_location` → `us`, `entry_type_location` → `global`).
+
 ## Prerequisites
 
 - Google Cloud SDK (`gcloud`)
@@ -120,9 +136,16 @@ bash deploy-bq.sh
 
 **Option B: Using Terraform/Terragrunt**
 ```bash
-# Edit env/existing-project.tfvars with your project ID
-source deploy-existing-project.sh
+# Choose an environment (dev or prod) and fill in its project ID:
+#   edit env/dev.tfvars  (or env/prod.tfvars)
+# Then deploy (defaults to dev):
+export ENVIRONMENT=dev
+bash deploy.sh        # runs bootstrap.sh (state bucket + secrets), then terragrunt
 ```
+
+> **Note:** `deploy.sh` already generates `scripts/config.json` and runs `post_deploy.sh`
+> at the end, so if you used this path you can skip Step 3 below. Step 3 is only needed
+> for the `bq` CLI path (Option A), which does not run post-deploy automatically.
 
 ### Step 3: Create Knowledge Catalog Resources
 

@@ -30,15 +30,10 @@ locals {
     "roles/iam.serviceAccountUser",
   ]
 
-  agent_engine_sa       = "serviceAccount:service-${var.project_number}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
-  agent_engine_sa_roles = [
-    "roles/bigquery.jobUser",
-    "roles/bigquery.dataViewer",
-    "roles/bigquery.dataEditor",
-    "roles/dataplex.viewer",
-    "roles/dataplex.catalogEditor",
-    "roles/datalineage.viewer",
-  ]
+  # NOTE: the Agent Engine service agent (service-<n>@gcp-sa-aiplatform-re...) does
+  # not exist until the first reasoning engine is deployed, so it cannot be granted
+  # roles here on a fresh project. agents/deploy_agents.sh grants that agent the same
+  # roles after deployment, when the agent exists.
 
   compute_sa       = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
   compute_sa_roles = [
@@ -53,13 +48,6 @@ resource "google_project_iam_member" "sa_roles" {
   project  = var.project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.fsi_governance.email}"
-}
-
-resource "google_project_iam_member" "agent_engine_roles" {
-  for_each = toset(local.agent_engine_sa_roles)
-  project  = var.project_id
-  role     = each.value
-  member   = local.agent_engine_sa
 }
 
 resource "google_project_iam_member" "compute_sa_roles" {
