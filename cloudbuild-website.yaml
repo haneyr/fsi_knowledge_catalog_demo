@@ -1,0 +1,67 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Website deployment pipeline.
+# Trigger: push to main, file filter: website-live/**
+# Reads agent IDs from Secret Manager and deploys the Cloud Run website.
+
+substitutions:
+  _ENV: "dev"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # ── Step 1: Resolve target project ──────────────────────────────────────
+  - id: resolve-project
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        TFVARS="env/${_ENV}.tfvars"
+        PROJECT_ID=$$(grep -E '^\s*project_id' "$$TFVARS" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+        echo "$$PROJECT_ID" > /workspace/project_id.txt
+        echo "Target project: $$PROJECT_ID"
+
+  # ── Step 2: Read agent IDs from Secret Manager ─────────────────────────
+  - id: read-agent-ids
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        PROJECT_ID=$$(cat /workspace/project_id.txt)
+        for secret in basic-agent-id scaled-agent-id kc-agent-id; do
+          VALUE=$$(gcloud secrets versions access latest --secret="$$secret" --project="$$PROJECT_ID")
+          echo "$$VALUE" > "/workspace/$${secret}.txt"
+          echo "  $$secret = $$VALUE"
+        done
+
+  # ── Step 3: Deploy website ─────────────────────────────────────────────
+  - id: deploy-website
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        export GOOGLE_CLOUD_PROJECT=$$(cat /workspace/project_id.txt)
+        export GOOGLE_CLOUD_LOCATION=us-central1
+        export BASIC_AGENT_ID=$$(cat /workspace/basic-agent-id.txt)
+        export SCALED_AGENT_ID=$$(cat /workspace/scaled-agent-id.txt)
+        export KC_AGENT_ID=$$(cat /workspace/kc-agent-id.txt)
+        bash website-live/deploy.sh
