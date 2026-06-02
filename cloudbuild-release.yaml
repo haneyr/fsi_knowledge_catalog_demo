@@ -1,0 +1,157 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Release promotion pipeline.
+# Trigger: tag v*.*.* (e.g. v1.2.0) → deploys to PROD.
+# Uses cloud-build-prod SA (no dev access).
+#
+# The first step verifies the tagged commit is on main — prevents deploying
+# unreviewed code to prod by tagging a feature branch.
+#
+# Rollback: re-push an earlier tag (e.g. re-run the v1.1.0 trigger).
+
+substitutions:
+  _ENV: "prod"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # ── Step 1: Ancestor safeguard ──────────────────────────────────────────
+  # Cloud Build does a shallow checkout of the tag — origin/main is not
+  # present. We must fetch it before the merge-base check.
+  - id: ancestor-check
+    name: gcr.io/cloud-builders/git
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        git fetch --unshallow origin main 2>/dev/null || git fetch origin main
+        if ! git merge-base --is-ancestor "$$COMMIT_SHA" origin/main; then
+          echo "============================================================"
+          echo "RELEASE BLOCKED: tag $$TAG_NAME ($$COMMIT_SHA) is NOT on main."
+          echo "Only commits that have been merged to main can be promoted."
+          echo "============================================================"
+          exit 1
+        fi
+        echo "Ancestor check passed: $$COMMIT_SHA is on main"
+
+  # ── Step 2: Resolve target project ──────────────────────────────────────
+  - id: resolve-project
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        TFVARS="env/${_ENV}.tfvars"
+        PROJECT_ID=$$(grep -E '^\s*project_id' "$$TFVARS" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+        echo "$$PROJECT_ID" > /workspace/project_id.txt
+        echo "Release $$TAG_NAME → project $$PROJECT_ID ($$_ENV)"
+
+  # ── Step 3: Install Terragrunt ──────────────────────────────────────────
+  - id: install-terragrunt
+    name: gcr.io/cloud-builders/curl
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        TG_VERSION="0.77.22"
+        curl -sL "https://github.com/gruntwork-io/terragrunt/releases/download/v$${TG_VERSION}/terragrunt_linux_amd64" \
+          -o /workspace/terragrunt
+        chmod +x /workspace/terragrunt
+
+  # ── Step 4: Terraform apply (infra) ─────────────────────────────────────
+  - id: infra
+    name: hashicorp/terraform:1.12
+    entrypoint: bash
+    env:
+      - ENVIRONMENT=${_ENV}
+      - TF_IN_AUTOMATION=1
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        export PATH="/workspace:$$PATH"
+        cd stacks
+        terragrunt run --all apply -auto-approve --non-interactive -no-color
+
+  # ── Step 5: Install Python deps ─────────────────────────────────────────
+  - id: install-deps
+    name: python:3.12-slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        pip install --quiet \
+          google-adk \
+          google-cloud-aiplatform \
+          google-cloud-bigquery \
+          google-auth \
+          requests \
+          pyyaml
+
+  # ── Step 6: Generate config.json ────────────────────────────────────────
+  - id: generate-config
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        PROJECT_ID=$$(cat /workspace/project_id.txt)
+        PROJECT_NUMBER=$$(gcloud projects describe "$$PROJECT_ID" --format='value(projectNumber)')
+        ACCOUNT=$$(gcloud config get-value account 2>/dev/null)
+        cat > scripts/config.json <<CFGEOF
+        {
+          "project_id": {"sensitive": false, "type": "string", "value": "$$PROJECT_ID"},
+          "project_number": {"sensitive": false, "type": "string", "value": "$$PROJECT_NUMBER"},
+          "region": {"sensitive": false, "type": "string", "value": "us-central1"},
+          "multi_region": {"sensitive": false, "type": "string", "value": "us"},
+          "gcp_account_name": {"sensitive": false, "type": "string", "value": "$$ACCOUNT"}
+        }
+        CFGEOF
+
+  # ── Step 7: Deploy agents + persist IDs ─────────────────────────────────
+  - id: deploy-agents
+    name: python:3.12-slim
+    entrypoint: bash
+    env:
+      - PERSIST_AGENT_IDS=1
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        export GOOGLE_CLOUD_PROJECT=$$(cat /workspace/project_id.txt)
+        export GOOGLE_CLOUD_LOCATION=us-central1
+        export PATH="/builder/google-cloud-sdk/bin:$$PATH"
+        source agents/deploy_agents.sh
+
+  # ── Step 8: Deploy website ─────────────────────────────────────────────
+  - id: deploy-website
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        export GOOGLE_CLOUD_PROJECT=$$(cat /workspace/project_id.txt)
+        export GOOGLE_CLOUD_LOCATION=us-central1
+        export BASIC_AGENT_ID=$$(gcloud secrets versions access latest --secret=basic-agent-id --project="$$GOOGLE_CLOUD_PROJECT")
+        export SCALED_AGENT_ID=$$(gcloud secrets versions access latest --secret=scaled-agent-id --project="$$GOOGLE_CLOUD_PROJECT")
+        export KC_AGENT_ID=$$(gcloud secrets versions access latest --secret=kc-agent-id --project="$$GOOGLE_CLOUD_PROJECT")
+        bash website-live/deploy.sh

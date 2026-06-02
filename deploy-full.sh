@@ -48,6 +48,14 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Parse optional flags
+WITH_CI=0
+for arg in "$@"; do
+  case "$arg" in
+    --with-ci) WITH_CI=1 ;;
+  esac
+done
+
 # ---------------------------------------------------------------------------
 # Step 0: Project setup
 # ---------------------------------------------------------------------------
@@ -196,3 +204,18 @@ echo "  Dataplex:   https://console.cloud.google.com/dataplex?project=${GOOGLE_C
 echo "  Agents:     https://console.cloud.google.com/vertex-ai/agents?project=${GOOGLE_CLOUD_PROJECT}"
 echo "  Analytics:  SELECT * FROM \`${GOOGLE_CLOUD_PROJECT}.agent_analytics.*\`"
 echo "============================================================"
+
+# ---------------------------------------------------------------------------
+# Optional: Bootstrap for Cloud Build CI
+# ---------------------------------------------------------------------------
+if [ "${WITH_CI}" = "1" ]; then
+    echo ""
+    echo "=== Setting up Cloud Build CI ==="
+    GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}" bash "${SCRIPT_DIR}/bootstrap.sh"
+    echo ""
+    echo "Bootstrap complete. To finish CI setup:"
+    echo "  1. Follow the runbook in docs/ci-setup.md"
+    echo "  2. Create the CI hub project and service accounts"
+    echo "  3. Connect GitHub: https://console.cloud.google.com/cloud-build/repositories/2nd-gen"
+    echo "  4. Create triggers pointing to cloudbuild*.yaml files"
+fi
