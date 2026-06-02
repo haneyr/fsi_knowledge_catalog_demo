@@ -26,7 +26,7 @@ cd "${SCRIPT_DIR}/stacks"
 for stack in 04-dataplex-infra 03-bigquery 02-networking 01-foundation; do
   echo "--- Destroying ${stack} ---"
   cd "${stack}"
-  terragrunt destroy -auto-approve || true
+  terragrunt run destroy -auto-approve || true
   cd ..
 done
 

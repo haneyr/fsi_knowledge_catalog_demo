@@ -51,15 +51,15 @@ for stack in 01-foundation 02-networking 03-bigquery 04-dataplex-infra; do
   # -reconfigure so switching ENVIRONMENT in the same checkout re-points the
   # GCS backend at the selected env's state bucket (no "Backend configuration
   # changed" error). Harmless on a fresh checkout (e.g. in CI).
-  terragrunt init -reconfigure
-  terragrunt apply -auto-approve
+  terragrunt run init -reconfigure
+  terragrunt run apply -auto-approve
   cd ..
 done
 cd ..
 
 # Export Terraform outputs to scripts/config.json
 cd stacks/01-foundation
-terragrunt output -json > "${SCRIPT_DIR}/scripts/config.json"
+terragrunt run output -json > "${SCRIPT_DIR}/scripts/config.json"
 cd "${SCRIPT_DIR}"
 
 # Run post-deploy scripts
