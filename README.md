@@ -208,7 +208,26 @@ Once configured:
   and posts the diff as a PR comment
 - **Push to main**: auto-applies infrastructure changes to dev
 
-Production deploys via release tags (`v*.*.*`) are added in a later phase.
+### Tag-based promotion to prod
+
+```bash
+# After verifying on dev, promote to prod:
+git tag v1.0.0
+git push origin v1.0.0
+# → cloudbuild-release.yaml fires: ancestor check → infra → agents → website
+```
+
+The release pipeline verifies the tagged commit is on `main` before deploying.
+Rollback by re-running an earlier tag.
+
+### `--with-ci` bootstrap
+
+```bash
+# After a manual deploy, optionally bootstrap for CI:
+bash deploy-full.sh --with-ci
+# → runs the normal deploy, then creates the state bucket + secrets
+# → prints instructions for completing the CI hub setup
+```
 
 ## Running Agents Locally (for development)
 
