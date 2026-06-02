@@ -257,18 +257,48 @@ SNOWFLAKE_ENABLED = bool(os.environ.get("SNOWFLAKE_ACCOUNT"))
 if SNOWFLAKE_ENABLED:
     import snowflake.connector
 
+    def _new_sf_connection():
+        return snowflake.connector.connect(
+            account=os.environ["SNOWFLAKE_ACCOUNT"],
+            user=os.environ["SNOWFLAKE_AGENT_USER"],
+            password=os.environ["SNOWFLAKE_AGENT_PASSWORD"],
+            warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", "NEXUS_WH"),
+            database=os.environ.get("SNOWFLAKE_DATABASE", "NEXUS_MARKET_DATA"),
+            role="FSI_KC_AGENT_ROLE",
+        )
+
     def _get_sf_connection():
         global _sf_conn
         if _sf_conn is None:
-            _sf_conn = snowflake.connector.connect(
-                account=os.environ["SNOWFLAKE_ACCOUNT"],
-                user=os.environ["SNOWFLAKE_AGENT_USER"],
-                password=os.environ["SNOWFLAKE_AGENT_PASSWORD"],
-                warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", "NEXUS_WH"),
-                database=os.environ.get("SNOWFLAKE_DATABASE", "NEXUS_MARKET_DATA"),
-                role="FSI_KC_AGENT_ROLE",
-            )
+            _sf_conn = _new_sf_connection()
         return _sf_conn
+
+    def _reset_sf_connection():
+        global _sf_conn
+        try:
+            if _sf_conn is not None:
+                _sf_conn.close()
+        except Exception:
+            pass
+        _sf_conn = _new_sf_connection()
+        return _sf_conn
+
+    def _run_sf_query(sql: str) -> str:
+        conn = _get_sf_connection()
+        cur = conn.cursor()
+        cur.execute(sql)
+        rows = cur.fetchmany(50)
+        if not rows:
+            return "Query returned 0 rows."
+
+        col_names = [desc[0] for desc in cur.description]
+        header = " | ".join(col_names)
+        lines = [header, "-" * len(header)]
+        for row in rows:
+            lines.append(" | ".join(str(v) for v in row))
+
+        total = cur.rowcount if cur.rowcount >= 0 else len(rows)
+        return f"Query returned {total} rows (showing first {len(rows)}):\n\n" + "\n".join(lines)
 
     @FunctionTool
     def query_snowflake(sql: str) -> str:
@@ -279,23 +309,13 @@ if SNOWFLAKE_ENABLED:
         For example: NEXUS_MARKET_DATA.SECURITIES.SECURITY_PRICES
         """
         try:
-            conn = _get_sf_connection()
-            cur = conn.cursor()
-            cur.execute(sql)
-            rows = cur.fetchmany(50)
-            if not rows:
-                return "Query returned 0 rows."
-
-            col_names = [desc[0] for desc in cur.description]
-            header = " | ".join(col_names)
-            lines = [header, "-" * len(header)]
-            for row in rows:
-                lines.append(" | ".join(str(v) for v in row))
-
-            total = cur.rowcount if cur.rowcount >= 0 else len(rows)
-            return f"Query returned {total} rows (showing first {len(rows)}):\n\n" + "\n".join(lines)
-        except Exception as e:
-            return f"Snowflake SQL Error: {str(e)}"
+            return _run_sf_query(sql)
+        except Exception:
+            try:
+                _reset_sf_connection()
+                return _run_sf_query(sql)
+            except Exception as e:
+                return f"Snowflake SQL Error: {str(e)}"
 
     SNOWFLAKE_PROMPT_EXTENSION = """
 
