@@ -192,6 +192,24 @@ The deploy script automatically:
 3. Deploys each agent via `adk deploy agent_engine`
 4. Prints the Agent Engine console URL
 
+## Cloud Build CI/CD (Optional)
+
+For automated deployments, set up a Cloud Build CI pipeline that runs Terraform
+plan on PRs and apply on merge to main. This is **optional** — the manual deploy
+paths above work without Cloud Build.
+
+See `docs/ci-setup.md` (local, not committed) for the full setup runbook:
+1. Create a CI hub project with two env-scoped service accounts
+2. Connect GitHub via OAuth (one-time, in the Cloud Console)
+3. Create triggers that use `cloudbuild.yaml`
+
+Once configured:
+- **PR to main** (changing `stacks/`, `modules/`, or `env/`): runs `terragrunt plan`
+  and posts the diff as a PR comment
+- **Push to main**: auto-applies infrastructure changes to dev
+
+Production deploys via release tags (`v*.*.*`) are added in a later phase.
+
 ## Running Agents Locally (for development)
 
 ```bash
