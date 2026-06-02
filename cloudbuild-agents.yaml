@@ -1,0 +1,90 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Agent deployment pipeline.
+# Trigger: push to main, file filter: agents/**
+# Deploys all 3 agents to Vertex AI Agent Engine and persists IDs to Secret Manager.
+
+substitutions:
+  _ENV: "dev"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # ── Step 1: Resolve target project from env tfvars ──────────────────────
+  - id: resolve-project
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        TFVARS="env/${_ENV}.tfvars"
+        PROJECT_ID=$$(grep -E '^\s*project_id' "$$TFVARS" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+        echo "$$PROJECT_ID" > /workspace/project_id.txt
+        echo "Target project: $$PROJECT_ID"
+
+  # ── Step 2: Install Python deps ────────────────────────────────────────
+  - id: install-deps
+    name: python:3.12-slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        pip install --quiet \
+          google-adk \
+          google-cloud-aiplatform \
+          google-cloud-bigquery \
+          google-auth \
+          requests \
+          pyyaml
+
+  # ── Step 3: Generate config.json ────────────────────────────────────────
+  - id: generate-config
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        PROJECT_ID=$$(cat /workspace/project_id.txt)
+        PROJECT_NUMBER=$$(gcloud projects describe "$$PROJECT_ID" --format='value(projectNumber)')
+        ACCOUNT=$$(gcloud config get-value account 2>/dev/null)
+        cat > scripts/config.json <<CFGEOF
+        {
+          "project_id": {"sensitive": false, "type": "string", "value": "$$PROJECT_ID"},
+          "project_number": {"sensitive": false, "type": "string", "value": "$$PROJECT_NUMBER"},
+          "region": {"sensitive": false, "type": "string", "value": "us-central1"},
+          "multi_region": {"sensitive": false, "type": "string", "value": "us"},
+          "gcp_account_name": {"sensitive": false, "type": "string", "value": "$$ACCOUNT"}
+        }
+        CFGEOF
+
+  # ── Step 4: Deploy agents + persist IDs ─────────────────────────────────
+  - id: deploy-agents
+    name: python:3.12-slim
+    entrypoint: bash
+    env:
+      - PERSIST_AGENT_IDS=1
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        export GOOGLE_CLOUD_PROJECT=$$(cat /workspace/project_id.txt)
+        export GOOGLE_CLOUD_LOCATION=us-central1
+        # gcloud is needed by deploy_agents.sh for IAM grants and secret writes
+        export PATH="/builder/google-cloud-sdk/bin:$$PATH"
+        source agents/deploy_agents.sh
