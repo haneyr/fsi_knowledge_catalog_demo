@@ -50,9 +50,11 @@ steps:
         CFGEOF
         echo "Config generated for $$PROJECT_ID"
 
-  # ── Step 2: Install Python deps ────────────────────────────────────────
-  - id: install-deps
-    name: python:3.12-slim
+  # ── Step 2: Run post-deploy governance scripts ─────────────────────────
+  # Uses gcloud image (has Python + gcloud). Installs deps inline since
+  # pip installs don't persist across Cloud Build steps.
+  - id: governance
+    name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
     args:
       - -c
@@ -63,13 +65,4 @@ steps:
           google-cloud-bigquery \
           requests \
           pyyaml
-
-  # ── Step 3: Run post-deploy governance scripts ─────────────────────────
-  - id: governance
-    name: python:3.12-slim
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        set -euo pipefail
         bash post_deploy.sh
