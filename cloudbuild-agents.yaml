@@ -25,7 +25,7 @@ options:
 steps:
   # ── Step 1: Resolve target project + generate config.json ───────────────
   - id: setup
-    name: gcr.io/cloud-builders/gcloud
+    name: google/cloud-sdk:slim
     entrypoint: bash
     args:
       - -c
@@ -51,7 +51,7 @@ steps:
   # Uses gcloud image (has Python + gcloud). Installs ADK deps inline since
   # pip installs don't persist across Cloud Build steps.
   - id: deploy-agents
-    name: gcr.io/cloud-builders/gcloud
+    name: google/cloud-sdk:slim
     entrypoint: bash
     env:
       - PERSIST_AGENT_IDS=1

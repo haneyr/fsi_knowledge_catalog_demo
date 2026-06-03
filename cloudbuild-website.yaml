@@ -25,7 +25,7 @@ options:
 steps:
   # ── Step 1: Resolve target project ──────────────────────────────────────
   - id: resolve-project
-    name: gcr.io/cloud-builders/gcloud
+    name: google/cloud-sdk:slim
     entrypoint: bash
     args:
       - -c
@@ -38,7 +38,7 @@ steps:
 
   # ── Step 2: Read agent IDs from Secret Manager ─────────────────────────
   - id: read-agent-ids
-    name: gcr.io/cloud-builders/gcloud
+    name: google/cloud-sdk:slim
     entrypoint: bash
     args:
       - -c
@@ -53,7 +53,7 @@ steps:
 
   # ── Step 3: Deploy website ─────────────────────────────────────────────
   - id: deploy-website
-    name: gcr.io/cloud-builders/gcloud
+    name: google/cloud-sdk:slim
     entrypoint: bash
     args:
       - -c

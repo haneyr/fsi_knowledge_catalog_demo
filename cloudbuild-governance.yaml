@@ -28,7 +28,7 @@ timeout: 3600s
 steps:
   # ── Step 1: Resolve target project + generate config.json ───────────────
   - id: setup
-    name: gcr.io/cloud-builders/gcloud
+    name: google/cloud-sdk:slim
     entrypoint: bash
     args:
       - -c
@@ -54,7 +54,7 @@ steps:
   # Uses gcloud image (has Python + gcloud). Installs deps inline since
   # pip installs don't persist across Cloud Build steps.
   - id: governance
-    name: gcr.io/cloud-builders/gcloud
+    name: google/cloud-sdk:slim
     entrypoint: bash
     args:
       - -c
