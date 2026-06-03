@@ -128,9 +128,9 @@ COLUMN_TAGS = [
 
 def _find_taxonomy(url):
     """Poll the taxonomy list until the target appears (read-after-write lag)."""
-    for attempt in range(6):
+    for attempt in range(10):
         if attempt:
-            time.sleep(2 * attempt)
+            time.sleep(5 * (attempt + 1))
         list_resp = _api("GET", url)
         for t in list_resp.get("taxonomies", []):
             if t.get("displayName") == TAXONOMY_DISPLAY:
