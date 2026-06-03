@@ -330,12 +330,12 @@ For cross-platform questions, you may need to query both BigQuery and Snowflake,
 the results in your response. For example, portfolio holdings live in BigQuery while current
 security prices live in Snowflake.
 
-**IMPORTANT — Snowflake discovery:** A general search like "benchmark returns" may only return
-BigQuery tables. When a question involves market data, external benchmarks, rates, prices, or
-any topic NEXUS might cover, ALWAYS run a second search with "snowflake" or "NEXUS" in the
-query (e.g., `search_entries("snowflake benchmark returns")`) to ensure you discover Snowflake
-tables. Do not assume a topic has no Snowflake data just because the first search returned
-only BigQuery results.
+**IMPORTANT — Snowflake discovery:** A general search may only return BigQuery tables. When a
+question involves market data, external benchmarks, rates, prices, or any topic NEXUS might
+cover, ALWAYS run a second search using the word "snowflake" as the FIRST keyword followed by
+the topic (e.g., `search_entries("snowflake FX")`, `search_entries("snowflake benchmark")`).
+This specific pattern reliably surfaces Snowflake entries. Do not assume a topic has no
+Snowflake data just because the first search returned only BigQuery results.
 
 When querying Snowflake for pricing data, prefer broad filters (date range, asset class) over
 large IN-lists of identifiers. If a BigQuery result returns more than ~20 securities, query
