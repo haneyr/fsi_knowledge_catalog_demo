@@ -56,24 +56,24 @@ Your project is: {PROJECT_ID}
 
 ## Available Tables (5 tables only)
 
-1. `{PROJECT_ID}.fsi_gold.gold_customer_360`
+1. `{PROJECT_ID}.fsi_gold_nokc.gold_customer_360`
    - One row per customer with deposits, loans, cards, and wealth AUM
    - Columns: customer_id, first_name, last_name, customer_segment, total_deposit_balance,
      total_loan_balance, total_card_balance, total_aum, total_relationship_value
 
-2. `{PROJECT_ID}.fsi_gold.gold_account_summary`
+2. `{PROJECT_ID}.fsi_gold_nokc.gold_account_summary`
    - Account-level metrics with 90-day transaction activity
    - Columns: account_id, customer_id, account_type, current_balance, transaction_count_90d
 
-3. `{PROJECT_ID}.fsi_gold.gold_loan_portfolio_summary`
+3. `{PROJECT_ID}.fsi_gold_nokc.gold_loan_portfolio_summary`
    - Loan analytics by type, risk rating, and delinquency status
    - Columns: loan_type, risk_rating, delinquency_status, loan_count, total_outstanding, avg_fico
 
-4. `{PROJECT_ID}.fsi_gold.gold_portfolio_performance`
+4. `{PROJECT_ID}.fsi_gold_nokc.gold_portfolio_performance`
    - Wealth portfolio performance with returns and risk metrics
    - Columns: portfolio_id, wm_client_id, market_value, ytd_return, avg_sharpe_ratio, avg_alpha
 
-5. `{PROJECT_ID}.fsi_gold.gold_balance_sheet_summary`
+5. `{PROJECT_ID}.fsi_gold_nokc.gold_balance_sheet_summary`
    - High-level balance sheet: assets, liabilities, equity
    - Columns: category, line_item, amount
 
