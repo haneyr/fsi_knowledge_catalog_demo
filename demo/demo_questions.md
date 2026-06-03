@@ -25,14 +25,14 @@ Establishes credibility — proves all agents work when the task is simple.
 
 ## Category 2: Table Disambiguation (Scaled agent picks wrong table)
 
-The scaled agent sees 150+ table names but can't tell which one to use.
+The scaled agent sees 128 table names but can't tell which one to use.
 
 ### Scenario 2.1 — Suspicious Activity
 > "Show me suspicious activity trends over the past year"
 
 - **Scaled failure:** Sees `bronze_fraud_alerts`, `silver_fraud_alerts`, `gold_fraud_analytics`, `silver_compliance_cases`, `gold_aml_risk_scoring` — picks one arbitrarily or hallucinates a `suspicious_activity` table
 - **KC advantage:** Searches "suspicious activity" → discovers `gold_fraud_analytics` for fraud trends AND `gold_aml_risk_scoring` for BSA/AML → reads metadata to understand which is the monthly trend table → queries the right one → cites the BSA glossary term and data classification
-- **Key talking point:** *"150 tables means 150 chances to pick the wrong one. The KC agent doesn't guess — it searches semantically and reads metadata to understand what each table actually contains."*
+- **Key talking point:** *"128 tables means 128 chances to pick the wrong one. The KC agent doesn't guess — it searches semantically and reads metadata to understand what each table actually contains."*
 
 ### Scenario 2.2 — Interest Rate Risk
 > "What's our interest rate exposure?"
