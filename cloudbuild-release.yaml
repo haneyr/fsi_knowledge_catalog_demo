@@ -120,7 +120,7 @@ steps:
       - -c
       - |
         set -euo pipefail
-        pip install --quiet \
+        pip install --quiet --break-system-packages \
           google-adk \
           google-cloud-aiplatform \
           google-cloud-bigquery \

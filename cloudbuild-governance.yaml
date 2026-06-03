@@ -60,7 +60,7 @@ steps:
       - -c
       - |
         set -euo pipefail
-        pip install --quiet \
+        pip install --quiet --break-system-packages \
           google-auth \
           google-cloud-bigquery \
           requests \
