@@ -37,14 +37,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Grant required IAM permissions to the Agent Engine service account
 grant_agent_engine_permissions() {
     echo "=== Granting IAM permissions to Agent Engine service account ==="
-    PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')
+    PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)' 2>/dev/null) || true
+    if [ -z "${PROJECT_NUMBER}" ]; then
+        echo "  Skipping IAM grants (cannot resolve project number — may lack resourcemanager access in CI)"
+        return 0
+    fi
     SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
 
     for role in roles/bigquery.jobUser roles/bigquery.dataViewer roles/bigquery.dataEditor roles/dataplex.viewer roles/dataplex.catalogEditor roles/datalineage.viewer; do
-        gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+        if gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
             --member="serviceAccount:${SA}" \
-            --role="${role}" --quiet 2>/dev/null | tail -1
-        echo "  Granted ${role}"
+            --role="${role}" --quiet 2>/dev/null | tail -1; then
+            echo "  Granted ${role}"
+        else
+            echo "  Skipped ${role} (may lack IAM permissions in CI — grant manually or via bootstrap)"
+        fi
     done
     echo "Agent Engine SA permissions configured."
 }
