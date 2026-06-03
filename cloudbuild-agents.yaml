@@ -23,8 +23,8 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
-  # ── Step 1: Resolve target project from env tfvars ──────────────────────
-  - id: resolve-project
+  # ── Step 1: Resolve target project + generate config.json ───────────────
+  - id: setup
     name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
     args:
@@ -34,33 +34,6 @@ steps:
         TFVARS="env/${_ENV}.tfvars"
         PROJECT_ID=$$(grep -E '^\s*project_id' "$$TFVARS" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
         echo "$$PROJECT_ID" > /workspace/project_id.txt
-        echo "Target project: $$PROJECT_ID"
-
-  # ── Step 2: Install Python deps ────────────────────────────────────────
-  - id: install-deps
-    name: python:3.12-slim
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        set -euo pipefail
-        pip install --quiet \
-          google-adk \
-          google-cloud-aiplatform \
-          google-cloud-bigquery \
-          google-auth \
-          requests \
-          pyyaml
-
-  # ── Step 3: Generate config.json ────────────────────────────────────────
-  - id: generate-config
-    name: gcr.io/cloud-builders/gcloud
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        set -euo pipefail
-        PROJECT_ID=$$(cat /workspace/project_id.txt)
         PROJECT_NUMBER=$$(gcloud projects describe "$$PROJECT_ID" --format='value(projectNumber)')
         ACCOUNT=$$(gcloud config get-value account 2>/dev/null)
         cat > scripts/config.json <<CFGEOF
@@ -72,10 +45,13 @@ steps:
           "gcp_account_name": {"sensitive": false, "type": "string", "value": "$$ACCOUNT"}
         }
         CFGEOF
+        echo "Target project: $$PROJECT_ID ($$PROJECT_NUMBER)"
 
-  # ── Step 4: Deploy agents + persist IDs ─────────────────────────────────
+  # ── Step 2: Deploy agents + persist IDs ─────────────────────────────────
+  # Uses gcloud image (has Python + gcloud). Installs ADK deps inline since
+  # pip installs don't persist across Cloud Build steps.
   - id: deploy-agents
-    name: python:3.12-slim
+    name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
     env:
       - PERSIST_AGENT_IDS=1
@@ -83,8 +59,15 @@ steps:
       - -c
       - |
         set -euo pipefail
+        pip install --quiet \
+          google-adk \
+          google-cloud-aiplatform \
+          google-cloud-bigquery \
+          google-cloud-bigquery-storage \
+          google-auth \
+          requests \
+          pyyaml \
+          pyarrow
         export GOOGLE_CLOUD_PROJECT=$$(cat /workspace/project_id.txt)
         export GOOGLE_CLOUD_LOCATION=us-central1
-        # gcloud is needed by deploy_agents.sh for IAM grants and secret writes
-        export PATH="/builder/google-cloud-sdk/bin:$$PATH"
         source agents/deploy_agents.sh

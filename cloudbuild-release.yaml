@@ -89,23 +89,7 @@ steps:
         cd stacks
         terragrunt run --all apply -auto-approve --non-interactive -no-color
 
-  # ── Step 5: Install Python deps ─────────────────────────────────────────
-  - id: install-deps
-    name: python:3.12-slim
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        set -euo pipefail
-        pip install --quiet \
-          google-adk \
-          google-cloud-aiplatform \
-          google-cloud-bigquery \
-          google-auth \
-          requests \
-          pyyaml
-
-  # ── Step 6: Generate config.json ────────────────────────────────────────
+  # ── Step 5: Generate config.json ────────────────────────────────────────
   - id: generate-config
     name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
@@ -126,9 +110,9 @@ steps:
         }
         CFGEOF
 
-  # ── Step 7: Deploy agents + persist IDs ─────────────────────────────────
+  # ── Step 6: Deploy agents + persist IDs ─────────────────────────────────
   - id: deploy-agents
-    name: python:3.12-slim
+    name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
     env:
       - PERSIST_AGENT_IDS=1
@@ -136,9 +120,17 @@ steps:
       - -c
       - |
         set -euo pipefail
+        pip install --quiet \
+          google-adk \
+          google-cloud-aiplatform \
+          google-cloud-bigquery \
+          google-cloud-bigquery-storage \
+          google-auth \
+          requests \
+          pyyaml \
+          pyarrow
         export GOOGLE_CLOUD_PROJECT=$$(cat /workspace/project_id.txt)
         export GOOGLE_CLOUD_LOCATION=us-central1
-        export PATH="/builder/google-cloud-sdk/bin:$$PATH"
         source agents/deploy_agents.sh
 
   # ── Step 8: Deploy website ─────────────────────────────────────────────
