@@ -321,6 +321,42 @@ The Cloud Run URL isn't known until after the first deploy. To update it:
 3. Under **Authorized JavaScript origins**, add the Cloud Run URL printed at the end of the deploy.
 4. Click **Save**. Changes take effect within a few minutes.
 
+### Required Org Policies
+
+Cloud Run must accept unauthenticated requests so users can reach the Google
+Sign-In page. If your organization enforces restrictive policies, you need to
+override two policies at the project level:
+
+```bash
+PROJECT_NUMBER=$(gcloud projects describe $GOOGLE_CLOUD_PROJECT --format='value(projectNumber)')
+
+# 1. Allow unauthenticated Cloud Run invocations (the app handles auth via Google Sign-In)
+gcloud org-policies set-policy --project=$GOOGLE_CLOUD_PROJECT /dev/stdin <<POLICY
+name: projects/${PROJECT_NUMBER}/policies/run.managed.requireInvokerIam
+spec:
+  rules:
+  - enforce: false
+POLICY
+
+# 2. Allow allUsers in IAM bindings (required for Cloud Run public access)
+gcloud org-policies set-policy --project=$GOOGLE_CLOUD_PROJECT /dev/stdin <<POLICY
+name: projects/${PROJECT_NUMBER}/policies/iam.allowedPolicyMemberDomains
+spec:
+  rules:
+  - allowAll: true
+POLICY
+
+# 3. Wait ~10 seconds for propagation, then allow public access
+sleep 10
+gcloud run services add-iam-policy-binding fsi-kc-demo-ui-live \
+  --region=$GOOGLE_CLOUD_LOCATION --member=allUsers --role=roles/run.invoker
+```
+
+These overrides are safe when OAuth is configured — the app requires Google Sign-In
+before granting access to agent functionality. Without these overrides, the site
+returns `403 Forbidden` even for authenticated users, because Cloud Run rejects
+the request before it reaches the application's own auth layer.
+
 ### Running Without OAuth
 
 If `OAUTH_CLIENT_ID` is not set (the default), the website runs without
