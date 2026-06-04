@@ -63,9 +63,9 @@ fi
 # Enforce versioning unconditionally (covers buckets created outside this script).
 gcloud storage buckets update "gs://${BUCKET}" --versioning --project="${PROJECT}"
 
-# 3. Agent-id secrets (idempotent placeholders)
-echo "--- Agent-id secrets ---"
-for secret in basic-agent-id scaled-agent-id kc-agent-id; do
+# 3. Agent-id and Snowflake secrets (idempotent placeholders)
+echo "--- Secrets ---"
+for secret in basic-agent-id scaled-agent-id kc-agent-id snowflake-account snowflake-agent-user snowflake-agent-password snowflake-warehouse snowflake-database; do
     if gcloud secrets describe "${secret}" --project="${PROJECT}" >/dev/null 2>&1; then
         echo "  secret ${secret} already exists"
     else

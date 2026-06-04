@@ -131,6 +131,11 @@ steps:
           pyarrow
         export GOOGLE_CLOUD_PROJECT=$$(cat /workspace/project_id.txt)
         export GOOGLE_CLOUD_LOCATION=us-central1
+        export SNOWFLAKE_ACCOUNT=$$(gcloud secrets versions access latest --secret=snowflake-account --project="$$GOOGLE_CLOUD_PROJECT" 2>/dev/null || true)
+        export SNOWFLAKE_AGENT_USER=$$(gcloud secrets versions access latest --secret=snowflake-agent-user --project="$$GOOGLE_CLOUD_PROJECT" 2>/dev/null || true)
+        export SNOWFLAKE_AGENT_PASSWORD=$$(gcloud secrets versions access latest --secret=snowflake-agent-password --project="$$GOOGLE_CLOUD_PROJECT" 2>/dev/null || true)
+        export SNOWFLAKE_WAREHOUSE=$$(gcloud secrets versions access latest --secret=snowflake-warehouse --project="$$GOOGLE_CLOUD_PROJECT" 2>/dev/null || true)
+        export SNOWFLAKE_DATABASE=$$(gcloud secrets versions access latest --secret=snowflake-database --project="$$GOOGLE_CLOUD_PROJECT" 2>/dev/null || true)
         source agents/deploy_agents.sh
 
   # ── Step 8: Deploy website ─────────────────────────────────────────────
