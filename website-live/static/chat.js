@@ -417,7 +417,7 @@ class ChatPanel {
       };
 
       ws.onclose = () => done();
-      setTimeout(() => { ws.close(); done(); }, 120000);
+      setTimeout(() => { ws.close(); done(); }, 300000);
     });
   }
 

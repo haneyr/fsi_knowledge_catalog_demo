@@ -608,7 +608,7 @@ try:
                         "session_id": session_id,
                     }},
                     stream=True,
-                    timeout=120,
+                    timeout=300,
                 )
 
                 if resp.status_code != 200:
