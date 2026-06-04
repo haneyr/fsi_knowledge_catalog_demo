@@ -366,6 +366,27 @@ class ChatPanel {
     } else {
       content.appendChild(details);
     }
+
+    // Wrap everything after the discovery section in an "Answer" box
+    const remaining = [];
+    let afterDiscovery = false;
+    for (const child of [...content.children]) {
+      if (child === details) { afterDiscovery = true; continue; }
+      if (afterDiscovery) remaining.push(child);
+    }
+    if (remaining.length > 0) {
+      const answerDiv = document.createElement('div');
+      answerDiv.className = 'answer-section';
+      const header = document.createElement('div');
+      header.className = 'answer-header';
+      header.textContent = 'Analysis';
+      answerDiv.appendChild(header);
+      const answerContent = document.createElement('div');
+      answerContent.className = 'markdown-content';
+      for (const el of remaining) answerContent.appendChild(el);
+      answerDiv.appendChild(answerContent);
+      content.appendChild(answerDiv);
+    }
   }
 
   async send() {
