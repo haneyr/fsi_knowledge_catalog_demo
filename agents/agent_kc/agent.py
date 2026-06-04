@@ -150,7 +150,7 @@ def search_entries(query: str) -> str:
     try:
         result = _dataplex_post(
             f"projects/{DATAPLEX_PROJECT}/locations/us:searchEntries",
-            {"query": query, "pageSize": 10}
+            {"query": query, "pageSize": 10, "scope": f"projects/{DATAPLEX_PROJECT}"}
         )
         if "error" in result:
             return f"Search error: {result['error']}"
