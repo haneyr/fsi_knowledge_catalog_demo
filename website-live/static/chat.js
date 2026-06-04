@@ -194,8 +194,8 @@ class ChatPanel {
 
     const desc = {
       basic: 'Basic Agent — 5 gold tables, no Knowledge Catalog.',
-      scaled: 'Scaled Agent — 150+ tables, no Knowledge Catalog.',
-      kc: 'KC Agent — 150+ tables WITH Knowledge Catalog Context API.',
+      scaled: 'Scaled Agent — 128 tables, no Knowledge Catalog.',
+      kc: 'KC Agent — 128+ tables WITH Knowledge Catalog Context API.',
     };
     const sysMsg = document.createElement('div');
     sysMsg.className = 'message agent';
