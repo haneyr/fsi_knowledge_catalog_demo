@@ -34,83 +34,84 @@ PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT before running this
 REGION="${GOOGLE_CLOUD_LOCATION:-us-central1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Create per-agent service accounts with dataset-scoped BQ access
-create_agent_service_accounts() {
-    echo "=== Creating per-agent service accounts ==="
+# Grant baseline IAM to all agent identities in the project via principalSet.
+# Individual dataset-level grants are applied after each agent deploys.
+grant_agent_identity_permissions() {
+    echo "=== Granting baseline IAM to agent identities ==="
     PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)' 2>/dev/null) || true
     if [ -z "${PROJECT_NUMBER}" ]; then
-        echo "  Skipping SA creation (cannot resolve project number)"
+        echo "  Skipping (cannot resolve project number)"
         return 0
     fi
 
-    for sa in fsi-agent-nokc fsi-agent-kc; do
-        if gcloud iam service-accounts describe "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" \
-            --project="${PROJECT_ID}" >/dev/null 2>&1; then
-            echo "  ${sa} already exists"
-        else
-            gcloud iam service-accounts create "${sa}" \
-                --display-name="Agent SA (${sa})" \
-                --project="${PROJECT_ID}" 2>/dev/null
-            echo "  Created ${sa}"
-        fi
-    done
+    ORG_ID=$(gcloud projects describe "${PROJECT_ID}" --format='value(parent.id)' 2>/dev/null) || true
+    if [ -z "${ORG_ID}" ]; then
+        echo "  Skipping (cannot resolve org ID — agent identity requires an org)"
+        return 0
+    fi
 
-    # Grant jobUser at project level (both SAs need to run queries)
-    for sa in fsi-agent-nokc fsi-agent-kc; do
+    PRINCIPAL_SET="principalSet://agents.global.org-${ORG_ID}.system.id.goog/attribute.platformContainer/aiplatform/projects/${PROJECT_NUMBER}"
+
+    for role in roles/serviceusage.serviceUsageConsumer roles/browser roles/aiplatform.expressUser roles/aiplatform.agentContextEditor roles/bigquery.jobUser; do
         gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-            --member="serviceAccount:${sa}@${PROJECT_ID}.iam.gserviceaccount.com" \
-            --role="roles/bigquery.jobUser" --quiet 2>/dev/null || true
+            --member="${PRINCIPAL_SET}" --role="${role}" --quiet 2>/dev/null || true
+        echo "  Granted ${role} to all agents"
     done
-
-    # Dataset-scoped dataViewer: nokc SA → _nokc datasets only
-    for ds in fsi_bronze_nokc fsi_silver_nokc fsi_gold_nokc fsi_reference_nokc fsi_dashboards_nokc fsi_staging_nokc fsi_snapshots_nokc fsi_audit_nokc; do
-        python3 -c "
-from google.cloud import bigquery
-client = bigquery.Client(project='${PROJECT_ID}')
-dataset = client.get_dataset('${ds}')
-entry = bigquery.AccessEntry('READER', 'userByEmail', 'fsi-agent-nokc@${PROJECT_ID}.iam.gserviceaccount.com')
-entries = list(dataset.access_entries)
-if entry not in entries:
-    entries.append(entry)
-    dataset.access_entries = entries
-    client.update_dataset(dataset, ['access_entries'])
-    print('  Granted dataViewer on ${ds} to fsi-agent-nokc')
-else:
-    print('  fsi-agent-nokc already has access to ${ds}')
-" 2>/dev/null || echo "  Warning: could not grant access on ${ds}"
-    done
-
-    # Dataset-scoped dataViewer: kc SA → enriched datasets only
-    for ds in fsi_bronze fsi_silver fsi_gold fsi_reference fsi_dashboards fsi_staging fsi_snapshots fsi_audit fsi_scan_results; do
-        python3 -c "
-from google.cloud import bigquery
-client = bigquery.Client(project='${PROJECT_ID}')
-dataset = client.get_dataset('${ds}')
-entry = bigquery.AccessEntry('READER', 'userByEmail', 'fsi-agent-kc@${PROJECT_ID}.iam.gserviceaccount.com')
-entries = list(dataset.access_entries)
-if entry not in entries:
-    entries.append(entry)
-    dataset.access_entries = entries
-    client.update_dataset(dataset, ['access_entries'])
-    print('  Granted dataViewer on ${ds} to fsi-agent-kc')
-else:
-    print('  fsi-agent-kc already has access to ${ds}')
-" 2>/dev/null || echo "  Warning: could not grant access on ${ds}"
-    done
-
-    # Agent Engine SA needs serviceAccountUser on both agent SAs
-    AGENT_ENGINE_SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
-    for sa in fsi-agent-nokc fsi-agent-kc; do
-        gcloud iam service-accounts add-iam-policy-binding \
-            "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" \
-            --member="serviceAccount:${AGENT_ENGINE_SA}" \
-            --role="roles/iam.serviceAccountUser" \
-            --project="${PROJECT_ID}" --quiet 2>/dev/null || true
-        echo "  Agent Engine SA can act as ${sa}"
-    done
-
-    echo "Agent service accounts configured."
+    echo "Agent identity baseline permissions configured."
 }
+
+# Grant dataset-level BQ access to a specific agent identity.
+# Usage: grant_dataset_access <agent_engine_id> <dataset1> <dataset2> ...
+grant_dataset_access() {
+    local AGENT_ID="$1"; shift
+    local PROJECT_NUMBER
+    PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)' 2>/dev/null) || true
+    local ORG_ID
+    ORG_ID=$(gcloud projects describe "${PROJECT_ID}" --format='value(parent.id)' 2>/dev/null) || true
+
+    if [ -z "${PROJECT_NUMBER}" ] || [ -z "${ORG_ID}" ] || [ -z "${AGENT_ID}" ]; then
+        echo "  Skipping dataset grants (missing project number, org ID, or agent ID)"
+        return 0
+    fi
+
+    local PRINCIPAL="principal://agents.global.org-${ORG_ID}.system.id.goog/resources/aiplatform/projects/${PROJECT_NUMBER}/locations/${REGION}/reasoningEngines/${AGENT_ID}"
+
+    for ds in "$@"; do
+        python3 -c "
+from google.cloud import bigquery
+client = bigquery.Client(project='${PROJECT_ID}')
+dataset = client.get_dataset('${ds}')
+entry = bigquery.AccessEntry('READER', 'iamMember', '${PRINCIPAL}')
+entries = list(dataset.access_entries)
+if entry not in entries:
+    entries.append(entry)
+    dataset.access_entries = entries
+    client.update_dataset(dataset, ['access_entries'])
+    print('  Granted READER on ${ds}')
+else:
+    print('  Already has access to ${ds}')
+" 2>/dev/null || echo "  Warning: could not grant access on ${ds}"
+    done
+
+    # Grant WRITER on agent_analytics for BQ Agent Analytics plugin
+    python3 -c "
+from google.cloud import bigquery
+client = bigquery.Client(project='${PROJECT_ID}')
+dataset = client.get_dataset('agent_analytics')
+entry = bigquery.AccessEntry('WRITER', 'iamMember', '${PRINCIPAL}')
+entries = list(dataset.access_entries)
+if entry not in entries:
+    entries.append(entry)
+    dataset.access_entries = entries
+    client.update_dataset(dataset, ['access_entries'])
+    print('  Granted WRITER on agent_analytics')
+else:
+    print('  Already has access to agent_analytics')
+" 2>/dev/null || echo "  Warning: could not grant access on agent_analytics"
+}
+
+NOKC_DATASETS="fsi_bronze_nokc fsi_silver_nokc fsi_gold_nokc fsi_reference_nokc fsi_dashboards_nokc fsi_staging_nokc fsi_snapshots_nokc fsi_audit_nokc"
+ENRICHED_DATASETS="fsi_bronze fsi_silver fsi_gold fsi_reference fsi_dashboards fsi_staging fsi_snapshots fsi_audit fsi_scan_results"
 
 # Grant required IAM permissions to the Agent Engine service account
 grant_agent_engine_permissions() {
@@ -122,7 +123,7 @@ grant_agent_engine_permissions() {
     fi
     SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
 
-    for role in roles/bigquery.jobUser roles/bigquery.dataViewer roles/bigquery.dataEditor roles/dataplex.viewer roles/dataplex.catalogEditor roles/datalineage.viewer; do
+    for role in roles/bigquery.jobUser roles/bigquery.dataEditor roles/dataplex.viewer roles/dataplex.catalogEditor roles/datalineage.viewer; do
         if gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
             --member="serviceAccount:${SA}" \
             --role="${role}" --quiet 2>/dev/null | tail -1; then
@@ -142,6 +143,13 @@ GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
 GOOGLE_CLOUD_LOCATION=${REGION}
 GOOGLE_GENAI_USE_VERTEXAI=True
 BQ_ANALYTICS_DATASET=agent_analytics
+EOF
+    done
+    # All agents: opt out of Context-Aware Access mTLS binding so Agent
+    # Identity tokens work with the sessions API (Preview limitation).
+    for agent_dir in agent_basic agent_scaled agent_kc; do
+        cat >> "${SCRIPT_DIR}/${agent_dir}/.env" << EOF
+GOOGLE_API_PREVENT_AGENT_TOKEN_SHARING_FOR_GCP_SERVICES=False
 EOF
     done
     # KC agent needs additional env vars
@@ -164,12 +172,6 @@ SFEOF
         echo "  Added Snowflake config to KC agent"
     fi
     echo "Created .env files for all agents"
-
-    # NOTE: per-agent SA via .agent_engine_config.json is disabled for now.
-    # Agent Engine's service_account field requires the SA to have
-    # aiplatform.reasoningEngines permissions, which custom SAs don't have.
-    # Dataset-level BQ IAM isolation is enforced separately.
-    # TODO: re-enable once SA permission requirements are resolved.
 }
 
 extract_agent_id() {
@@ -188,6 +190,8 @@ deploy_basic() {
     BASIC_AGENT_ID=$(echo "$output" | extract_agent_id)
     export BASIC_AGENT_ID
     echo "Basic agent deployed: ${BASIC_AGENT_ID}"
+    echo "  Granting _nokc dataset access..."
+    grant_dataset_access "${BASIC_AGENT_ID}" ${NOKC_DATASETS}
 }
 
 deploy_scaled() {
@@ -202,6 +206,8 @@ deploy_scaled() {
     SCALED_AGENT_ID=$(echo "$output" | extract_agent_id)
     export SCALED_AGENT_ID
     echo "Scaled agent deployed: ${SCALED_AGENT_ID}"
+    echo "  Granting _nokc dataset access..."
+    grant_dataset_access "${SCALED_AGENT_ID}" ${NOKC_DATASETS}
 }
 
 deploy_kc() {
@@ -216,6 +222,20 @@ deploy_kc() {
     KC_AGENT_ID=$(echo "$output" | extract_agent_id)
     export KC_AGENT_ID
     echo "KC agent deployed: ${KC_AGENT_ID}"
+    echo "  Granting enriched dataset access..."
+    grant_dataset_access "${KC_AGENT_ID}" ${ENRICHED_DATASETS}
+    # KC agent needs Dataplex roles for Knowledge Catalog search
+    local PROJECT_NUMBER ORG_ID KC_PRINCIPAL
+    PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)' 2>/dev/null) || true
+    ORG_ID=$(gcloud projects describe "${PROJECT_ID}" --format='value(parent.id)' 2>/dev/null) || true
+    if [ -n "${PROJECT_NUMBER}" ] && [ -n "${ORG_ID}" ]; then
+        KC_PRINCIPAL="principal://agents.global.org-${ORG_ID}.system.id.goog/resources/aiplatform/projects/${PROJECT_NUMBER}/locations/${REGION}/reasoningEngines/${KC_AGENT_ID}"
+        for role in roles/dataplex.viewer roles/dataplex.catalogEditor roles/datalineage.viewer; do
+            gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+                --member="${KC_PRINCIPAL}" --role="${role}" --quiet 2>/dev/null || true
+            echo "  Granted ${role} to KC agent"
+        done
+    fi
 }
 
 # Generate .env files
@@ -224,19 +244,22 @@ create_env_files
 # Deploy based on argument
 case "${1:-all}" in
     basic)
+        grant_agent_identity_permissions
         deploy_basic
         grant_agent_engine_permissions
         ;;
     scaled)
+        grant_agent_identity_permissions
         deploy_scaled
         grant_agent_engine_permissions
         ;;
     kc)
+        grant_agent_identity_permissions
         deploy_kc
         grant_agent_engine_permissions
         ;;
     all)
-        create_agent_service_accounts
+        grant_agent_identity_permissions
         deploy_basic
         grant_agent_engine_permissions
         deploy_scaled

@@ -41,26 +41,59 @@ from google.cloud import bigquery
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
 
-_bq_client = None
-
-
 def _get_bq_client():
-    global _bq_client
-    if _bq_client is None:
-        _bq_client = bigquery.Client(project=PROJECT_ID)
-    return _bq_client
+    return bigquery.Client(project=PROJECT_ID)
 
-def _discover_nokc_tables():
-    client = _get_bq_client()
-    tables = []
-    for dataset in client.list_datasets():
-        if not dataset.dataset_id.endswith("_nokc"):
-            continue
-        for table in client.list_tables(dataset.dataset_id):
-            tables.append(f"{PROJECT_ID}.{dataset.dataset_id}.{table.table_id}")
-    return sorted(tables)
+_BASE_SUFFIXES = [
+    'customers','accounts','transactions','loans','loan_payments','credit_cards',
+    'card_transactions','fraud_alerts','kyc_records','branches','employees','wire_transfers',
+    'ach_transfers','atm_transactions','wm_clients','portfolios','holdings','trades',
+    'securities','advisors','performance','fee_schedules','benchmarks','client_goals',
+    'risk_profiles','distributions','custodian_feeds','gl_entries','gl_accounts',
+    'cost_centers','regulatory_capital','risk_exposures','counterparties','market_data',
+    'stress_tests','audit_events','regulatory_filings','interest_rates','fx_rates',
+    'compliance_cases',
+]
+_GOLD_TABLES = [
+    'gold_customer_360','gold_account_summary','gold_transaction_patterns',
+    'gold_loan_portfolio_summary','gold_delinquency_analysis','gold_fraud_analytics',
+    'gold_aml_risk_scoring','gold_branch_performance','gold_portfolio_performance',
+    'gold_client_revenue','gold_asset_allocation','gold_advisor_scorecard',
+    'gold_fee_revenue','gold_net_interest_margin','gold_capital_adequacy',
+    'gold_liquidity_coverage','gold_market_risk_var','gold_operational_risk',
+    'gold_regulatory_dashboard','gold_balance_sheet_summary',
+]
+_VIEW_TABLES = [
+    'vw_dq_scorecard','vw_dq_by_dimension','vw_dq_failed_rules','vw_dq_rule_detail',
+    'vw_profile_summary','vw_customer_total_relationship','vw_branch_retail_wealth',
+    'vw_regulatory_summary',
+]
+_OTHER_TABLES = [
+    'ref_naics_codes','ref_country_codes','ref_currency_codes','ref_cusip_master',
+    'ref_isin_mapping','ref_lei_registry','ref_fed_district_codes','ref_product_catalog',
+    'staging_call_report_rc','staging_call_report_ri','staging_fr_y9c',
+    'snapshot_monthly_balances','snapshot_quarterly_positions','audit_data_access_log',
+]
 
-_NOKC_TABLES = _discover_nokc_tables() if PROJECT_ID else []
+_DATASET_PREFIX = {
+    'bronze_': 'fsi_bronze_nokc', 'silver_': 'fsi_silver_nokc',
+    'gold_': 'fsi_gold_nokc', 'vw_': 'fsi_dashboards_nokc',
+    'ref_': 'fsi_reference_nokc', 'staging_': 'fsi_staging_nokc',
+    'snapshot_': 'fsi_snapshots_nokc', 'audit_': 'fsi_audit_nokc',
+}
+
+def _table_fqn(table_name):
+    for prefix, dataset in _DATASET_PREFIX.items():
+        if table_name.startswith(prefix):
+            return f"{PROJECT_ID}.{dataset}.{table_name}"
+    return f"{PROJECT_ID}.fsi_gold_nokc.{table_name}"
+
+_ALL_TABLE_NAMES = (
+    [f'bronze_{s}' for s in _BASE_SUFFIXES]
+    + [f'silver_{s}' for s in _BASE_SUFFIXES]
+    + _GOLD_TABLES + _VIEW_TABLES + _OTHER_TABLES
+)
+_NOKC_TABLES = [_table_fqn(t) for t in _ALL_TABLE_NAMES]
 
 SYSTEM_INSTRUCTION = f"""You are a financial data analyst for Meridian National Bank.
 You have access to BigQuery and can run SQL queries against the bank's data warehouse.

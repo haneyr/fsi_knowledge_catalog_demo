@@ -48,14 +48,8 @@ DATAPLEX_PROJECT = os.environ.get("DATAPLEX_PROJECT", PROJECT_ID)
 BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
 DATAPLEX_URL = "https://dataplex.googleapis.com/v1"
 
-_bq_client = None
-
-
 def _get_bq_client():
-    global _bq_client
-    if _bq_client is None:
-        _bq_client = bigquery.Client(project=PROJECT_ID)
-    return _bq_client
+    return bigquery.Client(project=PROJECT_ID)
 
 
 _http_session = None
