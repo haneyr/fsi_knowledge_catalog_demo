@@ -146,7 +146,7 @@ Run steps 1-8 above, then continue:
 - Sensitivity classifications tell agents what to protect
 
 ### "The Scale Problem"
-- 150+ tables across 3 source systems (ATLAS, FORTUNA, ARGUS)
+- 128+ tables across 3 source systems (ATLAS, FORTUNA, ARGUS)
 - 40 bronze, 40 silver, 20 gold, plus reference, staging, snapshots
 - Cross-domain: retail banking + wealth management + finance & risk
 - No single human knows all the tables — and neither can a naive agent

@@ -1,21 +1,21 @@
 # FSI Knowledge Catalog Demo
 
-End-to-end Knowledge Catalog and data governance demo for a financial services institution, built on Google Cloud. Demonstrates how Knowledge Catalog solves the **agent scale problem** — enabling AI agents to navigate 150+ tables across multiple source systems.
+End-to-end Knowledge Catalog and data governance demo for a financial services institution, built on Google Cloud. Demonstrates how Knowledge Catalog solves the **agent scale problem** — enabling AI agents to navigate 128+ tables across multiple source systems.
 
 ## The Demo Narrative
 
 | Agent | Tables | Knowledge Catalog | Result |
 |---|---|---|---|
 | **Basic Agent** | 5 gold tables | No | Works for simple questions |
-| **Scaled Agent** | 150+ tables | No | Fails on ambiguous/cross-domain questions |
-| **KC-Guided Agent** | 150+ tables | Yes (MCP) | Succeeds at scale with metadata-grounded answers |
+| **Scaled Agent** | 128 tables | No | Fails on ambiguous/cross-domain questions |
+| **KC-Guided Agent** | 128+ tables | Yes (MCP) | Succeeds at scale with metadata-grounded answers |
 
 ## What It Creates
 
 | Component | Count | Details |
 |---|---|---|
 | **BigQuery Datasets** | 10 | fsi_bronze, fsi_silver, fsi_gold, fsi_reference, fsi_dashboards, fsi_staging, fsi_snapshots, fsi_audit, fsi_scan_results |
-| **BigQuery Tables** | 150+ | 40 bronze + 40 silver + 20 gold + 8 views + 10 reference + 5 staging + 3 snapshots + 2 audit |
+| **BigQuery Tables** | 128 | 40 bronze + 40 silver + 20 gold + 8 views + 10 reference + 5 staging + 3 snapshots + 2 audit |
 | **Source Systems** | 3 | ATLAS (IBM DB2), FORTUNA (Temenos T24), ARGUS (SAP S/4HANA) |
 | **Business Glossary** | 1 | 80+ terms, 10 categories, 20 sub-categories, overviews, contacts |
 | **Dataplex Scans** | 300+ | Profile + Quality + Insights for 100 tables |
@@ -257,7 +257,7 @@ python3 agent.py
 - Works well within its narrow scope
 
 ### Scaled Agent (`agents/agent_scaled/`)
-- All 150+ table names listed in the system prompt
+- All 128 table names listed in the system prompt
 - Same `run_sql` tool
 - Struggles with table selection, cross-domain queries, and ambiguity
 

@@ -50,81 +50,30 @@ def _get_bq_client():
         _bq_client = bigquery.Client(project=PROJECT_ID)
     return _bq_client
 
+def _discover_nokc_tables():
+    client = _get_bq_client()
+    tables = []
+    for dataset in client.list_datasets():
+        if not dataset.dataset_id.endswith("_nokc"):
+            continue
+        for table in client.list_tables(dataset.dataset_id):
+            tables.append(f"{PROJECT_ID}.{dataset.dataset_id}.{table.table_id}")
+    return sorted(tables)
+
+_NOKC_TABLES = _discover_nokc_tables() if PROJECT_ID else []
+
 SYSTEM_INSTRUCTION = f"""You are a financial data analyst for Meridian National Bank.
 You have access to BigQuery and can run SQL queries against the bank's data warehouse.
 
 Your project is: {PROJECT_ID}
 
-## Available Tables
+## Available Tables ({len(_NOKC_TABLES)} tables)
 
-The following tables are available across multiple datasets. You must figure out which
-tables are relevant to each question. Table names follow a naming convention but you
-do not have descriptions, column details, or metadata for any of them.
+The following tables are available. You must figure out which tables are relevant to
+each question based on their names. You do not have descriptions, column details, or
+metadata for any of them.
 
-{PROJECT_ID}.fsi_bronze.bronze_customers, {PROJECT_ID}.fsi_bronze.bronze_accounts,
-{PROJECT_ID}.fsi_bronze.bronze_transactions, {PROJECT_ID}.fsi_bronze.bronze_loans,
-{PROJECT_ID}.fsi_bronze.bronze_loan_payments, {PROJECT_ID}.fsi_bronze.bronze_credit_cards,
-{PROJECT_ID}.fsi_bronze.bronze_card_transactions, {PROJECT_ID}.fsi_bronze.bronze_fraud_alerts,
-{PROJECT_ID}.fsi_bronze.bronze_kyc_records, {PROJECT_ID}.fsi_bronze.bronze_branches,
-{PROJECT_ID}.fsi_bronze.bronze_employees, {PROJECT_ID}.fsi_bronze.bronze_wire_transfers,
-{PROJECT_ID}.fsi_bronze.bronze_ach_transfers, {PROJECT_ID}.fsi_bronze.bronze_atm_transactions,
-{PROJECT_ID}.fsi_bronze.bronze_wm_clients, {PROJECT_ID}.fsi_bronze.bronze_portfolios,
-{PROJECT_ID}.fsi_bronze.bronze_holdings, {PROJECT_ID}.fsi_bronze.bronze_trades,
-{PROJECT_ID}.fsi_bronze.bronze_securities, {PROJECT_ID}.fsi_bronze.bronze_advisors,
-{PROJECT_ID}.fsi_bronze.bronze_performance, {PROJECT_ID}.fsi_bronze.bronze_fee_schedules,
-{PROJECT_ID}.fsi_bronze.bronze_benchmarks, {PROJECT_ID}.fsi_bronze.bronze_client_goals,
-{PROJECT_ID}.fsi_bronze.bronze_risk_profiles, {PROJECT_ID}.fsi_bronze.bronze_distributions,
-{PROJECT_ID}.fsi_bronze.bronze_custodian_feeds, {PROJECT_ID}.fsi_bronze.bronze_gl_entries,
-{PROJECT_ID}.fsi_bronze.bronze_gl_accounts, {PROJECT_ID}.fsi_bronze.bronze_cost_centers,
-{PROJECT_ID}.fsi_bronze.bronze_regulatory_capital, {PROJECT_ID}.fsi_bronze.bronze_risk_exposures,
-{PROJECT_ID}.fsi_bronze.bronze_counterparties, {PROJECT_ID}.fsi_bronze.bronze_market_data,
-{PROJECT_ID}.fsi_bronze.bronze_stress_tests, {PROJECT_ID}.fsi_bronze.bronze_audit_events,
-{PROJECT_ID}.fsi_bronze.bronze_regulatory_filings, {PROJECT_ID}.fsi_bronze.bronze_interest_rates,
-{PROJECT_ID}.fsi_bronze.bronze_fx_rates, {PROJECT_ID}.fsi_bronze.bronze_compliance_cases,
-{PROJECT_ID}.fsi_silver.silver_customers, {PROJECT_ID}.fsi_silver.silver_accounts,
-{PROJECT_ID}.fsi_silver.silver_transactions, {PROJECT_ID}.fsi_silver.silver_loans,
-{PROJECT_ID}.fsi_silver.silver_loan_payments, {PROJECT_ID}.fsi_silver.silver_credit_cards,
-{PROJECT_ID}.fsi_silver.silver_card_transactions, {PROJECT_ID}.fsi_silver.silver_fraud_alerts,
-{PROJECT_ID}.fsi_silver.silver_kyc_records, {PROJECT_ID}.fsi_silver.silver_branches,
-{PROJECT_ID}.fsi_silver.silver_employees, {PROJECT_ID}.fsi_silver.silver_wire_transfers,
-{PROJECT_ID}.fsi_silver.silver_ach_transfers, {PROJECT_ID}.fsi_silver.silver_atm_transactions,
-{PROJECT_ID}.fsi_silver.silver_wm_clients, {PROJECT_ID}.fsi_silver.silver_portfolios,
-{PROJECT_ID}.fsi_silver.silver_holdings, {PROJECT_ID}.fsi_silver.silver_trades,
-{PROJECT_ID}.fsi_silver.silver_securities, {PROJECT_ID}.fsi_silver.silver_advisors,
-{PROJECT_ID}.fsi_silver.silver_performance, {PROJECT_ID}.fsi_silver.silver_fee_schedules,
-{PROJECT_ID}.fsi_silver.silver_benchmarks, {PROJECT_ID}.fsi_silver.silver_client_goals,
-{PROJECT_ID}.fsi_silver.silver_risk_profiles, {PROJECT_ID}.fsi_silver.silver_distributions,
-{PROJECT_ID}.fsi_silver.silver_custodian_feeds, {PROJECT_ID}.fsi_silver.silver_gl_entries,
-{PROJECT_ID}.fsi_silver.silver_gl_accounts, {PROJECT_ID}.fsi_silver.silver_cost_centers,
-{PROJECT_ID}.fsi_silver.silver_regulatory_capital, {PROJECT_ID}.fsi_silver.silver_risk_exposures,
-{PROJECT_ID}.fsi_silver.silver_counterparties, {PROJECT_ID}.fsi_silver.silver_market_data,
-{PROJECT_ID}.fsi_silver.silver_stress_tests, {PROJECT_ID}.fsi_silver.silver_audit_events,
-{PROJECT_ID}.fsi_silver.silver_regulatory_filings, {PROJECT_ID}.fsi_silver.silver_interest_rates,
-{PROJECT_ID}.fsi_silver.silver_fx_rates, {PROJECT_ID}.fsi_silver.silver_compliance_cases,
-{PROJECT_ID}.fsi_gold.gold_customer_360, {PROJECT_ID}.fsi_gold.gold_account_summary,
-{PROJECT_ID}.fsi_gold.gold_transaction_patterns, {PROJECT_ID}.fsi_gold.gold_loan_portfolio_summary,
-{PROJECT_ID}.fsi_gold.gold_delinquency_analysis, {PROJECT_ID}.fsi_gold.gold_fraud_analytics,
-{PROJECT_ID}.fsi_gold.gold_aml_risk_scoring, {PROJECT_ID}.fsi_gold.gold_branch_performance,
-{PROJECT_ID}.fsi_gold.gold_portfolio_performance, {PROJECT_ID}.fsi_gold.gold_client_revenue,
-{PROJECT_ID}.fsi_gold.gold_asset_allocation, {PROJECT_ID}.fsi_gold.gold_advisor_scorecard,
-{PROJECT_ID}.fsi_gold.gold_fee_revenue, {PROJECT_ID}.fsi_gold.gold_net_interest_margin,
-{PROJECT_ID}.fsi_gold.gold_capital_adequacy, {PROJECT_ID}.fsi_gold.gold_liquidity_coverage,
-{PROJECT_ID}.fsi_gold.gold_market_risk_var, {PROJECT_ID}.fsi_gold.gold_operational_risk,
-{PROJECT_ID}.fsi_gold.gold_regulatory_dashboard, {PROJECT_ID}.fsi_gold.gold_balance_sheet_summary,
-{PROJECT_ID}.fsi_reference.ref_naics_codes, {PROJECT_ID}.fsi_reference.ref_country_codes,
-{PROJECT_ID}.fsi_reference.ref_currency_codes, {PROJECT_ID}.fsi_reference.ref_cusip_master,
-{PROJECT_ID}.fsi_reference.ref_isin_mapping, {PROJECT_ID}.fsi_reference.ref_lei_registry,
-{PROJECT_ID}.fsi_reference.ref_fed_district_codes, {PROJECT_ID}.fsi_reference.ref_product_catalog,
-{PROJECT_ID}.fsi_reference.ref_fee_tiers, {PROJECT_ID}.fsi_reference.ref_gl_account_hierarchy,
-{PROJECT_ID}.fsi_dashboards.vw_dq_scorecard, {PROJECT_ID}.fsi_dashboards.vw_dq_by_dimension,
-{PROJECT_ID}.fsi_dashboards.vw_dq_failed_rules, {PROJECT_ID}.fsi_dashboards.vw_dq_rule_detail,
-{PROJECT_ID}.fsi_dashboards.vw_profile_summary, {PROJECT_ID}.fsi_dashboards.vw_customer_total_relationship,
-{PROJECT_ID}.fsi_dashboards.vw_branch_retail_wealth, {PROJECT_ID}.fsi_dashboards.vw_regulatory_summary,
-{PROJECT_ID}.fsi_supplementary.staging_call_report_rc, {PROJECT_ID}.fsi_supplementary.staging_call_report_ri,
-{PROJECT_ID}.fsi_supplementary.staging_call_report_rc_r, {PROJECT_ID}.fsi_supplementary.staging_call_report_rc_c,
-{PROJECT_ID}.fsi_supplementary.staging_fr_y9c, {PROJECT_ID}.fsi_supplementary.snapshot_monthly_balances,
-{PROJECT_ID}.fsi_supplementary.snapshot_quarterly_positions, {PROJECT_ID}.fsi_supplementary.snapshot_daily_market_data,
-{PROJECT_ID}.fsi_supplementary.audit_data_access_log, {PROJECT_ID}.fsi_supplementary.audit_model_decisions
+{chr(10).join(_NOKC_TABLES)}
 
 ## How to answer
 

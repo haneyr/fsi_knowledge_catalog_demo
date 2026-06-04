@@ -139,12 +139,12 @@
       },
       scaled: {
         title: 'Scaled Agent',
-        desc: '150+ tables listed in the prompt. No Knowledge Catalog. Overwhelmed by ambiguity — picks wrong tables, misses cross-domain data.',
+        desc: '128 tables discovered dynamically. No Knowledge Catalog. Overwhelmed by ambiguity — picks wrong tables, misses cross-domain data.',
         header: 'Chat with Scaled Agent',
       },
       kc: {
         title: 'KC-Guided Agent',
-        desc: '150+ tables navigated through Knowledge Catalog. Searches semantically, reads metadata, traces lineage, cites glossary terms and data quality.',
+        desc: '128+ tables navigated through Knowledge Catalog. Searches semantically, reads metadata, traces lineage, cites glossary terms and data quality.',
         header: 'Chat with Knowledge Catalog Agent',
       },
     };
@@ -269,7 +269,7 @@
       renderNarrativeTabs();
 
       if (_snowflakeEnabled) {
-        AGENT_INFO.kc.desc = '150+ tables across BigQuery and Snowflake, navigated through Knowledge Catalog. Discovers data across clouds, queries both platforms, and combines results.';
+        AGENT_INFO.kc.desc = '128+ tables across BigQuery and Snowflake, navigated through Knowledge Catalog. Discovers data across clouds, queries both platforms, and combines results.';
         AGENT_INFO.kc.title = 'Multi-cloud KC Agent';
         if (document.querySelector('[data-agent="kc"].active')) {
           document.getElementById('vizTitle').textContent = AGENT_INFO.kc.title;

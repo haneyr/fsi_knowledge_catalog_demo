@@ -139,6 +139,12 @@ echo "=== Deploying BigQuery tables ==="
 bash "${SCRIPT_DIR}/deploy-bq.sh"
 
 # ---------------------------------------------------------------------------
+# Step 3b: Create _nokc datasets (unenriched copies for basic/scaled agents)
+# ---------------------------------------------------------------------------
+echo "=== Creating _nokc dataset copies ==="
+bash "${SCRIPT_DIR}/deploy-bq-nokc.sh"
+
+# ---------------------------------------------------------------------------
 # Step 4: Create all Knowledge Catalog resources
 # ---------------------------------------------------------------------------
 echo "=== Running post-deploy scripts ==="

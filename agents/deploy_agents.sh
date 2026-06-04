@@ -34,6 +34,84 @@ PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT before running this
 REGION="${GOOGLE_CLOUD_LOCATION:-us-central1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Create per-agent service accounts with dataset-scoped BQ access
+create_agent_service_accounts() {
+    echo "=== Creating per-agent service accounts ==="
+    PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)' 2>/dev/null) || true
+    if [ -z "${PROJECT_NUMBER}" ]; then
+        echo "  Skipping SA creation (cannot resolve project number)"
+        return 0
+    fi
+
+    for sa in fsi-agent-nokc fsi-agent-kc; do
+        if gcloud iam service-accounts describe "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --project="${PROJECT_ID}" >/dev/null 2>&1; then
+            echo "  ${sa} already exists"
+        else
+            gcloud iam service-accounts create "${sa}" \
+                --display-name="Agent SA (${sa})" \
+                --project="${PROJECT_ID}" 2>/dev/null
+            echo "  Created ${sa}"
+        fi
+    done
+
+    # Grant jobUser at project level (both SAs need to run queries)
+    for sa in fsi-agent-nokc fsi-agent-kc; do
+        gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+            --member="serviceAccount:${sa}@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --role="roles/bigquery.jobUser" --quiet 2>/dev/null || true
+    done
+
+    # Dataset-scoped dataViewer: nokc SA → _nokc datasets only
+    for ds in fsi_bronze_nokc fsi_silver_nokc fsi_gold_nokc fsi_reference_nokc fsi_dashboards_nokc fsi_staging_nokc fsi_snapshots_nokc fsi_audit_nokc; do
+        python3 -c "
+from google.cloud import bigquery
+client = bigquery.Client(project='${PROJECT_ID}')
+dataset = client.get_dataset('${ds}')
+entry = bigquery.AccessEntry('READER', 'userByEmail', 'fsi-agent-nokc@${PROJECT_ID}.iam.gserviceaccount.com')
+entries = list(dataset.access_entries)
+if entry not in entries:
+    entries.append(entry)
+    dataset.access_entries = entries
+    client.update_dataset(dataset, ['access_entries'])
+    print('  Granted dataViewer on ${ds} to fsi-agent-nokc')
+else:
+    print('  fsi-agent-nokc already has access to ${ds}')
+" 2>/dev/null || echo "  Warning: could not grant access on ${ds}"
+    done
+
+    # Dataset-scoped dataViewer: kc SA → enriched datasets only
+    for ds in fsi_bronze fsi_silver fsi_gold fsi_reference fsi_dashboards fsi_staging fsi_snapshots fsi_audit fsi_scan_results; do
+        python3 -c "
+from google.cloud import bigquery
+client = bigquery.Client(project='${PROJECT_ID}')
+dataset = client.get_dataset('${ds}')
+entry = bigquery.AccessEntry('READER', 'userByEmail', 'fsi-agent-kc@${PROJECT_ID}.iam.gserviceaccount.com')
+entries = list(dataset.access_entries)
+if entry not in entries:
+    entries.append(entry)
+    dataset.access_entries = entries
+    client.update_dataset(dataset, ['access_entries'])
+    print('  Granted dataViewer on ${ds} to fsi-agent-kc')
+else:
+    print('  fsi-agent-kc already has access to ${ds}')
+" 2>/dev/null || echo "  Warning: could not grant access on ${ds}"
+    done
+
+    # Agent Engine SA needs serviceAccountUser on both agent SAs
+    AGENT_ENGINE_SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
+    for sa in fsi-agent-nokc fsi-agent-kc; do
+        gcloud iam service-accounts add-iam-policy-binding \
+            "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --member="serviceAccount:${AGENT_ENGINE_SA}" \
+            --role="roles/iam.serviceAccountUser" \
+            --project="${PROJECT_ID}" --quiet 2>/dev/null || true
+        echo "  Agent Engine SA can act as ${sa}"
+    done
+
+    echo "Agent service accounts configured."
+}
+
 # Grant required IAM permissions to the Agent Engine service account
 grant_agent_engine_permissions() {
     echo "=== Granting IAM permissions to Agent Engine service account ==="
@@ -86,6 +164,20 @@ SFEOF
         echo "  Added Snowflake config to KC agent"
     fi
     echo "Created .env files for all agents"
+
+    # Generate .agent_engine_config.json with per-agent SA
+    for agent_dir in agent_basic agent_scaled; do
+        cat > "${SCRIPT_DIR}/${agent_dir}/.agent_engine_config.json" << EOF
+{
+    "service_account": "fsi-agent-nokc@${PROJECT_ID}.iam.gserviceaccount.com"
+}
+EOF
+    done
+    cat > "${SCRIPT_DIR}/agent_kc/.agent_engine_config.json" << EOF
+{
+    "service_account": "fsi-agent-kc@${PROJECT_ID}.iam.gserviceaccount.com"
+}
+EOF
 }
 
 extract_agent_id() {
@@ -152,6 +244,7 @@ case "${1:-all}" in
         grant_agent_engine_permissions
         ;;
     all)
+        create_agent_service_accounts
         deploy_basic
         grant_agent_engine_permissions
         deploy_scaled
