@@ -13,11 +13,7 @@
 # limitations under the License.
 
 # Agent deployment pipeline.
-# Four triggers use this file:
-#   agents/agent_basic/**  → _AGENT=basic  (deploy basic only)
-#   agents/agent_scaled/** → _AGENT=scaled (deploy scaled only)
-#   agents/agent_kc/**     → _AGENT=kc     (deploy kc only)
-#   agents/deploy_agents.sh or agents/** (fallback) → _AGENT=all
+# Single trigger: agents-deploy-all (agents/**) → _AGENT=all
 
 substitutions:
   _ENV: "dev"
@@ -64,7 +60,7 @@ steps:
       - |
         set -euo pipefail
         pip install --quiet --break-system-packages \
-          google-adk \
+          "google-adk==2.1.0" \
           google-cloud-aiplatform \
           google-cloud-bigquery \
           google-cloud-bigquery-storage \
