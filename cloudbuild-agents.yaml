@@ -13,11 +13,15 @@
 # limitations under the License.
 
 # Agent deployment pipeline.
-# Trigger: push to main, file filter: agents/**
-# Deploys all 3 agents to Vertex AI Agent Engine and persists IDs to Secret Manager.
+# Four triggers use this file:
+#   agents/agent_basic/**  → _AGENT=basic  (deploy basic only)
+#   agents/agent_scaled/** → _AGENT=scaled (deploy scaled only)
+#   agents/agent_kc/**     → _AGENT=kc     (deploy kc only)
+#   agents/deploy_agents.sh or agents/** (fallback) → _AGENT=all
 
 substitutions:
   _ENV: "dev"
+  _AGENT: "all"
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -76,4 +80,4 @@ steps:
         export SNOWFLAKE_AGENT_PASSWORD=$$(gcloud secrets versions access latest --secret=snowflake-agent-password --project="$$GOOGLE_CLOUD_PROJECT" 2>/dev/null || true)
         export SNOWFLAKE_WAREHOUSE=$$(gcloud secrets versions access latest --secret=snowflake-warehouse --project="$$GOOGLE_CLOUD_PROJECT" 2>/dev/null || true)
         export SNOWFLAKE_DATABASE=$$(gcloud secrets versions access latest --secret=snowflake-database --project="$$GOOGLE_CLOUD_PROJECT" 2>/dev/null || true)
-        source agents/deploy_agents.sh
+        source agents/deploy_agents.sh ${_AGENT}
