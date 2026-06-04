@@ -40,14 +40,8 @@ from google.cloud import bigquery
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
 
-_bq_client = None
-
-
 def _get_bq_client():
-    global _bq_client
-    if _bq_client is None:
-        _bq_client = bigquery.Client(project=PROJECT_ID)
-    return _bq_client
+    return bigquery.Client(project=PROJECT_ID)
 
 SYSTEM_INSTRUCTION = f"""You are a financial data analyst for Meridian National Bank.
 You have access to a small set of summary tables in BigQuery and can run SQL queries.

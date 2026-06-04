@@ -243,9 +243,6 @@ agents/agent_kc/toolbox-cloudrun/toolbox
 # Agent .env files (contain project-specific config)
 agents/*/.env
 
-# Generated per-deploy agent configs
-.agent_engine_config.json
-
 # Internal design docs and plans
 docs/
 
