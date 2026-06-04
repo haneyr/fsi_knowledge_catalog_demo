@@ -21,15 +21,15 @@ else
     echo "  OAuth: disabled (set OAUTH_CLIENT_ID to enable)"
 fi
 
-# Enable required APIs (idempotent)
+# Enable required APIs (idempotent; may fail in CI if SA lacks serviceusage permissions)
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
   artifactregistry.googleapis.com orgpolicy.googleapis.com \
-  --project="${PROJECT_ID}" --quiet 2>/dev/null
+  --project="${PROJECT_ID}" --quiet 2>/dev/null || true
 
-# Grant Cloud Build permissions to compute SA
+# Grant Cloud Build permissions to compute SA (may fail in CI)
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
   --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-  --role="roles/cloudbuild.builds.builder" --quiet 2>/dev/null | tail -1
+  --role="roles/cloudbuild.builds.builder" --quiet 2>/dev/null || true
 
 # Override org policy: app manages its own auth via Google Identity Services
 # Cloud Run must accept unauthenticated requests so users can reach the login page
