@@ -165,19 +165,11 @@ SFEOF
     fi
     echo "Created .env files for all agents"
 
-    # Generate .agent_engine_config.json with per-agent SA
-    for agent_dir in agent_basic agent_scaled; do
-        cat > "${SCRIPT_DIR}/${agent_dir}/.agent_engine_config.json" << EOF
-{
-    "service_account": "fsi-agent-nokc@${PROJECT_ID}.iam.gserviceaccount.com"
-}
-EOF
-    done
-    cat > "${SCRIPT_DIR}/agent_kc/.agent_engine_config.json" << EOF
-{
-    "service_account": "fsi-agent-kc@${PROJECT_ID}.iam.gserviceaccount.com"
-}
-EOF
+    # NOTE: per-agent SA via .agent_engine_config.json is disabled for now.
+    # Agent Engine's service_account field requires the SA to have
+    # aiplatform.reasoningEngines permissions, which custom SAs don't have.
+    # Dataset-level BQ IAM isolation is enforced separately.
+    # TODO: re-enable once SA permission requirements are resolved.
 }
 
 extract_agent_id() {
