@@ -64,4 +64,5 @@ steps:
         export BASIC_AGENT_ID=$$(cat /workspace/basic-agent-id.txt)
         export SCALED_AGENT_ID=$$(cat /workspace/scaled-agent-id.txt)
         export KC_AGENT_ID=$$(cat /workspace/kc-agent-id.txt)
+        export ENVIRONMENT_LABEL=${_ENV}
         bash website-live/deploy.sh
