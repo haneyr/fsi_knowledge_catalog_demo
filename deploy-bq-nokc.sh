@@ -57,7 +57,8 @@ done
 echo "=== Copying tables to _nokc datasets ==="
 TOTAL=0
 for ds in "${DATASETS[@]}"; do
-    tables=$(bq ls --project_id="${PROJECT_ID}" "${ds}" 2>/dev/null | awk 'NR>2 {print $1}' | grep -v '^$')
+    tables=$(bq ls --project_id="${PROJECT_ID}" --format=json "${ds}" 2>/dev/null | \
+        python3 -c "import sys,json; [print(t['tableReference']['tableId']) for t in json.load(sys.stdin) if t.get('type') in ('TABLE','VIEW')]")
     for table in ${tables}; do
         TOTAL=$((TOTAL + 1))
         if ${REFRESH_MODE}; then
