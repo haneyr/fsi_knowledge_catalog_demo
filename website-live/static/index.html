@@ -30,6 +30,7 @@
       <button class="sign-out-btn" onclick="signOut()">Sign out</button>
     </div>
     <span id="modeBadge" class="mode-badge static">STATIC</span>
+    <span id="envBadge" class="env-badge hidden"></span>
   </header>
 
   <div class="main-container">
@@ -266,6 +267,12 @@
     fetch('/api/config').then(r => r.json()).then(cfg => {
       chat.applyConfig(cfg);
       _snowflakeEnabled = cfg.snowflake_enabled || false;
+      if (cfg.environment) {
+        const envBadge = document.getElementById('envBadge');
+        envBadge.textContent = cfg.environment.toUpperCase();
+        envBadge.className = 'env-badge ' + cfg.environment.toLowerCase();
+        envBadge.classList.remove('hidden');
+      }
       renderNarrativeTabs();
 
       if (_snowflakeEnabled) {

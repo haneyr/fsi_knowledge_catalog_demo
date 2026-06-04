@@ -42,6 +42,7 @@ AGENT_IDS = {
 }
 
 OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID", "")
+ENVIRONMENT_LABEL = os.environ.get("ENVIRONMENT_LABEL", "")
 
 AE_BASE = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
 _SESSION_TTL = 3600
@@ -284,6 +285,7 @@ def config():
         "agents": {k: bool(v) for k, v in AGENT_IDS.items()},
         "snowflake_enabled": bool(os.environ.get("SNOWFLAKE_ACCOUNT")),
         "snowflake_tables": _SNOWFLAKE_TABLES,
+        "environment": ENVIRONMENT_LABEL,
     })
 
 
