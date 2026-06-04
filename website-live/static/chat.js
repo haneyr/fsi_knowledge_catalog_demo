@@ -325,6 +325,9 @@ class ChatPanel {
     const content = rendered.querySelector('.markdown-content');
     if (!content) return;
 
+    // Partition children into "discovery" and "answer" buckets.
+    // Discovery = the Data Discovery section (heading + content until the next heading).
+    // Answer = everything else.
     const children = [...content.children];
     let discoveryStart = -1;
     let discoveryEnd = -1;
@@ -332,49 +335,34 @@ class ChatPanel {
     for (let i = 0; i < children.length; i++) {
       const el = children[i];
       const text = el.textContent.toLowerCase().trim();
-      if (el.tagName === 'H2' || (el.tagName === 'P' && /^\*?\*?data discovery\*?\*?/i.test(el.textContent.trim()))) {
-        if (/data discovery/i.test(text)) {
-          discoveryStart = i;
-        } else if (discoveryStart >= 0 && discoveryEnd < 0) {
-          discoveryEnd = i;
-        }
-      }
-      if (discoveryStart >= 0 && discoveryEnd < 0 && el.tagName === 'H2' && !/data discovery/i.test(text)) {
+      const isHeading = el.tagName === 'H2' || el.tagName === 'H3' ||
+        (el.tagName === 'P' && /^\*?\*?data discovery\*?\*?/i.test(el.textContent.trim()));
+      if (isHeading && /data discovery/i.test(text)) {
+        discoveryStart = i;
+      } else if (discoveryStart >= 0 && discoveryEnd < 0 && isHeading) {
         discoveryEnd = i;
       }
     }
 
     if (discoveryStart < 0) return;
     if (discoveryEnd < 0) discoveryEnd = children.length;
-    if (discoveryEnd - discoveryStart < 2) return;
 
-    const details = document.createElement('details');
-    details.className = 'discovery-section';
-    const summary = document.createElement('summary');
-    summary.textContent = 'Data Discovery — how the agent found the right data';
-    details.appendChild(summary);
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'discovery-content';
-    for (let i = discoveryStart; i < discoveryEnd; i++) {
-      wrapper.appendChild(children[i]);
-    }
-    details.appendChild(wrapper);
-
-    if (children[discoveryEnd]) {
-      content.insertBefore(details, children[discoveryEnd]);
-    } else {
-      content.appendChild(details);
+    // Separate the elements into two lists
+    const answerEls = [];
+    const discoveryEls = [];
+    for (let i = 0; i < children.length; i++) {
+      if (i >= discoveryStart && i < discoveryEnd) {
+        discoveryEls.push(children[i]);
+      } else {
+        answerEls.push(children[i]);
+      }
     }
 
-    // Wrap everything after the discovery section in an "Answer" box
-    const remaining = [];
-    let afterDiscovery = false;
-    for (const child of [...content.children]) {
-      if (child === details) { afterDiscovery = true; continue; }
-      if (afterDiscovery) remaining.push(child);
-    }
-    if (remaining.length > 0) {
+    // Clear the content and rebuild: Answer box first, then collapsed Discovery
+    content.replaceChildren();
+
+    // Answer section (always open, green accent)
+    if (answerEls.length > 0) {
       const answerDiv = document.createElement('div');
       answerDiv.className = 'answer-section';
       const header = document.createElement('div');
@@ -382,10 +370,24 @@ class ChatPanel {
       header.textContent = 'Analysis';
       answerDiv.appendChild(header);
       const answerContent = document.createElement('div');
-      answerContent.className = 'markdown-content';
-      for (const el of remaining) answerContent.appendChild(el);
+      answerContent.className = 'answer-content';
+      for (const el of answerEls) answerContent.appendChild(el);
       answerDiv.appendChild(answerContent);
       content.appendChild(answerDiv);
+    }
+
+    // Discovery section (collapsed, at the bottom)
+    if (discoveryEls.length > 1) {
+      const details = document.createElement('details');
+      details.className = 'discovery-section';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Data Discovery — how the agent found the right data';
+      details.appendChild(summary);
+      const wrapper = document.createElement('div');
+      wrapper.className = 'discovery-content';
+      for (const el of discoveryEls) wrapper.appendChild(el);
+      details.appendChild(wrapper);
+      content.appendChild(details);
     }
   }
 
