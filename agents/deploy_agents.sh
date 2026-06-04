@@ -256,7 +256,7 @@ echo "  https://console.cloud.google.com/vertex-ai/agents?project=${PROJECT_ID}"
 # --- Persist agent IDs to Secret Manager (CI mode) ---
 if [ "${PERSIST_AGENT_IDS:-}" = "1" ]; then
     echo "=== Persisting agent IDs to Secret Manager ==="
-    for pair in "basic-agent-id:${BASIC_AGENT_ID}" "scaled-agent-id:${SCALED_AGENT_ID}" "kc-agent-id:${KC_AGENT_ID}"; do
+    for pair in "basic-agent-id:${BASIC_AGENT_ID:-}" "scaled-agent-id:${SCALED_AGENT_ID:-}" "kc-agent-id:${KC_AGENT_ID:-}"; do
         secret="${pair%%:*}"
         value="${pair#*:}"
         if [ -n "${value}" ]; then
