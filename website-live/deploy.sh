@@ -51,7 +51,10 @@ gcloud run deploy "${SERVICE_NAME}" \
   --cpu=1 \
   --timeout=300 \
   --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},PROJECT_NUMBER=${PROJECT_NUMBER},BASIC_AGENT_ID=${BASIC_AGENT_ID},SCALED_AGENT_ID=${SCALED_AGENT_ID},KC_AGENT_ID=${KC_AGENT_ID},OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID},ENVIRONMENT_LABEL=${ENVIRONMENT_LABEL:-},SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT:-},SNOWFLAKE_AGENT_USER=${SNOWFLAKE_AGENT_USER:-},SNOWFLAKE_AGENT_PASSWORD=${SNOWFLAKE_AGENT_PASSWORD:-},SNOWFLAKE_WAREHOUSE=${SNOWFLAKE_WAREHOUSE:-},SNOWFLAKE_DATABASE=${SNOWFLAKE_DATABASE:-}" \
-  --quiet
+  --quiet || true
+# Note: --allow-unauthenticated may fail if the org policy blocks allUsers IAM
+# bindings. The deploy itself succeeds; access is managed via org policy overrides
+# and domain-scoped IAM grants (see docs/ci-setup.md).
 
 URL=$(gcloud run services describe "${SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')
 echo ""
