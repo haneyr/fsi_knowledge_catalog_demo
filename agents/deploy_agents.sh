@@ -178,13 +178,27 @@ extract_agent_id() {
     grep -oP 'reasoningEngines/\K[0-9]+' | tail -1
 }
 
+# Read an existing agent ID from Secret Manager. Returns empty string if not found.
+read_agent_id() {
+    local secret_name="$1"
+    gcloud secrets versions access latest --secret="${secret_name}" \
+        --project="${PROJECT_ID}" 2>/dev/null || true
+}
+
 deploy_basic() {
     echo "=== Deploying FSI Basic Agent ==="
-    local output
+    local existing_id update_flag output
+    existing_id=$(read_agent_id "basic-agent-id")
+    update_flag=""
+    if [ -n "${existing_id}" ]; then
+        echo "  Updating existing agent: ${existing_id}"
+        update_flag="--agent_engine_id=${existing_id}"
+    fi
     output=$(adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
         --display_name="FSI Basic Agent" \
+        ${update_flag} \
         "${SCRIPT_DIR}/agent_basic" 2>&1)
     echo "$output"
     BASIC_AGENT_ID=$(echo "$output" | extract_agent_id)
@@ -196,11 +210,18 @@ deploy_basic() {
 
 deploy_scaled() {
     echo "=== Deploying FSI Scaled Agent ==="
-    local output
+    local existing_id update_flag output
+    existing_id=$(read_agent_id "scaled-agent-id")
+    update_flag=""
+    if [ -n "${existing_id}" ]; then
+        echo "  Updating existing agent: ${existing_id}"
+        update_flag="--agent_engine_id=${existing_id}"
+    fi
     output=$(adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
         --display_name="FSI Scaled Agent" \
+        ${update_flag} \
         "${SCRIPT_DIR}/agent_scaled" 2>&1)
     echo "$output"
     SCALED_AGENT_ID=$(echo "$output" | extract_agent_id)
@@ -212,11 +233,18 @@ deploy_scaled() {
 
 deploy_kc() {
     echo "=== Deploying FSI KC Agent ==="
-    local output
+    local existing_id update_flag output
+    existing_id=$(read_agent_id "kc-agent-id")
+    update_flag=""
+    if [ -n "${existing_id}" ]; then
+        echo "  Updating existing agent: ${existing_id}"
+        update_flag="--agent_engine_id=${existing_id}"
+    fi
     output=$(adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
         --display_name="FSI KC Agent" \
+        ${update_flag} \
         "${SCRIPT_DIR}/agent_kc" 2>&1)
     echo "$output"
     KC_AGENT_ID=$(echo "$output" | extract_agent_id)
