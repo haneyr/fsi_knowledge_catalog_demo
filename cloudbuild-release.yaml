@@ -62,35 +62,7 @@ steps:
         echo "$$PROJECT_ID" > /workspace/project_id.txt
         echo "Release → project $$PROJECT_ID (${_ENV})"
 
-  # ── Step 3: Install Terragrunt ──────────────────────────────────────────
-  - id: install-terragrunt
-    name: gcr.io/cloud-builders/curl
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        set -euo pipefail
-        TG_VERSION="0.77.22"
-        curl -sL "https://github.com/gruntwork-io/terragrunt/releases/download/v$${TG_VERSION}/terragrunt_linux_amd64" \
-          -o /workspace/terragrunt
-        chmod +x /workspace/terragrunt
-
-  # ── Step 4: Terraform apply (infra) ─────────────────────────────────────
-  - id: infra
-    name: hashicorp/terraform:1.12
-    entrypoint: bash
-    env:
-      - ENVIRONMENT=${_ENV}
-      - TF_IN_AUTOMATION=1
-    args:
-      - -c
-      - |
-        set -euo pipefail
-        export PATH="/workspace:$$PATH"
-        cd stacks
-        terragrunt run --all apply -auto-approve --non-interactive -no-color
-
-  # ── Step 5: Generate config.json ────────────────────────────────────────
+  # ── Step 3: Generate config.json ────────────────────────────────────────
   - id: generate-config
     name: google/cloud-sdk:slim
     entrypoint: bash
