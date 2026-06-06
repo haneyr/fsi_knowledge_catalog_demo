@@ -121,7 +121,7 @@ steps:
       - |
         set -euo pipefail
         pip install --quiet --break-system-packages \
-          google-adk \
+          "google-adk==2.1.0" \
           google-cloud-aiplatform \
           google-cloud-bigquery \
           google-cloud-bigquery-storage \
