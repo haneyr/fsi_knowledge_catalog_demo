@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Creates Dataplex entry types, aspect types, and entry groups via API.
+"""Creates Knowledge Catalog entry types, aspect types, and entry groups via API.
 Replaces the Terraform dataplex-entry-types module when TF is not available.
 
 Usage: python3 00_create_dataplex_infra.py
@@ -186,7 +186,7 @@ def main():
                     raise
         time.sleep(5)
 
-    logger.info("Dataplex infrastructure complete")
+    logger.info("Knowledge Catalog infrastructure complete")
 
 
 if __name__ == "__main__":

@@ -295,7 +295,7 @@ def entry_group_location(cfg: Dict[str, str]) -> str:
 def entry_type_location(cfg: Dict[str, str]) -> str:
     """Location for entry types and aspect types (issue #20).
 
-    Types live in ``global``. Dataplex requires an entry's entry type to be in
+    Types live in ``global``. Knowledge Catalog requires an entry's entry type to be in
     the same region as the entry, in a corresponding multi-region, or in
     ``global`` -- a regional type (e.g. ``us-central1``) is NOT usable by an
     entry in the ``us`` multi-region. ``global`` types are usable from any

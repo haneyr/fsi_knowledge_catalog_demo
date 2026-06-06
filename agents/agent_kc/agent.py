@@ -16,7 +16,7 @@
 FSI Knowledge Catalog Agent — Uses KC Context API to navigate 150+ tables.
 
 Implements Knowledge Catalog discovery tools as native FunctionTools calling
-the Dataplex REST API directly, making it fully compatible with Agent Engine
+the Knowledge Catalog REST API directly, making it fully compatible with Agent Engine
 without needing an external MCP Toolbox binary.
 
 Deploy to Vertex AI Agent Engine or run locally:

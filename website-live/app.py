@@ -458,7 +458,7 @@ def table_info():
             timeout=10,
         )
         if resp.status_code != 200:
-            logger.warning("Dataplex lookup failed: status=%d body=%s", resp.status_code, resp.text[:300])
+            logger.warning("Knowledge Catalog lookup failed: status=%d body=%s", resp.status_code, resp.text[:300])
             return jsonify({
                 "name": table, "tier": tier, "description": "",
                 "column_count": 0, "columns": [], "catalog_url": catalog_url, "bq_url": bq_url,

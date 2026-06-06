@@ -16,7 +16,7 @@
 ####################################################################################
 """
 Creates source system catalog entries for ATLAS (DB2), FORTUNA (Temenos),
-and ARGUS (SAP) in Dataplex Knowledge Catalog.
+and ARGUS (SAP) in Knowledge Catalog.
 
 Usage: python3 03_create_source_entries.py
 """

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Creates Dataplex entry group, entry types, and aspect types for Snowflake metadata.
+"""Creates Knowledge Catalog entry group, entry types, and aspect types for Snowflake metadata.
 
 Must run before 02_ingest_metadata.py so the import has types to reference.
 
@@ -117,7 +117,7 @@ def main():
                     raise
         time.sleep(5)
 
-    logger.info("Dataplex infrastructure for Snowflake complete")
+    logger.info("Knowledge Catalog infrastructure for Snowflake complete")
 
 
 if __name__ == "__main__":

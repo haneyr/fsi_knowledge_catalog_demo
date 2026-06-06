@@ -252,7 +252,7 @@ deploy_kc() {
     echo "KC agent deployed: ${KC_AGENT_ID}"
     echo "  Granting enriched dataset access..."
     grant_dataset_access "${KC_AGENT_ID}" ${ENRICHED_DATASETS}
-    # KC agent needs Dataplex roles for Knowledge Catalog search
+    # KC agent needs Knowledge Catalog roles for search and lineage
     local PROJECT_NUMBER ORG_ID KC_PRINCIPAL
     PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)' 2>/dev/null) || true
     ORG_ID=$(gcloud projects describe "${PROJECT_ID}" --format='value(parent.id)' 2>/dev/null) || true

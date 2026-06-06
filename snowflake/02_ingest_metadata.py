@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Extracts Horizon metadata from Snowflake and imports into Dataplex Knowledge Catalog.
+"""Extracts Horizon metadata from Snowflake and imports into Knowledge Catalog.
 
 Queries SNOWFLAKE.ACCOUNT_USAGE views for table/column/tag metadata,
-produces a JSONL import file, and calls the Dataplex MetadataJobs API.
+produces a JSONL import file, and calls the Knowledge Catalog MetadataJobs API.
 
 Usage: python3 snowflake/02_ingest_metadata.py
 """
@@ -67,7 +67,7 @@ def extract_tag_references(cur):
 
 
 def build_import_entries(cfg, tables, columns, tags, tag_refs):
-    """Build JSONL entries for Dataplex metadata import."""
+    """Build JSONL entries for Knowledge Catalog metadata import."""
     pid = cfg["project_id"]
     loc = cfg["location"]  # regional — for entry types and aspect types
     multi = cfg["multi_region"]  # multi-region — for entry group (matches glossary)
@@ -137,7 +137,7 @@ def build_import_entries(cfg, tables, columns, tags, tag_refs):
         table_entry_name = f"{entry_group}/entries/snowflake-table-{DATABASE.lower()}-{schema.lower()}-{table_name.lower()}"
 
         # Build schema aspect with column info
-        # Dataplex metadataType is an enum: STRING, NUMBER, BOOLEAN, TIMESTAMP, DATE, etc.
+        # Knowledge Catalog metadataType enum: STRING, NUMBER, BOOLEAN, TIMESTAMP, DATE, etc.
         _SF_TO_DATAPLEX_TYPE = {
             "TEXT": "STRING", "VARCHAR": "STRING", "CHAR": "STRING", "STRING": "STRING",
             "NUMBER": "NUMBER", "DECIMAL": "NUMBER", "NUMERIC": "NUMBER", "INT": "NUMBER",
@@ -286,7 +286,7 @@ def import_metadata(cfg, jsonl_path):
     }
 
     # Use the entries API to create/update entries directly since we have them in memory
-    logger.info("Importing %d entries into Dataplex...", len(entries))
+    logger.info("Importing %d entries into Knowledge Catalog...", len(entries))
     success = 0
     for entry in entries:
         entry_id = entry["name"].split("/entries/")[-1]
@@ -310,7 +310,7 @@ def import_metadata(cfg, jsonl_path):
 
 def main():
     cfg = load_snowflake_config()
-    logger.info("=== Ingesting Snowflake Horizon metadata into Dataplex ===")
+    logger.info("=== Ingesting Snowflake Horizon metadata into Knowledge Catalog ===")
 
     conn = get_snowflake_connection()
     cur = conn.cursor()
