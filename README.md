@@ -18,7 +18,7 @@ End-to-end Knowledge Catalog and data governance demo for a financial services i
 | **BigQuery Tables** | 128 | 40 bronze + 40 silver + 20 gold + 8 views + 10 reference + 5 staging + 3 snapshots + 2 audit |
 | **Source Systems** | 3 | ATLAS (IBM DB2), FORTUNA (Temenos T24), ARGUS (SAP S/4HANA) |
 | **Business Glossary** | 1 | 80+ terms, 10 categories, 20 sub-categories, overviews, contacts |
-| **Dataplex Scans** | 300+ | Profile + Quality + Insights for 100 tables |
+| **Data Scans** | 300+ | Profile + Quality + Insights for 100 tables |
 | **Data Products** | 5 | Customer 360, Lending & Credit Risk, Wealth Management, Regulatory, Financial Performance |
 | **Custom Aspects** | 7 types | Data Classification, Retention, Compliance, Lineage, Access Control, Risk, Regulatory Reporting |
 | **Data Lineage** | 80+ links | 3 source systems → Bronze → Silver → Gold (5 processes) |
@@ -63,7 +63,7 @@ Knowledge Catalog resources span three locations, kept consistent via `scripts/c
 | `region` (`us-central1`) | Vertex AI / Agent Engine |
 
 User entry groups and entries live in the multi-region so that entry-to-glossary-term links
-resolve. Entry/aspect **types** live in `global`: Dataplex requires an entry's type to be in
+resolve. Entry/aspect **types** live in `global`: Knowledge Catalog requires an entry's type to be in
 the entry's own region, a corresponding multi-region, or `global`, so a regional type is not
 usable by a `us` multi-region entry. The decision is centralized in `scripts/common.py`
 (`entry_group_location` → `us`, `entry_type_location` → `global`).
@@ -185,8 +185,8 @@ The deploy script automatically:
 1. Grants the Agent Engine service account required IAM permissions:
    - `roles/bigquery.jobUser` — run queries
    - `roles/bigquery.dataViewer` — read table data
-   - `roles/dataplex.viewer` — access Knowledge Catalog entries
-   - `roles/dataplex.catalogEditor` — search catalog entries
+   - `roles/dataplex.viewer` — access Knowledge Catalog entries (Dataplex API)
+   - `roles/dataplex.catalogEditor` — search Knowledge Catalog entries
    - `roles/datalineage.viewer` — read data lineage
 2. Creates `.env` files with your project config
 3. Deploys each agent via `adk deploy agent_engine`
@@ -266,7 +266,7 @@ python3 agent.py
 - Uses Knowledge Catalog MCP tools: `search_entries`, `lookup_context`, `lookup_entry`
 - `run_sql` for BigQuery after discovering the right tables
 - Cites glossary terms, data quality scores, and lineage in answers
-- Uses native Dataplex REST API calls (no external MCP Toolbox binary needed)
+- Uses native Knowledge Catalog REST API calls (no external MCP Toolbox binary needed)
 
 ## Website Authentication (Optional)
 

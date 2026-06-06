@@ -15,7 +15,7 @@
 
 ####################################################################################
 # FSI Knowledge Catalog Demo - Post Deploy
-# Runs all Python scripts that create Dataplex and governance resources.
+# Runs all Python scripts that create Knowledge Catalog and governance resources.
 # Called after BigQuery tables are created (deploy-bq.sh or Terraform).
 ####################################################################################
 
@@ -41,9 +41,9 @@ run_step() {
 
 echo "=== Post-Deploy: Creating FSI governance resources ==="
 
-run_step  1 "Creating Dataplex infrastructure"      "python3 00_create_dataplex_infra.py"
+run_step  1 "Creating Knowledge Catalog infrastructure" "python3 00_create_dataplex_infra.py"
 run_step  2 "Creating business glossary & links"    "python3 01_create_glossary.py"
-run_step  3 "Creating Dataplex scans"               "python3 02_create_scans.py"
+run_step  3 "Creating data scans"                   "python3 02_create_scans.py"
 run_step  4 "Creating source system entries"        "python3 03_create_source_entries.py"
 run_step  5 "Applying custom aspects"               "python3 04_create_aspects.py"
 run_step  6 "Creating data products"                "python3 05_create_data_products.py"

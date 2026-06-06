@@ -15,7 +15,7 @@
 # limitations under the License.
 ####################################################################################
 """
-Creates and runs Dataplex data profile, data quality, and data insights scans
+Creates and runs Knowledge Catalog data profile, data quality, and data insights scans
 for all FSI medallion tables with financial-services-specific quality rules.
 
 Usage: python3 02_create_scans.py

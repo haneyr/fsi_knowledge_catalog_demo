@@ -15,7 +15,7 @@
 # limitations under the License.
 ####################################################################################
 """
-Creates a comprehensive Dataplex Business Glossary for Meridian National Bank.
+Creates a comprehensive Knowledge Catalog Business Glossary for Meridian National Bank.
 
 Provisions: 1 glossary, 10 L1 categories, ~20 L2 sub-categories, 80+ terms,
 overviews, contacts, synonym links, related links, and definition links

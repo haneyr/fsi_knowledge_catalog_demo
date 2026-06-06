@@ -93,7 +93,7 @@ Environment variables are appropriate for this demo. For production deployments:
 | Snowflake database | `NEXUS_MARKET_DATA` with 4 schemas, 10 tables |
 | Synthetic data | ~50K rows of market data aligned to BQ CUSIPs |
 | Horizon tags | 5 governance tags applied to all tables |
-| Dataplex entries | Account, database, schema, table, tag, tag-ref entries |
+| Knowledge Catalog entries | Account, database, schema, table, tag, tag-ref entries |
 | Glossary links | CUSIP, ISIN, NIM, Risk Rating linked to Snowflake columns |
 | Custom aspects | Classification, retention, compliance, lineage, access control |
 | Data lineage | NEXUS -> Snowflake feed (10 links) |

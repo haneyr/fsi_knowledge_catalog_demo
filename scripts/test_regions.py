@@ -21,7 +21,7 @@ class RegionModelTest(unittest.TestCase):
 
     def test_entry_types_use_global(self):
         # Types must be global: a regional type is not usable by a us-multi-region
-        # entry (verified live against the Dataplex API).
+        # entry (verified live against the Knowledge Catalog API).
         self.assertEqual(entry_type_location(self.cfg), "global")
 
     def test_entry_types_global_regardless_of_config(self):

@@ -2394,7 +2394,7 @@ def main():
         except RuntimeError as e:
             logger.warning("  [%d/%d] FAILED: %s - %s", i, len(OVERVIEWS), term_id, str(e)[:120])
             failed += 1
-        # Dataplex API rate limits at ~10 writes/min for catalog resources
+        # Knowledge Catalog API rate limits at ~10 writes/min for catalog resources
         # 6 seconds between calls = 10 calls/min, staying within limits
         time.sleep(6)
 

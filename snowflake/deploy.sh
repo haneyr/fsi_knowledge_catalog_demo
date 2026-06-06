@@ -32,8 +32,8 @@ run_step() {
 echo "=== Snowflake NEXUS Integration Setup ==="
 
 run_step 1 "Creating NEXUS database and data in Snowflake"  "python3 00_setup_nexus_data.py"
-run_step 2 "Creating Dataplex infrastructure"                "python3 01_create_dataplex_infra.py"
-run_step 3 "Ingesting Horizon metadata into Dataplex"        "python3 02_ingest_metadata.py"
+run_step 2 "Creating Knowledge Catalog infrastructure"       "python3 01_create_dataplex_infra.py"
+run_step 3 "Ingesting Horizon metadata into Knowledge Catalog" "python3 02_ingest_metadata.py"
 run_step 4 "Enriching entries with glossary and aspects"     "python3 03_enrich_entries.py"
 
 echo ""

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def snowflake_table_entry(cfg, schema, table):
-    """Build the Dataplex entry path for a Snowflake table."""
+    """Build the Knowledge Catalog entry path for a Snowflake table."""
     pid = cfg["project_id"]
     multi = cfg["multi_region"]
     return f"projects/{pid}/locations/{multi}/entryGroups/snowflake-nexus/entries/snowflake-table-{DATABASE.lower()}-{schema.lower()}-{table.lower()}"
