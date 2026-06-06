@@ -60,7 +60,7 @@ steps:
         TFVARS="env/${_ENV}.tfvars"
         PROJECT_ID=$$(grep -E '^\s*project_id' "$$TFVARS" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
         echo "$$PROJECT_ID" > /workspace/project_id.txt
-        echo "Release → project $$PROJECT_ID ($$_ENV)"
+        echo "Release → project $$PROJECT_ID (${_ENV})"
 
   # ── Step 3: Install Terragrunt ──────────────────────────────────────────
   - id: install-terragrunt
