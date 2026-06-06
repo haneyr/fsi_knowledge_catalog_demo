@@ -38,15 +38,16 @@ steps:
       - -c
       - |
         set -euo pipefail
+        SHA=$$(git rev-parse HEAD)
         git fetch --unshallow origin main 2>/dev/null || git fetch origin main
-        if ! git merge-base --is-ancestor "$$COMMIT_SHA" origin/main; then
+        if ! git merge-base --is-ancestor "$$SHA" origin/main; then
           echo "============================================================"
-          echo "RELEASE BLOCKED: tag $$TAG_NAME ($$COMMIT_SHA) is NOT on main."
+          echo "RELEASE BLOCKED: $$SHA is NOT on main."
           echo "Only commits that have been merged to main can be promoted."
           echo "============================================================"
           exit 1
         fi
-        echo "Ancestor check passed: $$COMMIT_SHA is on main"
+        echo "Ancestor check passed: $$SHA is on main"
 
   # ── Step 2: Resolve target project ──────────────────────────────────────
   - id: resolve-project
@@ -59,7 +60,7 @@ steps:
         TFVARS="env/${_ENV}.tfvars"
         PROJECT_ID=$$(grep -E '^\s*project_id' "$$TFVARS" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
         echo "$$PROJECT_ID" > /workspace/project_id.txt
-        echo "Release $$TAG_NAME → project $$PROJECT_ID ($$_ENV)"
+        echo "Release → project $$PROJECT_ID ($$_ENV)"
 
   # ── Step 3: Install Terragrunt ──────────────────────────────────────────
   - id: install-terragrunt
