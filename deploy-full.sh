@@ -181,17 +181,37 @@ echo "    SCALED_AGENT_ID=${SCALED_AGENT_ID:-NOT SET}"
 echo "    KC_AGENT_ID=${KC_AGENT_ID:-NOT SET}"
 
 # ---------------------------------------------------------------------------
-# Step 7: Deploy website to Cloud Run
+# Step 7: Store OAuth client ID in Secret Manager (if provided)
 # ---------------------------------------------------------------------------
-if [[ -n "${BASIC_AGENT_ID:-}" && -n "${SCALED_AGENT_ID:-}" && -n "${KC_AGENT_ID:-}" ]]; then
-    echo "=== Deploying website ==="
-    bash "${SCRIPT_DIR}/website-live/deploy.sh"
-    WEBSITE_URL=$(gcloud run services describe fsi-kc-demo-ui-live --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
-else
+if [ -n "${OAUTH_CLIENT_ID:-}" ]; then
+    echo "=== Storing OAuth client ID in Secret Manager ==="
+    gcloud secrets create oauth-client-id --project="${GOOGLE_CLOUD_PROJECT}" \
+        --replication-policy=automatic 2>/dev/null || true
+    printf '%s' "${OAUTH_CLIENT_ID}" | gcloud secrets versions add oauth-client-id \
+        --project="${GOOGLE_CLOUD_PROJECT}" --data-file=- --quiet
+    echo "  oauth-client-id stored"
+fi
+
+# ---------------------------------------------------------------------------
+# Step 8: Deploy website to Cloud Run
+# ---------------------------------------------------------------------------
+if [[ -z "${BASIC_AGENT_ID:-}" || -z "${SCALED_AGENT_ID:-}" || -z "${KC_AGENT_ID:-}" ]]; then
     WEBSITE_URL="not deployed (agent IDs not captured)"
     echo "=== Skipping website (agent IDs not captured) ==="
     echo "  To deploy manually, set BASIC_AGENT_ID, SCALED_AGENT_ID, KC_AGENT_ID and run:"
     echo "    bash website-live/deploy.sh"
+elif [[ -z "${OAUTH_CLIENT_ID:-}" ]] && ! gcloud secrets versions access latest --secret=oauth-client-id --project="${GOOGLE_CLOUD_PROJECT}" >/dev/null 2>&1; then
+    WEBSITE_URL="not deployed (OAuth not configured)"
+    echo "=== Skipping website (OAUTH_CLIENT_ID not set) ==="
+    echo "  The website requires OAuth. To deploy:"
+    echo "    1. Create an OAuth client ID in the Google Cloud Console"
+    echo "       https://console.cloud.google.com/apis/credentials?project=${GOOGLE_CLOUD_PROJECT}"
+    echo "    2. Run: export OAUTH_CLIENT_ID=<your-client-id>"
+    echo "       bash website-live/deploy.sh"
+else
+    echo "=== Deploying website ==="
+    bash "${SCRIPT_DIR}/website-live/deploy.sh"
+    WEBSITE_URL=$(gcloud run services describe fsi-kc-demo-ui-live --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
 fi
 
 # ---------------------------------------------------------------------------
