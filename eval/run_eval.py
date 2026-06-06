@@ -224,6 +224,9 @@ def run_evaluation(args):
             print(f"ERROR: No cases match filter '{args.filter}'")
             sys.exit(1)
 
+    if getattr(args, '_failing_ids', None):
+        cases = [c for c in cases if c["id"] in args._failing_ids]
+
     # Skip multi-cloud cases when Snowflake is not configured
     if not os.environ.get("SNOWFLAKE_ACCOUNT"):
         original_count = len(cases)
@@ -332,7 +335,30 @@ def main():
     parser.add_argument("--kc-id", help="Override KC agent ID")
     parser.add_argument("--use-vertex-eval", action="store_true",
                         help="Enable Vertex AI LLM-judged metrics alongside custom metrics")
+    parser.add_argument("--rerun-failures", metavar="JSON_PATH",
+                        help="Re-run only cases that failed (outcome < 0.8) in a prior eval JSON")
     args = parser.parse_args()
+
+    if args.rerun_failures:
+        with open(args.rerun_failures) as f:
+            prior = json.load(f)
+        agents_filter = args.agents.split(",") if args.agents else ["basic", "scaled", "kc"]
+        failing_ids = set()
+        for r in prior:
+            for agent_type in agents_filter:
+                outcome = r.get("agents", {}).get(agent_type, {}).get("scores", {}).get("outcome", {})
+                if outcome.get("value", 1.0) < 0.8:
+                    failing_ids.add(r["case_id"])
+        if not failing_ids:
+            print("No failures found in prior eval.")
+            return
+        args.case = None
+        args.filter = None
+        args._failing_ids = failing_ids
+        print(f"Re-running {len(failing_ids)} failing cases: {', '.join(sorted(failing_ids))}")
+    else:
+        args._failing_ids = None
+
     run_evaluation(args)
 
 
