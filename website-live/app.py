@@ -253,7 +253,7 @@ def login_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if not OAUTH_CLIENT_ID:
-            return f(*args, **kwargs)
+            return jsonify({"error": "OAuth not configured. Set OAUTH_CLIENT_ID."}), 503
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         user = _verify_id_token(token)
         if not user:

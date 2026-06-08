@@ -124,5 +124,6 @@ steps:
         export BASIC_AGENT_ID=$$(gcloud secrets versions access latest --secret=basic-agent-id --project="$$GOOGLE_CLOUD_PROJECT")
         export SCALED_AGENT_ID=$$(gcloud secrets versions access latest --secret=scaled-agent-id --project="$$GOOGLE_CLOUD_PROJECT")
         export KC_AGENT_ID=$$(gcloud secrets versions access latest --secret=kc-agent-id --project="$$GOOGLE_CLOUD_PROJECT")
+        export OAUTH_CLIENT_ID=$$(gcloud secrets versions access latest --secret=oauth-client-id --project="$$GOOGLE_CLOUD_PROJECT")
         export ENVIRONMENT_LABEL=${_ENV}
         bash website-live/deploy.sh

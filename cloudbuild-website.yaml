@@ -36,8 +36,8 @@ steps:
         echo "$$PROJECT_ID" > /workspace/project_id.txt
         echo "Target project: $$PROJECT_ID"
 
-  # ── Step 2: Read agent IDs from Secret Manager ─────────────────────────
-  - id: read-agent-ids
+  # ── Step 2: Read secrets ────────────────────────────────────────────────
+  - id: read-secrets
     name: google/cloud-sdk:slim
     entrypoint: bash
     args:
@@ -45,7 +45,7 @@ steps:
       - |
         set -euo pipefail
         PROJECT_ID=$$(cat /workspace/project_id.txt)
-        for secret in basic-agent-id scaled-agent-id kc-agent-id; do
+        for secret in basic-agent-id scaled-agent-id kc-agent-id oauth-client-id; do
           VALUE=$$(gcloud secrets versions access latest --secret="$$secret" --project="$$PROJECT_ID")
           echo "$$VALUE" > "/workspace/$${secret}.txt"
           echo "  $$secret = $$VALUE"
@@ -64,5 +64,6 @@ steps:
         export BASIC_AGENT_ID=$$(cat /workspace/basic-agent-id.txt)
         export SCALED_AGENT_ID=$$(cat /workspace/scaled-agent-id.txt)
         export KC_AGENT_ID=$$(cat /workspace/kc-agent-id.txt)
+        export OAUTH_CLIENT_ID=$$(cat /workspace/oauth-client-id.txt)
         export ENVIRONMENT_LABEL=${_ENV}
         bash website-live/deploy.sh

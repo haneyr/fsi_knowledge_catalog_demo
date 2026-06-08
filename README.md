@@ -268,11 +268,11 @@ python3 agent.py
 - Cites glossary terms, data quality scores, and lineage in answers
 - Uses native Knowledge Catalog REST API calls (no external MCP Toolbox binary needed)
 
-## Website Authentication (Optional)
+## Website Authentication (Required)
 
-The demo website supports Google Sign-In via OAuth 2.0. Without it, the site
-is open to anyone who has the URL. With it, users must sign in with a Google
-account before they can interact with the agents.
+The demo website requires Google Sign-In via OAuth 2.0. The website will not
+deploy without an OAuth client ID configured, and the application returns
+503 Service Unavailable if OAuth is not set up at runtime.
 
 ### Creating an OAuth Client ID
 
@@ -295,18 +295,17 @@ account before they can interact with the agents.
 
 ### Deploying with OAuth
 
-Pass the client ID as an environment variable when deploying:
+Pass the client ID as an environment variable when deploying. The deploy script
+stores it in Secret Manager automatically, so subsequent deploys (including CI)
+read it from there.
 
 ```bash
-export OAUTH_CLIENT_ID=123456789-abcdef.apps.googleusercontent.com
-bash website-live/deploy.sh
-```
-
-Or as part of the full deploy:
-
-```bash
+# First deploy — pass the client ID, it gets stored in Secret Manager
 export OAUTH_CLIENT_ID=123456789-abcdef.apps.googleusercontent.com
 bash deploy-full.sh
+
+# Subsequent deploys — reads from Secret Manager automatically
+bash website-live/deploy.sh
 ```
 
 After deployment, the deploy script will remind you to add the Cloud Run URL as
@@ -356,11 +355,6 @@ These overrides are safe when OAuth is configured — the app requires Google Si
 before granting access to agent functionality. Without these overrides, the site
 returns `403 Forbidden` even for authenticated users, because Cloud Run rejects
 the request before it reaches the application's own auth layer.
-
-### Running Without OAuth
-
-If `OAUTH_CLIENT_ID` is not set (the default), the website runs without
-authentication. All endpoints are publicly accessible to anyone with the URL.
 
 ## Snowflake Integration (Optional)
 
