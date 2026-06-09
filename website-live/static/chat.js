@@ -165,10 +165,6 @@ class ChatPanel {
     _projectNumber = config.project_number || '';
     _snowflakeEnabled = config.snowflake_enabled || false;
     _snowflakeTables = new Set(config.snowflake_tables || []);
-    const badge = document.getElementById('modeBadge');
-    badge.className = 'mode-badge ' + (this.liveMode ? 'live' : 'static');
-    badge.textContent = this.liveMode ? 'LIVE' : 'STATIC';
-
     if (_snowflakeEnabled && this.viz) {
       this.viz.setSnowflakeTables(config.snowflake_tables || []);
     }
@@ -179,8 +175,6 @@ class ChatPanel {
       const resp = await fetch('/api/config');
       this.applyConfig(await resp.json());
     } catch (e) {
-      document.getElementById('modeBadge').className = 'mode-badge static';
-      document.getElementById('modeBadge').textContent = 'STATIC';
     }
   }
 
