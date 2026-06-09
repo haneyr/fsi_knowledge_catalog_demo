@@ -31,6 +31,12 @@ steps:
   # ── Step 1: Ancestor safeguard ──────────────────────────────────────────
   # Cloud Build does a shallow checkout of the tag — origin/main is not
   # present. We must fetch it before the merge-base check.
+  #
+  # Two paths pass:
+  #   1. The tagged commit is directly on main (normal release).
+  #   2. The tag is a hotfix: based on a prior release tag, and every
+  #      commit since that tag is a cherry-pick of a commit on main
+  #      (verified via patch-id matching with `git cherry`).
   - id: ancestor-check
     name: gcr.io/cloud-builders/git
     entrypoint: bash
@@ -40,14 +46,33 @@ steps:
         set -euo pipefail
         SHA=$$(git rev-parse HEAD)
         git fetch --unshallow origin main 2>/dev/null || git fetch origin main
-        if ! git merge-base --is-ancestor "$$SHA" origin/main; then
+        git fetch --tags origin
+
+        if git merge-base --is-ancestor "$$SHA" origin/main; then
+          echo "Ancestor check passed: $$SHA is on main"
+          exit 0
+        fi
+
+        BASE_TAG=$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null) || {
           echo "============================================================"
-          echo "RELEASE BLOCKED: $$SHA is NOT on main."
-          echo "Only commits that have been merged to main can be promoted."
+          echo "RELEASE BLOCKED: $$SHA is not on main and no parent tag found."
           echo "============================================================"
           exit 1
+        }
+
+        NOVEL=$$(git cherry origin/main HEAD "$$BASE_TAG" | grep '^+' || true)
+        if [ -z "$$NOVEL" ]; then
+          echo "Hotfix check passed: all commits since $$BASE_TAG exist on main"
+          exit 0
         fi
-        echo "Ancestor check passed: $$SHA is on main"
+
+        echo "============================================================"
+        echo "RELEASE BLOCKED: $$SHA is NOT on main."
+        echo "These commits have no equivalent on main:"
+        echo "$$NOVEL"
+        echo "Only commits merged to main can be promoted."
+        echo "============================================================"
+        exit 1
 
   # ── Step 2: Resolve target project ──────────────────────────────────────
   - id: resolve-project
