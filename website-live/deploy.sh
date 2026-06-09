@@ -52,15 +52,20 @@ gcloud run deploy "${SERVICE_NAME}" \
   --source=. \
   --project="${PROJECT_ID}" \
   --region="${REGION}" \
-  --allow-unauthenticated \
   --memory=1Gi \
   --cpu=1 \
   --timeout=300 \
   --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},PROJECT_NUMBER=${PROJECT_NUMBER},BASIC_AGENT_ID=${BASIC_AGENT_ID},SCALED_AGENT_ID=${SCALED_AGENT_ID},KC_AGENT_ID=${KC_AGENT_ID},OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID},ENVIRONMENT_LABEL=${ENVIRONMENT_LABEL:-},SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT:-}" \
-  --quiet || true
-# Note: --allow-unauthenticated may fail if the org policy blocks allUsers IAM
-# bindings. The deploy itself succeeds; access is managed via org policy overrides
-# and domain-scoped IAM grants (see docs/ci-setup.md).
+  --quiet
+
+# --allow-unauthenticated is a separate IAM step that may fail if the org policy
+# blocks allUsers bindings. Apply it best-effort after the deploy succeeds.
+gcloud run services add-iam-policy-binding "${SERVICE_NAME}" \
+  --project="${PROJECT_ID}" \
+  --region="${REGION}" \
+  --member="allUsers" \
+  --role="roles/run.invoker" \
+  --quiet 2>/dev/null || true
 
 URL=$(gcloud run services describe "${SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')
 echo ""
