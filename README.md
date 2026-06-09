@@ -99,6 +99,17 @@ export GOOGLE_CLOUD_PROJECT=your-project-id
 bash deploy-full.sh
 ```
 
+To grant a demo presenter console access (BigQuery, Knowledge Catalog,
+Agent Engine), pass `--demo-user`:
+
+```bash
+bash deploy-full.sh --demo-user=presenter@example.com
+```
+
+This grants the user viewer/editor roles so they can browse tables, catalog
+entries, and agents in the Google Cloud Console during a demo. End users who
+only access the website do not need this — the website handles auth via OAuth.
+
 This single script handles everything: project creation, API enablement,
 128 BigQuery tables, all Knowledge Catalog resources (glossary, scans, aspects,
 lineage, data products, rule library, insights), and deploying 3 agents to
