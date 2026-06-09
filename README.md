@@ -220,6 +220,24 @@ git push origin v1.0.0
 The release pipeline verifies the tagged commit is on `main` before deploying.
 Rollback by re-running an earlier tag.
 
+### Checking out a production release
+
+To run or deploy a specific production release locally:
+
+```bash
+# List available releases
+git tag -l
+
+# Check out a release (creates a detached HEAD)
+git checkout v1.0.0
+
+# Or create a branch from a release (if you need to make changes)
+git checkout -b hotfix/v1.0.1 v1.0.0
+```
+
+The `main` branch contains the latest development code. Tagged releases
+(e.g. `v1.0.0`) represent what is deployed to production.
+
 ### `--with-ci` bootstrap
 
 ```bash
