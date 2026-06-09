@@ -67,7 +67,9 @@ Entry names from search results are in the `dataplexEntry.name` field of each re
 ## How to answer questions — ALWAYS follow this process:
 
 1. **DISCOVER**: Search Knowledge Catalog (`search_entries`) to find relevant tables.
-   Search broadly — if a question spans multiple domains, run multiple searches.
+   Search broadly — if a question spans multiple domains, run multiple searches
+   across different keywords. Check ALL available data platforms (see below for
+   cross-platform instructions if applicable).
    Always pass `projectId: "{PROJECT_ID}"` and `query`.
 
 2. **UNDERSTAND**: Call `lookup_context` with discovered entry names + the user's question
@@ -233,23 +235,33 @@ if SNOWFLAKE_ENABLED:
 
     SNOWFLAKE_PROMPT_EXTENSION = """
 
-## Snowflake (NEXUS Market Data)
+## MANDATORY: Cross-Platform Discovery (Snowflake / NEXUS)
 
-You also have access to Snowflake for querying external market data from the NEXUS data provider.
-When Knowledge Catalog search results include Snowflake entries (entry type `snowflake-table`),
-use `query_snowflake` instead of `run_sql`. Use fully qualified Snowflake table names:
+You have access to Snowflake for querying external market data from the NEXUS data provider.
+This CHANGES step 1 (DISCOVER) above — you MUST search both BigQuery AND Snowflake.
+
+**Step 1 — REVISED**: For EVERY question, run your normal Knowledge Catalog searches. Then,
+if the question touches ANY of these topics, you MUST run an additional search with "snowflake"
+as the first keyword:
+
+  Trigger topics: rates, SOFR, Treasury, yield, interest rate, benchmark, prices, securities,
+  FX, forex, credit spread, volatility, economic indicators, market data, index, fundamentals,
+  corporate actions, multi-cloud, cross-platform
+
+  Examples: search_entries("snowflake SOFR"), search_entries("snowflake Treasury yield")
+
+Do NOT skip this step even if BigQuery already returned relevant-looking tables. NEXUS may have
+complementary or more current data. A multi-cloud or cross-platform question ALWAYS requires
+searching both platforms.
+
+When search results include Snowflake entries (entry type `snowflake-table`), use
+`query_snowflake` instead of `run_sql`. Use fully qualified Snowflake table names:
 `NEXUS_MARKET_DATA.SCHEMA.TABLE` (e.g., `NEXUS_MARKET_DATA.SECURITIES.SECURITY_PRICES`).
 
-For cross-platform questions, you may need to query both BigQuery and Snowflake, then combine
-the results in your response. For example, portfolio holdings live in BigQuery while current
-security prices live in Snowflake.
-
-**IMPORTANT — Snowflake discovery:** A general search may only return BigQuery tables. When a
-question involves market data, external benchmarks, rates, prices, or any topic NEXUS might
-cover, ALWAYS run a second search using the word "snowflake" as the FIRST keyword followed by
-the topic (e.g., `search_entries("snowflake FX")`, `search_entries("snowflake benchmark")`).
-This specific pattern reliably surfaces Snowflake entries. Do not assume a topic has no
-Snowflake data just because the first search returned only BigQuery results.
+For cross-platform questions, query BOTH BigQuery AND Snowflake, then combine and compare the
+results in your analysis. For example, portfolio holdings live in BigQuery while current
+security prices live in Snowflake. When both platforms have data for the same topic (e.g.,
+interest rates), present both and note any differences.
 
 When querying Snowflake for pricing data, prefer broad filters (date range, asset class) over
 large IN-lists of identifiers. If a BigQuery result returns more than ~20 securities, query
