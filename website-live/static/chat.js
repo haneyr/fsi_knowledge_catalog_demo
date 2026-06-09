@@ -125,6 +125,7 @@ class ChatPanel {
     this.inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
     });
+    document.getElementById('newSessionBtn').addEventListener('click', () => this.resetSession());
 
     this._agentContainers = {};
     this._initAgentContainer('basic');
@@ -524,6 +525,25 @@ class ChatPanel {
   sendPreset(question) {
     this.inputEl.value = question;
     this.send();
+  }
+
+  async resetSession() {
+    try {
+      await fetch('/api/reset-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
+        body: JSON.stringify({ agent: this.agentMode }),
+      });
+    } catch (e) { /* best-effort */ }
+
+    const container = this._agentContainers[this.agentMode];
+    if (container) {
+      container.remove();
+      this._initAgentContainer(this.agentMode);
+      this._agentContainers[this.agentMode].style.display = 'flex';
+    }
+    this._currentAgentMsg = null;
+    this.viz.setMode(this.agentMode);
   }
 
   _delay(ms) { return new Promise(r => setTimeout(r, ms)); }

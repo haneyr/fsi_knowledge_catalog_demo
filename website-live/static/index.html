@@ -49,7 +49,10 @@
 
     <div class="resize-handle" id="resizeHandle"></div>
     <div class="chat-panel" id="chatPanel">
-      <div class="chat-header" id="chatHeader">Chat with Basic Agent</div>
+      <div class="chat-header" id="chatHeader">
+        <span>Chat with Basic Agent</span>
+        <button class="new-session-btn" id="newSessionBtn" title="Start a new conversation">New Session</button>
+      </div>
       <div class="chat-messages" id="chatMessages"></div>
       <div class="typing-indicator" id="typingIndicator">
         <div class="typing-dot"></div>
@@ -171,7 +174,7 @@
       const info = AGENT_INFO[mode];
       document.getElementById('vizTitle').textContent = info.title;
       document.getElementById('vizDesc').textContent = info.desc;
-      document.getElementById('chatHeader').textContent = info.header;
+      document.querySelector('#chatHeader > span').textContent = info.header;
 
       renderPresets();
     }
