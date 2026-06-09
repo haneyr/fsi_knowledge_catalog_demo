@@ -39,6 +39,9 @@
 #   export GOOGLE_CLOUD_PROJECT=your-existing-project-id
 #   bash deploy-full.sh
 #
+#   # Grant a demo presenter console access (BigQuery, KC, Agent Engine):
+#   bash deploy-full.sh --demo-user=presenter@example.com
+#
 #   # Refresh data only (preserves table metadata, descriptions, policy tags):
 #   export GOOGLE_CLOUD_PROJECT=your-existing-project-id
 #   bash deploy-bq.sh --refresh
@@ -50,9 +53,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Parse optional flags
 WITH_CI=0
+DEMO_USER=""
 for arg in "$@"; do
   case "$arg" in
     --with-ci) WITH_CI=1 ;;
+    --demo-user=*) DEMO_USER="${arg#*=}" ;;
   esac
 done
 
@@ -105,7 +110,28 @@ gcloud config set project "${GOOGLE_CLOUD_PROJECT}"
 gcloud auth application-default set-quota-project "${GOOGLE_CLOUD_PROJECT}" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# Step 1b: Install Python dependencies
+# Step 1b: Grant demo user permissions (optional)
+# ---------------------------------------------------------------------------
+if [ -n "${DEMO_USER}" ]; then
+    echo "=== Granting demo user permissions to ${DEMO_USER} ==="
+    for role in \
+        roles/bigquery.dataViewer \
+        roles/bigquery.jobUser \
+        roles/dataplex.viewer \
+        roles/dataplex.catalogEditor \
+        roles/datalineage.viewer \
+        roles/aiplatform.user \
+        roles/serviceusage.serviceUsageConsumer \
+        roles/browser; do
+        gcloud projects add-iam-policy-binding "${GOOGLE_CLOUD_PROJECT}" \
+            --member="user:${DEMO_USER}" --role="${role}" --quiet 2>/dev/null || true
+        echo "  Granted ${role}"
+    done
+    echo "Demo user permissions configured for ${DEMO_USER}"
+fi
+
+# ---------------------------------------------------------------------------
+# Step 1c: Install Python dependencies
 # ---------------------------------------------------------------------------
 echo "=== Installing Python dependencies ==="
 if command -v uv &>/dev/null; then
