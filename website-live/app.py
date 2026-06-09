@@ -289,6 +289,30 @@ def config():
     })
 
 
+@app.route("/api/reset-session", methods=["POST"])
+def reset_session():
+    data = request.get_json(silent=True) or {}
+    agent_type = data.get("agent", "")
+    agent_id = AGENT_IDS.get(agent_type, "")
+    if not agent_id:
+        return jsonify({"error": f"Unknown agent: {agent_type}"}), 400
+
+    if OAUTH_CLIENT_ID:
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        user = _verify_id_token(token)
+        if not user:
+            return jsonify({"error": "Authentication required"}), 401
+        user_id = user["email"]
+    else:
+        return jsonify({"status": "ok"})
+
+    key = f"{agent_id}:{user_id}"
+    _sessions.pop(key, None)
+    _session_times.pop(key, None)
+    logger.info("Reset session: %s", key)
+    return jsonify({"status": "ok"})
+
+
 DATASET_MAP = {
     'gold_': 'fsi_gold', 'silver_': 'fsi_silver', 'bronze_': 'fsi_bronze',
     'ref_': 'fsi_reference', 'staging_': 'fsi_supplementary',
