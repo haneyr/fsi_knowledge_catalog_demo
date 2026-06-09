@@ -39,12 +39,7 @@
         <h3 id="vizTitle">Basic Agent</h3>
         <p id="vizDesc">5 gold tables hardcoded in the prompt. Works for simple questions within its narrow scope.</p>
       </div>
-      <div class="viz-legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#FFD600"></div> Gold (20)</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#90A4AE"></div> Silver (40)</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#FF8F00"></div> Bronze (40)</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#546E7A"></div> Other (22)</div>
-      </div>
+      <div class="viz-legend" id="vizLegend"></div>
     </div>
 
     <div class="resize-handle" id="resizeHandle"></div>
@@ -267,6 +262,7 @@
 
     // Single /api/config fetch shared between ChatPanel and auth
     fetch('/api/config').then(r => r.json()).then(cfg => {
+      viz.configure(cfg);
       chat.applyConfig(cfg);
       _snowflakeEnabled = cfg.snowflake_enabled || false;
       if (cfg.environment) {
@@ -277,6 +273,23 @@
       }
       renderNarrativeTabs();
 
+      // Build legend from discovered table counts
+      const legend = document.getElementById('vizLegend');
+      const tables = cfg.tables || {};
+      const tiers = [
+        { key: 'gold', label: 'Gold', color: '#FFD600' },
+        { key: 'silver', label: 'Silver', color: '#90A4AE' },
+        { key: 'bronze', label: 'Bronze', color: '#FF8F00' },
+        { key: 'ref', label: 'Other', color: '#546E7A' },
+      ];
+      for (const t of tiers) {
+        const count = (tables[t.key] || []).length;
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `<div class="legend-dot" style="background:${t.color}"></div> ${t.label} (${count})`;
+        legend.appendChild(item);
+      }
+
       if (_snowflakeEnabled) {
         AGENT_INFO.kc.desc = '128+ tables across BigQuery and Snowflake, navigated through Knowledge Catalog. Discovers data across clouds, queries both platforms, and combines results.';
         AGENT_INFO.kc.title = 'Multi-cloud KC Agent';
@@ -285,7 +298,6 @@
           document.getElementById('vizDesc').textContent = AGENT_INFO.kc.desc;
         }
 
-        const legend = document.querySelector('.viz-legend');
         const sfItem = document.createElement('div');
         sfItem.className = 'legend-item';
         sfItem.innerHTML = '<div class="legend-dot" style="background:#00BCD4"></div> Snowflake (' + (cfg.snowflake_tables || []).length + ')';
