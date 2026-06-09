@@ -151,4 +151,5 @@ steps:
         export KC_AGENT_ID=$$(gcloud secrets versions access latest --secret=kc-agent-id --project="$$GOOGLE_CLOUD_PROJECT")
         export OAUTH_CLIENT_ID=$$(gcloud secrets versions access latest --secret=oauth-client-id --project="$$GOOGLE_CLOUD_PROJECT")
         export ENVIRONMENT_LABEL=${_ENV}
+        export SNOWFLAKE_ACCOUNT=$$(gcloud secrets versions access latest --secret=snowflake-account --project="$$GOOGLE_CLOUD_PROJECT" 2>/dev/null || true)
         bash website-live/deploy.sh
