@@ -29,6 +29,7 @@
 /* User profile in header */
 .user-profile {
   display: flex; align-items: center; gap: 8px;
+  margin-left: auto;
 }
 .user-avatar {
   width: 28px; height: 28px; border-radius: 50%;
@@ -123,18 +124,8 @@ body {
   border-color: var(--kc-color); box-shadow: 0 0 15px var(--kc-glow);
 }
 
-.mode-badge {
-  margin-left: auto;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.mode-badge.static { background: rgba(255,193,7,0.15); color: #FFC107; }
-.mode-badge.live { background: rgba(52,168,83,0.15); color: #34A853; }
 .env-badge {
-  margin-left: 6px;
+  margin-left: auto;
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 11px;
