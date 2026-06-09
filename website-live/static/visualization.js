@@ -512,7 +512,7 @@ class PointCloud {
         ctx.font = '10px system-ui';
         const tw = ctx.measureText(arc.term).width;
         const lw = tw + 8, lh = 16;
-        ctx.fillStyle = `rgba(10,14,26,${arc.labelAlpha * 0.8})`;
+        ctx.fillStyle = `rgba(20,24,36,${arc.labelAlpha * 0.85})`;
         ctx.fillRect(labelX - tw / 2 - 4, labelY - 9, lw, lh);
         ctx.fillStyle = `rgba(52,168,83,${arc.labelAlpha})`;
         ctx.fillText(arc.term, labelX - tw / 2, labelY + 3);
@@ -587,7 +587,7 @@ class PointCloud {
         if (n.glow > 0.3) {
           const label = n.name.replace(/^(gold|silver|bronze|ref)_/, '');
           const tw = ctx.measureText(label).width;
-          ctx.fillStyle = `rgba(10,14,26,${n.glow * 0.7})`;
+          ctx.fillStyle = `rgba(20,24,36,${n.glow * 0.75})`;
           ctx.fillRect(n.x + n.radius + 4, n.y - 7, tw + 6, 14);
           ctx.fillStyle = `rgba(255,255,255,${n.glow * 0.85})`;
           ctx.fillText(label, n.x + n.radius + 7, n.y + 4);
@@ -625,7 +625,7 @@ class PointCloud {
       const sy = this.cy + (n.y - this.cy + this.panY) * this.zoom;
       ctx.font = '12px system-ui';
       const tw = ctx.measureText(n.name).width;
-      ctx.fillStyle = 'rgba(15,21,37,0.9)';
+      ctx.fillStyle = 'rgba(20,24,36,0.92)';
       ctx.fillRect(sx + 8, sy - 18, tw + 8, 20);
       ctx.fillStyle = '#e0e0e0';
       ctx.fillText(n.name, sx + 12, sy - 4);

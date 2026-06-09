@@ -183,7 +183,7 @@ class ChatPanel {
     };
     const sysMsg = document.createElement('div');
     sysMsg.className = 'message agent';
-    sysMsg.style.cssText = 'color:var(--text-dim);font-style:italic;font-size:12px';
+    sysMsg.classList.add('system-description-msg');
     sysMsg.textContent = desc[mode];
     container.appendChild(sysMsg);
   }
