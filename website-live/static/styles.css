@@ -86,12 +86,12 @@
   --kc-color: var(--md-sys-color-secondary);
   --kc-glow: var(--md-sys-color-secondary-container);
 
-  /* --- Extended colors (data tiers — used on dark viz canvas) --- */
-  --bronze: #FF8F00;
-  --silver: #90A4AE;
-  --gold: #FFD600;
+  /* --- Extended colors (data tiers — tuned for light viz canvas) --- */
+  --bronze: #E37400;
+  --silver: #78909C;
+  --gold: #F9AB00;
   --ref: #546E7A;
-  --snowflake: #00BCD4;
+  --snowflake: #00ACC1;
 }
 
 /* ============================================================
@@ -256,7 +256,7 @@ body {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #0a0e1a;
+  background: var(--md-sys-color-surface-dim);
 }
 
 #vizCanvas {
@@ -266,7 +266,7 @@ body {
 }
 
 /* ============================================================
-   Viz Legend & Info (light-on-dark — always over dark canvas)
+   Viz Legend & Info (dark-on-light canvas)
    ============================================================ */
 .viz-legend {
   position: absolute;
@@ -277,7 +277,7 @@ body {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--md-sys-color-on-surface-variant);
 }
 
 .legend-item {
@@ -294,11 +294,11 @@ body {
 
 .viz-info {
   position: absolute;
-  top: 16px;
+  top: 12px;
   left: 16px;
   font-size: 12px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--md-sys-color-on-surface-variant);
   max-width: 300px;
 }
 
@@ -306,7 +306,7 @@ body {
   font-size: 16px;
   font-weight: 500;
   letter-spacing: 0.15px;
-  color: rgba(255, 255, 255, 0.87);
+  color: var(--md-sys-color-on-surface);
   margin-bottom: 4px;
 }
 

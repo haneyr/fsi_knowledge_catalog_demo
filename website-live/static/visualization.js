@@ -2,10 +2,10 @@
 
 const COLORS = {
   basic: '#4285F4', scaled: '#EA4335', kc: '#34A853',
-  bronze: '#FF8F00', silver: '#90A4AE', gold: '#FFD600',
-  ref: '#546E7A', snowflake: '#00BCD4',
-  bg: '#0a0e1a', metadata: 'rgba(52,168,83,0.15)',
-  lineage: 'rgba(255,255,255,0.35)', glossaryArc: 'rgba(52,168,83,0.6)',
+  bronze: '#E37400', silver: '#78909C', gold: '#F9AB00',
+  ref: '#546E7A', snowflake: '#00ACC1',
+  bg: '#F8F9FA', metadata: 'rgba(52,168,83,0.15)',
+  lineage: 'rgba(60,64,67,0.25)', glossaryArc: 'rgba(52,168,83,0.6)',
 };
 
 let TABLES = { bronze: [], silver: [], gold: [], ref: [] };
@@ -134,7 +134,7 @@ class PointCloud {
     } else {
       node.baseX = this.cx + Math.cos(node.orbitAngle) * maxR * (0.7 + Math.random() * 0.3);
       node.baseY = this.cy + Math.sin(node.orbitAngle) * maxR * (0.7 + Math.random() * 0.3);
-      node.alpha = 0.08; node.radius = 1.5;
+      node.alpha = 0.18; node.radius = 1.5;
     }
   }
 
@@ -428,7 +428,7 @@ class PointCloud {
       for (const r of [0.75, 0.55, 0.3]) {
         ctx.beginPath();
         ctx.arc(this.cx, this.cy, maxR * r, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.06)';
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -471,7 +471,7 @@ class PointCloud {
       ctx.beginPath();
       ctx.moveTo(line.src.x, line.src.y);
       ctx.lineTo(line.tgt.x, line.tgt.y);
-      ctx.strokeStyle = `rgba(200,210,230,${line.alpha})`;
+      ctx.strokeStyle = `rgba(60,64,67,${line.alpha})`;
       ctx.lineWidth = 1;
       ctx.stroke();
 
@@ -479,7 +479,7 @@ class PointCloud {
       const my = (line.src.y + line.tgt.y) / 2;
       ctx.beginPath();
       ctx.arc(mx, my, 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(200,210,230,${line.alpha * 0.8})`;
+      ctx.fillStyle = `rgba(60,64,67,${line.alpha * 0.8})`;
       ctx.fill();
     }
 
@@ -512,9 +512,12 @@ class PointCloud {
         ctx.font = '10px system-ui';
         const tw = ctx.measureText(arc.term).width;
         const lw = tw + 8, lh = 16;
-        ctx.fillStyle = `rgba(20,24,36,${arc.labelAlpha * 0.85})`;
+        ctx.fillStyle = `rgba(255,255,255,${arc.labelAlpha * 0.95})`;
         ctx.fillRect(labelX - tw / 2 - 4, labelY - 9, lw, lh);
-        ctx.fillStyle = `rgba(52,168,83,${arc.labelAlpha})`;
+        ctx.strokeStyle = `rgba(218,220,224,${arc.labelAlpha * 0.8})`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(labelX - tw / 2 - 4, labelY - 9, lw, lh);
+        ctx.fillStyle = `rgba(30,142,62,${arc.labelAlpha})`;
         ctx.fillText(arc.term, labelX - tw / 2, labelY + 3);
         this._termLabelPositions.push({
           term: arc.term, x: labelX, y: labelY, hw: lw / 2, hh: lh / 2,
@@ -547,7 +550,7 @@ class PointCloud {
             ctx.beginPath();
             ctx.moveTo(bq.x, bq.y);
             ctx.quadraticCurveTo(mx, my, sf.x, sf.y);
-            ctx.strokeStyle = 'rgba(0,188,212,0.25)';
+            ctx.strokeStyle = 'rgba(0,172,193,0.35)';
             ctx.setLineDash([3, 3]);
             ctx.lineWidth = 1.2;
             ctx.stroke();
@@ -575,7 +578,7 @@ class PointCloud {
 
       if (n.labelAlpha > 0 && n.label) {
         ctx.font = '10px system-ui';
-        ctx.fillStyle = `rgba(255,255,255,${n.labelAlpha * 0.8})`;
+        ctx.fillStyle = `rgba(60,64,67,${n.labelAlpha * 0.85})`;
         ctx.fillText(n.label, n.x + n.radius + 6, n.y + 3);
       }
     }
@@ -587,33 +590,65 @@ class PointCloud {
         if (n.glow > 0.3) {
           const label = n.name.replace(/^(gold|silver|bronze|ref)_/, '');
           const tw = ctx.measureText(label).width;
-          ctx.fillStyle = `rgba(20,24,36,${n.glow * 0.75})`;
+          ctx.fillStyle = `rgba(255,255,255,${n.glow * 0.95})`;
           ctx.fillRect(n.x + n.radius + 4, n.y - 7, tw + 6, 14);
-          ctx.fillStyle = `rgba(255,255,255,${n.glow * 0.85})`;
+          ctx.strokeStyle = `rgba(218,220,224,${n.glow * 0.8})`;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(n.x + n.radius + 4, n.y - 7, tw + 6, 14);
+          ctx.fillStyle = `rgba(60,64,67,${n.glow * 0.9})`;
           ctx.fillText(label, n.x + n.radius + 7, n.y + 4);
         }
       }
     }
 
-    // Agent center orb
+    // Agent center orb — diamond shape with concentric rings
     const agentColor = COLORS[this.agentMode];
-    const pulseSize = this.animationState ? 18 + Math.sin(this.animationTime * 0.005) * 4 : 15;
+    const pulse = this.animationState ? Math.sin(this.animationTime * 0.004) * 0.15 : 0;
+    const size = 12;
+
+    // Outer pulsing ring
+    const ringR = 22 + pulse * 30;
     ctx.beginPath();
-    ctx.arc(this.cx, this.cy, pulseSize, 0, Math.PI * 2);
-    const grad = ctx.createRadialGradient(this.cx, this.cy, 0, this.cx, this.cy, pulseSize);
-    grad.addColorStop(0, agentColor);
+    ctx.arc(this.cx, this.cy, ringR, 0, Math.PI * 2);
+    ctx.strokeStyle = agentColor + '30';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Second ring (dashed)
+    ctx.beginPath();
+    ctx.arc(this.cx, this.cy, ringR + 8, 0, Math.PI * 2);
+    ctx.setLineDash([3, 5]);
+    ctx.strokeStyle = agentColor + '18';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Soft glow
+    const grad = ctx.createRadialGradient(this.cx, this.cy, 0, this.cx, this.cy, ringR);
+    grad.addColorStop(0, agentColor + '18');
     grad.addColorStop(1, agentColor + '00');
     ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(this.cx, this.cy, ringR, 0, Math.PI * 2);
     ctx.fill();
 
+    // Diamond shape (rotated square)
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.rotate(Math.PI / 4);
     ctx.beginPath();
-    ctx.arc(this.cx, this.cy, 8, 0, Math.PI * 2);
+    ctx.rect(-size / 2, -size / 2, size, size);
     ctx.fillStyle = agentColor;
     ctx.fill();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
 
+    // Inner dot
     ctx.beginPath();
-    ctx.arc(this.cx, this.cy, pulseSize + 10, 0, Math.PI * 2);
-    ctx.fillStyle = agentColor + '10';
+    ctx.arc(this.cx, this.cy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF';
     ctx.fill();
 
     ctx.restore();
@@ -625,10 +660,21 @@ class PointCloud {
       const sy = this.cy + (n.y - this.cy + this.panY) * this.zoom;
       ctx.font = '12px system-ui';
       const tw = ctx.measureText(n.name).width;
-      ctx.fillStyle = 'rgba(20,24,36,0.92)';
-      ctx.fillRect(sx + 8, sy - 18, tw + 8, 20);
-      ctx.fillStyle = '#e0e0e0';
-      ctx.fillText(n.name, sx + 12, sy - 4);
+      ctx.fillStyle = 'rgba(32,33,36,0.9)';
+      const rx = sx + 8, ry = sy - 18, rw = tw + 12, rh = 22, rr = 4;
+      ctx.beginPath();
+      ctx.moveTo(rx + rr, ry);
+      ctx.lineTo(rx + rw - rr, ry);
+      ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rr);
+      ctx.lineTo(rx + rw, ry + rh - rr);
+      ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rr, ry + rh);
+      ctx.lineTo(rx + rr, ry + rh);
+      ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rr);
+      ctx.lineTo(rx, ry + rr);
+      ctx.quadraticCurveTo(rx, ry, rx + rr, ry);
+      ctx.fill();
+      ctx.fillStyle = '#F8F9FA';
+      ctx.fillText(n.name, sx + 14, sy - 3);
     }
 
     // Basic agent labels (outside zoom — basic doesn't zoom)
@@ -636,7 +682,7 @@ class PointCloud {
       ctx.font = '11px system-ui';
       for (const n of this.nodes) {
         if (BASIC_TABLES.includes(n.name) && n.alpha > 0.5) {
-          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.fillStyle = 'rgba(60,64,67,0.75)';
           ctx.fillText(n.name.replace('gold_', ''), n.x + n.radius + 6, n.y + 3);
         }
       }
