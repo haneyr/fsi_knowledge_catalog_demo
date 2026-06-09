@@ -8,97 +8,10 @@ const COLORS = {
   lineage: 'rgba(255,255,255,0.35)', glossaryArc: 'rgba(52,168,83,0.6)',
 };
 
-const TABLES = {
-  bronze: [
-    'bronze_customers','bronze_accounts','bronze_transactions','bronze_loans',
-    'bronze_loan_payments','bronze_credit_cards','bronze_card_transactions',
-    'bronze_fraud_alerts','bronze_kyc_records','bronze_branches','bronze_employees',
-    'bronze_wire_transfers','bronze_ach_transfers','bronze_atm_transactions',
-    'bronze_wm_clients','bronze_portfolios','bronze_holdings','bronze_trades',
-    'bronze_securities','bronze_advisors','bronze_performance','bronze_fee_schedules',
-    'bronze_benchmarks','bronze_client_goals','bronze_risk_profiles','bronze_distributions',
-    'bronze_custodian_feeds','bronze_gl_entries','bronze_gl_accounts','bronze_cost_centers',
-    'bronze_regulatory_capital','bronze_risk_exposures','bronze_counterparties',
-    'bronze_market_data','bronze_stress_tests','bronze_audit_events',
-    'bronze_regulatory_filings','bronze_interest_rates','bronze_fx_rates','bronze_compliance_cases',
-  ],
-  silver: [
-    'silver_customers','silver_accounts','silver_transactions','silver_loans',
-    'silver_loan_payments','silver_credit_cards','silver_card_transactions',
-    'silver_fraud_alerts','silver_kyc_records','silver_branches','silver_employees',
-    'silver_wire_transfers','silver_ach_transfers','silver_atm_transactions',
-    'silver_wm_clients','silver_portfolios','silver_holdings','silver_trades',
-    'silver_securities','silver_advisors','silver_performance','silver_fee_schedules',
-    'silver_benchmarks','silver_client_goals','silver_risk_profiles','silver_distributions',
-    'silver_custodian_feeds','silver_gl_entries','silver_gl_accounts','silver_cost_centers',
-    'silver_regulatory_capital','silver_risk_exposures','silver_counterparties',
-    'silver_market_data','silver_stress_tests','silver_audit_events',
-    'silver_regulatory_filings','silver_interest_rates','silver_fx_rates','silver_compliance_cases',
-  ],
-  gold: [
-    'gold_customer_360','gold_account_summary','gold_transaction_patterns',
-    'gold_loan_portfolio_summary','gold_delinquency_analysis','gold_fraud_analytics',
-    'gold_aml_risk_scoring','gold_branch_performance','gold_portfolio_performance',
-    'gold_client_revenue','gold_asset_allocation','gold_advisor_scorecard',
-    'gold_fee_revenue','gold_net_interest_margin','gold_capital_adequacy',
-    'gold_liquidity_coverage','gold_market_risk_var','gold_operational_risk',
-    'gold_regulatory_dashboard','gold_balance_sheet_summary',
-  ],
-  ref: [
-    'ref_naics_codes','ref_country_codes','ref_currency_codes','ref_cusip_master',
-    'ref_isin_mapping','ref_lei_registry','ref_fed_district_codes','ref_product_catalog',
-    'staging_call_report_rc','staging_call_report_ri','staging_fr_y9c',
-    'snapshot_monthly_balances','snapshot_quarterly_positions','audit_data_access_log',
-    'vw_dq_scorecard','vw_dq_by_dimension','vw_dq_failed_rules','vw_dq_rule_detail',
-    'vw_profile_summary','vw_customer_total_relationship','vw_branch_retail_wealth',
-    'vw_regulatory_summary',
-  ],
-};
-
-const BASIC_TABLES = [
-  'gold_customer_360','gold_account_summary','gold_loan_portfolio_summary',
-  'gold_portfolio_performance','gold_balance_sheet_summary',
-];
-
-// Silver → Gold source dependencies (from lineage script)
-const GOLD_SOURCES = {
-  gold_customer_360: ['silver_customers','silver_accounts','silver_loans','silver_credit_cards','silver_wm_clients'],
-  gold_account_summary: ['silver_accounts','silver_transactions'],
-  gold_transaction_patterns: ['silver_transactions'],
-  gold_loan_portfolio_summary: ['silver_loans'],
-  gold_delinquency_analysis: ['silver_loans'],
-  gold_fraud_analytics: ['silver_fraud_alerts'],
-  gold_aml_risk_scoring: ['silver_customers','silver_kyc_records','silver_compliance_cases','silver_wire_transfers'],
-  gold_branch_performance: ['silver_branches','silver_accounts','silver_loans','silver_transactions'],
-  gold_portfolio_performance: ['silver_portfolios','silver_performance','silver_holdings','silver_benchmarks'],
-  gold_client_revenue: ['silver_wm_clients','silver_fee_schedules','silver_portfolios','silver_trades'],
-  gold_asset_allocation: ['silver_holdings'],
-  gold_advisor_scorecard: ['silver_advisors','silver_portfolios','silver_performance','silver_trades'],
-  gold_fee_revenue: ['silver_fee_schedules','silver_wm_clients'],
-  gold_net_interest_margin: ['silver_accounts','silver_loans'],
-  gold_capital_adequacy: ['silver_regulatory_capital'],
-  gold_liquidity_coverage: ['silver_accounts'],
-  gold_market_risk_var: ['silver_holdings','silver_market_data'],
-  gold_operational_risk: ['silver_audit_events'],
-  gold_regulatory_dashboard: ['silver_regulatory_capital','silver_kyc_records','silver_regulatory_filings'],
-  gold_balance_sheet_summary: ['silver_accounts','silver_loans','silver_holdings','silver_regulatory_capital'],
-};
-
-// Glossary terms → tables they connect (for semantic arc visualization)
-const GLOSSARY_LINKS = {
-  'FICO Score': ['gold_loan_portfolio_summary','silver_loans','bronze_loans','gold_delinquency_analysis'],
-  'AUM': ['gold_customer_360','gold_advisor_scorecard','gold_client_revenue','silver_wm_clients'],
-  'SAR': ['gold_fraud_analytics','gold_aml_risk_scoring','bronze_fraud_alerts','bronze_compliance_cases'],
-  'CET1 Ratio': ['gold_capital_adequacy','silver_regulatory_capital','bronze_regulatory_capital'],
-  'Customer ID': ['gold_customer_360','silver_customers','bronze_customers','gold_account_summary'],
-  'Delinquency': ['gold_loan_portfolio_summary','gold_delinquency_analysis','silver_loans'],
-  'KYC': ['gold_aml_risk_scoring','bronze_kyc_records','gold_customer_360'],
-  'VaR': ['gold_market_risk_var','silver_holdings','silver_market_data'],
-  'CUSIP': ['silver_securities','bronze_securities','gold_asset_allocation'],
-  'Branch': ['gold_branch_performance','gold_customer_360','bronze_branches','gold_net_interest_margin'],
-  'NIM': ['gold_net_interest_margin','silver_accounts','silver_loans'],
-  'Risk Rating': ['gold_loan_portfolio_summary','silver_loans','bronze_loans'],
-};
+let TABLES = { bronze: [], silver: [], gold: [], ref: [] };
+let BASIC_TABLES = [];
+let GOLD_SOURCES = {};
+let GLOSSARY_LINKS = {};
 
 class PointCloud {
   constructor(canvas) {
@@ -128,6 +41,21 @@ class PointCloud {
     this._buildNodes();
     this._setupMouse();
     this._animate();
+  }
+
+  configure(config) {
+    TABLES = config.tables || { bronze: [], silver: [], gold: [], ref: [] };
+    BASIC_TABLES = config.basic_tables || [];
+    GOLD_SOURCES = config.gold_sources || {};
+    GLOSSARY_LINKS = config.glossary_links || {};
+    this.nodes = [];
+    this.nodeMap = {};
+    this.activeNodes = [];
+    this.animationState = null;
+    this.metadataLines = [];
+    this.activeLineage = [];
+    this.activeGlossaryArcs = [];
+    this._buildNodes();
   }
 
   setSnowflakeTables(tableNames) {

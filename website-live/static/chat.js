@@ -4,22 +4,9 @@ if (typeof marked !== 'undefined') {
   marked.use({ breaks: true, gfm: true });
 }
 
-const _DATASET_MAP = {
-  'gold_': 'fsi_gold', 'silver_': 'fsi_silver', 'bronze_': 'fsi_bronze',
-  'ref_': 'fsi_reference', 'vw_': 'fsi_dashboards',
-  'staging_': 'fsi_supplementary', 'snapshot_': 'fsi_supplementary', 'audit_': 'fsi_supplementary',
-};
-const _GLOSSARY_TERMS = {
-  'FICO Score': 'fico-score', 'AUM': 'aum-abbr', 'SAR': 'sar-abbr',
-  'CET1 Ratio': 'cet1-ratio', 'Customer ID': 'customer-id',
-  'Delinquency': 'delinquency', 'KYC': 'kyc-abbr', 'VaR': 'var-abbr',
-  'CUSIP': 'cusip', 'NIM': 'nim-abbr', 'Risk Rating': 'risk-rating', 'Branch': 'branch',
-  'AML': 'aml', 'Basel III': 'basel-iii', 'Wire Transfer': 'wire-transfer',
-  'BSA': 'bsa', 'Sharpe Ratio': 'sharpe-ratio',
-  'Stress Testing': 'stress-testing', 'Liquidity Risk': 'liquidity-risk',
-  'Charge-Off': 'charge-off', 'ACH Transfer': 'ach',
-};
-const _GLOSSARY_ID = 'meridian-national-bank-glossary-us';
+let _DATASET_MAP = {};
+let _GLOSSARY_TERMS = {};
+let _GLOSSARY_ID = 'meridian-national-bank-glossary-us';
 const _TABLE_RE = /\b((?:gold|silver|bronze|ref|vw|staging|snapshot|audit)_[a-z0-9_]+)\b/g;
 let _projectNumber = '';
 let _snowflakeTables = new Set();
@@ -166,6 +153,8 @@ class ChatPanel {
     _projectNumber = config.project_number || '';
     _snowflakeEnabled = config.snowflake_enabled || false;
     _snowflakeTables = new Set(config.snowflake_tables || []);
+    if (config.dataset_map) _DATASET_MAP = config.dataset_map;
+    if (config.glossary_terms) _GLOSSARY_TERMS = config.glossary_terms;
     if (_snowflakeEnabled && this.viz) {
       this.viz.setSnowflakeTables(config.snowflake_tables || []);
     }

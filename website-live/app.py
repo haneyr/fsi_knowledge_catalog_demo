@@ -49,53 +49,64 @@ _SESSION_TTL = 3600
 _sessions = {}
 _session_times = {}
 
-_BASE_SUFFIXES = [
-    'customers','accounts','transactions','loans','loan_payments','credit_cards',
-    'card_transactions','fraud_alerts','kyc_records','branches','employees','wire_transfers',
-    'ach_transfers','atm_transactions','wm_clients','portfolios','holdings','trades',
-    'securities','advisors','performance','fee_schedules','benchmarks','client_goals',
-    'risk_profiles','distributions','custodian_feeds','gl_entries','gl_accounts',
-    'cost_centers','regulatory_capital','risk_exposures','counterparties','market_data',
-    'stress_tests','audit_events','regulatory_filings','interest_rates','fx_rates',
-    'compliance_cases',
-]
-_GOLD_TABLES = [
-    'gold_customer_360','gold_account_summary','gold_transaction_patterns',
-    'gold_loan_portfolio_summary','gold_delinquency_analysis','gold_fraud_analytics',
-    'gold_aml_risk_scoring','gold_branch_performance','gold_portfolio_performance',
-    'gold_client_revenue','gold_asset_allocation','gold_advisor_scorecard',
-    'gold_fee_revenue','gold_net_interest_margin','gold_capital_adequacy',
-    'gold_liquidity_coverage','gold_market_risk_var','gold_operational_risk',
-    'gold_regulatory_dashboard','gold_balance_sheet_summary',
-]
-_VIEW_TABLES = [
-    'vw_dq_scorecard','vw_dq_by_dimension','vw_dq_failed_rules','vw_dq_rule_detail',
-    'vw_profile_summary','vw_customer_total_relationship','vw_branch_retail_wealth',
-    'vw_regulatory_summary',
-]
-_OTHER_TABLES = [
-    'ref_naics_codes','ref_country_codes','ref_currency_codes','ref_cusip_master',
-    'ref_isin_mapping','ref_lei_registry','ref_fed_district_codes','ref_product_catalog',
-    'staging_call_report_rc','staging_call_report_ri','staging_fr_y9c',
-    'snapshot_monthly_balances','snapshot_quarterly_positions','audit_data_access_log',
-]
-ALL_TABLE_NAMES = (
-    [f'bronze_{s}' for s in _BASE_SUFFIXES]
-    + [f'silver_{s}' for s in _BASE_SUFFIXES]
-    + _GOLD_TABLES + _VIEW_TABLES + _OTHER_TABLES
-)
-
-GLOSSARY_TERM_MAP = {
-    'search_entries': [],
-    'fico': ['FICO Score'], 'cusip': ['CUSIP'], 'isin': ['ISIN'],
-    'aum': ['AUM'], 'sar': ['SAR'], 'bsa': ['SAR', 'BSA'],
-    'aml': ['AML'], 'anti-money': ['AML'], 'money laundering': ['AML'],
-    'cet1': ['CET1 Ratio'], 'capital': ['CET1 Ratio'],
-    'kyc': ['KYC'], 'delinquen': ['Delinquency'],
-    'customer': ['Customer ID'], 'branch': ['Branch'],
-    'nim': ['NIM'], 'interest rate': ['NIM'],
-    'var': ['VaR'], 'risk': ['Risk Rating'],
+_FSI_DATASETS = {
+    'fsi_gold', 'fsi_silver', 'fsi_bronze',
+    'fsi_reference', 'fsi_supplementary', 'fsi_dashboards',
 }
+_DATASET_TO_TIER = {
+    'fsi_gold': 'gold', 'fsi_silver': 'silver', 'fsi_bronze': 'bronze',
+    'fsi_reference': 'ref', 'fsi_supplementary': 'ref', 'fsi_dashboards': 'ref',
+}
+
+BASIC_TABLES = [
+    'gold_customer_360', 'gold_account_summary', 'gold_loan_portfolio_summary',
+    'gold_portfolio_performance', 'gold_balance_sheet_summary',
+]
+
+GOLD_SOURCES = {
+    'gold_customer_360': ['silver_customers', 'silver_accounts', 'silver_loans', 'silver_credit_cards', 'silver_wm_clients'],
+    'gold_account_summary': ['silver_accounts', 'silver_transactions'],
+    'gold_transaction_patterns': ['silver_transactions'],
+    'gold_loan_portfolio_summary': ['silver_loans'],
+    'gold_delinquency_analysis': ['silver_loans'],
+    'gold_fraud_analytics': ['silver_fraud_alerts'],
+    'gold_aml_risk_scoring': ['silver_customers', 'silver_kyc_records', 'silver_compliance_cases', 'silver_wire_transfers'],
+    'gold_branch_performance': ['silver_branches', 'silver_accounts', 'silver_loans', 'silver_transactions'],
+    'gold_portfolio_performance': ['silver_portfolios', 'silver_performance', 'silver_holdings', 'silver_benchmarks'],
+    'gold_client_revenue': ['silver_wm_clients', 'silver_fee_schedules', 'silver_portfolios', 'silver_trades'],
+    'gold_asset_allocation': ['silver_holdings'],
+    'gold_advisor_scorecard': ['silver_advisors', 'silver_portfolios', 'silver_performance', 'silver_trades'],
+    'gold_fee_revenue': ['silver_fee_schedules', 'silver_wm_clients'],
+    'gold_net_interest_margin': ['silver_accounts', 'silver_loans'],
+    'gold_capital_adequacy': ['silver_regulatory_capital'],
+    'gold_liquidity_coverage': ['silver_accounts'],
+    'gold_market_risk_var': ['silver_holdings', 'silver_market_data'],
+    'gold_operational_risk': ['silver_audit_events'],
+    'gold_regulatory_dashboard': ['silver_regulatory_capital', 'silver_kyc_records', 'silver_regulatory_filings'],
+    'gold_balance_sheet_summary': ['silver_accounts', 'silver_loans', 'silver_holdings', 'silver_regulatory_capital'],
+}
+
+GLOSSARY_LINKS = {
+    'FICO Score': ['gold_loan_portfolio_summary', 'silver_loans', 'bronze_loans', 'gold_delinquency_analysis'],
+    'AUM': ['gold_customer_360', 'gold_advisor_scorecard', 'gold_client_revenue', 'silver_wm_clients'],
+    'SAR': ['gold_fraud_analytics', 'gold_aml_risk_scoring', 'bronze_fraud_alerts', 'bronze_compliance_cases'],
+    'CET1 Ratio': ['gold_capital_adequacy', 'silver_regulatory_capital', 'bronze_regulatory_capital'],
+    'Customer ID': ['gold_customer_360', 'silver_customers', 'bronze_customers', 'gold_account_summary'],
+    'Delinquency': ['gold_loan_portfolio_summary', 'gold_delinquency_analysis', 'silver_loans'],
+    'KYC': ['gold_aml_risk_scoring', 'bronze_kyc_records', 'gold_customer_360'],
+    'VaR': ['gold_market_risk_var', 'silver_holdings', 'silver_market_data'],
+    'CUSIP': ['silver_securities', 'bronze_securities', 'gold_asset_allocation'],
+    'Branch': ['gold_branch_performance', 'gold_customer_360', 'bronze_branches', 'gold_net_interest_margin'],
+    'NIM': ['gold_net_interest_margin', 'silver_accounts', 'silver_loans'],
+    'Risk Rating': ['gold_loan_portfolio_summary', 'silver_loans', 'bronze_loans'],
+}
+
+# Discovered state — populated at startup by _discover_*() functions
+_TABLES_BY_TIER = {}
+_TABLE_DATASET = {}
+ALL_TABLE_NAMES = []
+GLOSSARY_TERM_MAP = {}
+TERM_SLUG_MAP = {}
 
 
 _creds_cache = [None, 0]
@@ -286,6 +297,13 @@ def config():
         "snowflake_enabled": bool(os.environ.get("SNOWFLAKE_ACCOUNT")),
         "snowflake_tables": _SNOWFLAKE_TABLES,
         "environment": ENVIRONMENT_LABEL,
+        "tables": _TABLES_BY_TIER,
+        "all_table_names": ALL_TABLE_NAMES,
+        "basic_tables": BASIC_TABLES,
+        "gold_sources": GOLD_SOURCES,
+        "glossary_terms": TERM_SLUG_MAP,
+        "glossary_links": GLOSSARY_LINKS,
+        "dataset_map": DATASET_MAP,
     })
 
 
@@ -368,14 +386,121 @@ def _discover_snowflake_tables():
         logger.warning("Snowflake table discovery error: %s", e)
 
 
+def _discover_bigquery_tables():
+    global _TABLES_BY_TIER, _TABLE_DATASET
+    if _TABLES_BY_TIER:
+        return
+    if not PROJECT_ID:
+        return
+    try:
+        token = _get_token()
+        base_url = f"https://dataplex.googleapis.com/v1/projects/{PROJECT_ID}/locations/us/entryGroups/@bigquery/entries"
+        tables_by_tier = {'bronze': [], 'silver': [], 'gold': [], 'ref': []}
+        table_dataset = {}
+        page_token = None
+        while True:
+            params = {'pageSize': '500'}
+            if page_token:
+                params['pageToken'] = page_token
+            resp = _get_http_session().get(
+                base_url, params=params,
+                headers={"Authorization": f"Bearer {token}"}, timeout=30,
+            )
+            if resp.status_code != 200:
+                logger.warning("BigQuery table discovery failed: %d %s", resp.status_code, resp.text[:300])
+                return
+            data = resp.json()
+            for entry in data.get("entries", []):
+                name = entry.get("name", "")
+                match = re.search(r'/datasets/([^/]+)/tables/([^/]+)$', name)
+                if not match:
+                    continue
+                dataset = match.group(1)
+                table = match.group(2)
+                if dataset not in _FSI_DATASETS:
+                    continue
+                tier = _DATASET_TO_TIER.get(dataset, 'ref')
+                tables_by_tier[tier].append(table)
+                table_dataset[table] = dataset
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+        for tier in tables_by_tier:
+            tables_by_tier[tier].sort()
+        _TABLES_BY_TIER = tables_by_tier
+        _TABLE_DATASET = table_dataset
+        ALL_TABLE_NAMES.clear()
+        for tier_tables in tables_by_tier.values():
+            ALL_TABLE_NAMES.extend(tier_tables)
+        logger.info("Discovered %d BigQuery tables: %s",
+                     len(ALL_TABLE_NAMES),
+                     {k: len(v) for k, v in tables_by_tier.items()})
+    except Exception as e:
+        logger.warning("BigQuery table discovery error: %s", e)
+
+
+def _discover_glossary():
+    if GLOSSARY_TERM_MAP:
+        return
+    if not PROJECT_ID:
+        return
+    try:
+        token = _get_token()
+        base_url = f"https://dataplex.googleapis.com/v1/projects/{PROJECT_ID}/locations/us/glossaries/{GLOSSARY_ID}/terms"
+        terms = {}
+        page_token = None
+        while True:
+            params = {'pageSize': '500'}
+            if page_token:
+                params['pageToken'] = page_token
+            resp = _get_http_session().get(
+                base_url, params=params,
+                headers={"Authorization": f"Bearer {token}"}, timeout=15,
+            )
+            if resp.status_code != 200:
+                logger.warning("Glossary discovery failed: %d %s", resp.status_code, resp.text[:300])
+                return
+            data = resp.json()
+            for term in data.get("terms", []):
+                display_name = term.get("displayName", "")
+                if not display_name:
+                    continue
+                name = term.get("name", "")
+                slug = name.rsplit("/", 1)[-1] if "/" in name else ""
+                terms[display_name] = slug
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+        if terms:
+            TERM_SLUG_MAP.clear()
+            TERM_SLUG_MAP.update(terms)
+            GLOSSARY_TERM_MAP.clear()
+            GLOSSARY_TERM_MAP['search_entries'] = []
+            for display_name in terms:
+                lower = display_name.lower()
+                GLOSSARY_TERM_MAP[lower] = [display_name]
+                words = lower.split()
+                if len(words) > 1:
+                    existing = GLOSSARY_TERM_MAP.get(words[0], [])
+                    if display_name not in existing:
+                        GLOSSARY_TERM_MAP[words[0]] = existing + [display_name]
+            logger.info("Discovered %d glossary terms: %s", len(terms), list(terms.keys()))
+    except Exception as e:
+        logger.warning("Glossary discovery error: %s", e)
+
+
 # Run discovery at import time for production (gunicorn/Cloud Run)
 try:
+    _discover_bigquery_tables()
+    _discover_glossary()
     _discover_snowflake_tables()
 except Exception:
     pass
 
 
 def _get_dataset(table_name):
+    if table_name in _TABLE_DATASET:
+        return _TABLE_DATASET[table_name]
     if table_name in _SNOWFLAKE_SCHEMA_MAP:
         return 'snowflake'
     for prefix, ds in DATASET_MAP.items():
@@ -387,6 +512,9 @@ def _get_dataset(table_name):
 def _get_tier(table_name):
     if table_name in _SNOWFLAKE_SCHEMA_MAP:
         return 'snowflake'
+    for tier, tables in _TABLES_BY_TIER.items():
+        if table_name in tables:
+            return tier
     for prefix in ('gold_', 'silver_', 'bronze_', 'ref_', 'staging_', 'snapshot_', 'audit_', 'vw_'):
         if table_name.startswith(prefix):
             return prefix.rstrip('_')
@@ -518,17 +646,6 @@ def table_info():
         })
 
 
-TERM_SLUG_MAP = {
-    'FICO Score': 'fico-score', 'AUM': 'aum-abbr', 'SAR': 'sar-abbr',
-    'CET1 Ratio': 'cet1-ratio', 'Customer ID': 'customer-id',
-    'Delinquency': 'delinquency', 'KYC': 'kyc-abbr', 'VaR': 'var-abbr',
-    'CUSIP': 'cusip', 'Branch': 'branch', 'NIM': 'nim-abbr',
-    'Risk Rating': 'risk-rating', 'AML': 'aml', 'BSA': 'bsa',
-    'Basel III': 'basel-iii', 'Wire Transfer': 'wire-transfer',
-    'Sharpe Ratio': 'sharpe-ratio', 'Stress Testing': 'stress-testing',
-    'Liquidity Risk': 'liquidity-risk', 'Charge-Off': 'charge-off',
-    'ACH Transfer': 'ach',
-}
 
 
 @app.route("/api/term-info")
@@ -676,6 +793,8 @@ except ImportError:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     _get_project_number()
+    _discover_bigquery_tables()
+    _discover_glossary()
     _discover_snowflake_tables()
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=True)
