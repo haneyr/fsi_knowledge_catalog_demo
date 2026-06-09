@@ -152,10 +152,7 @@ EOF
 GOOGLE_API_PREVENT_AGENT_TOKEN_SHARING_FOR_GCP_SERVICES=False
 EOF
     done
-    # KC agent needs additional env vars
-    cat >> "${SCRIPT_DIR}/agent_kc/.env" << EOF
-DATAPLEX_PROJECT=${PROJECT_ID}
-EOF
+    # KC agent: no additional env vars needed (MCP server uses x-goog-user-project header)
     # Snowflake integration (optional)
     if [ -n "${SNOWFLAKE_ACCOUNT:-}" ]; then
         cat >> "${SCRIPT_DIR}/agent_kc/.env" << SFEOF
@@ -258,7 +255,7 @@ deploy_kc() {
     ORG_ID=$(gcloud projects describe "${PROJECT_ID}" --format='value(parent.id)' 2>/dev/null) || true
     if [ -n "${PROJECT_NUMBER}" ] && [ -n "${ORG_ID}" ]; then
         KC_PRINCIPAL="principal://agents.global.org-${ORG_ID}.system.id.goog/resources/aiplatform/projects/${PROJECT_NUMBER}/locations/${REGION}/reasoningEngines/${KC_AGENT_ID}"
-        for role in roles/dataplex.viewer roles/dataplex.catalogEditor roles/datalineage.viewer; do
+        for role in roles/dataplex.viewer roles/dataplex.catalogEditor roles/datalineage.viewer roles/mcp.toolUser; do
             gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
                 --member="${KC_PRINCIPAL}" --role="${role}" --quiet 2>/dev/null || true
             echo "  Granted ${role} to KC agent"

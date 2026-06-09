@@ -13,20 +13,17 @@
 # limitations under the License.
 
 """
-FSI Knowledge Catalog Agent — Uses KC Context API to navigate 150+ tables.
+FSI Knowledge Catalog Agent — Uses KC MCP remote server to navigate 150+ tables.
 
-Implements Knowledge Catalog discovery tools as native FunctionTools calling
-the Knowledge Catalog REST API directly, making it fully compatible with Agent Engine
-without needing an external MCP Toolbox binary.
+Connects to the Knowledge Catalog MCP server (dataplex.googleapis.com/mcp) via
+ADK's McpToolset for dynamic discovery of tables, data products, and metadata.
 
 Deploy to Vertex AI Agent Engine or run locally:
     export GOOGLE_CLOUD_PROJECT=your-project-id
-    export DATAPLEX_PROJECT=your-project-id
     python3 agent.py
 """
 
 import asyncio
-import json
 import os
 import sys
 
@@ -37,29 +34,18 @@ from google.adk import Agent, Runner
 from google.adk.apps import App
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools import FunctionTool
+from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
 from google.adk.plugins.bigquery_agent_analytics_plugin import BigQueryAgentAnalyticsPlugin
 from google.cloud import bigquery
 import google.auth
 import google.auth.transport.requests
-import requests as http_requests
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
-DATAPLEX_PROJECT = os.environ.get("DATAPLEX_PROJECT", PROJECT_ID)
 BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
-DATAPLEX_URL = "https://dataplex.googleapis.com/v1"
 
 def _get_bq_client():
     return bigquery.Client(project=PROJECT_ID)
-
-
-_http_session = None
-
-
-def _get_http_session():
-    global _http_session
-    if _http_session is None:
-        _http_session = http_requests.Session()
-    return _http_session
 
 SYSTEM_INSTRUCTION = f"""You are a senior financial data analyst for Meridian National Bank. You have
 access to Knowledge Catalog for discovering and understanding data assets, and BigQuery for
@@ -67,13 +53,27 @@ running SQL queries.
 
 Your project is: {PROJECT_ID}
 
+## Knowledge Catalog tool parameters
+
+ALL Knowledge Catalog tools require `projectId: "{PROJECT_ID}"`. Additional required params:
+- `search_entries`: `projectId`, `query` (required). Use `pageSize: 10` for broad searches.
+- `lookup_context`: `projectId`, `location: "us"`, `resources` (list of entry names from search).
+- `lookup_entry`: `projectId`, `location: "us"`, `entry` (single entry name from search).
+- `list_data_products`: `parent: "projects/{PROJECT_ID}/locations/us-central1"`.
+- `get_data_product`: `name` (full resource name).
+
+Entry names from search results are in the `dataplexEntry.name` field of each result.
+
 ## How to answer questions — ALWAYS follow this process:
 
 1. **DISCOVER**: Search Knowledge Catalog (`search_entries`) to find relevant tables.
    Search broadly — if a question spans multiple domains, run multiple searches.
+   Always pass `projectId: "{PROJECT_ID}"` and `query`.
 
-2. **UNDERSTAND**: Call `get_context` with discovered entry names + the user's question
-   to get schema, glossary terms, data quality info, and lineage.
+2. **UNDERSTAND**: Call `lookup_context` with discovered entry names + the user's question
+   to get schema, glossary terms, data quality info, and lineage. For detailed technical
+   metadata on a specific entry (all aspects, schema fields), use `lookup_entry`.
+   Always pass `projectId: "{PROJECT_ID}"` and `location: "us"`.
 
 3. **QUERY**: Run SQL using fully qualified table names (`{PROJECT_ID}.dataset.table`).
    BigQuery location is 'us' multi-region. If results look wrong, silently retry with
@@ -101,116 +101,36 @@ include the data.
 - NEVER guess which table to use — always search Knowledge Catalog first
 - Prefer gold tables for analytics, silver for detail, bronze only when needed
 - Your audience is banking executives — be thorough but results-focused
+- Search results are JSON: extract `dataplexEntry.name` for entry names and
+  `fullyQualifiedName` (e.g. `bigquery:project.dataset.table`) for BigQuery table refs
+- If a search returns no useful results, try different search terms — the catalog supports
+  semantic search so use natural language like "balance sheet" or "customer deposits"
+- NEVER respond without using tools — always search, understand, and query first
 """
 
 
-_creds_cache = [None, 0]
-
-def _get_token():
-    import time
-    now = time.time()
-    if _creds_cache[0] is None or now - _creds_cache[1] > 250:
-        creds, _ = google.auth.default()
-        creds.refresh(google.auth.transport.requests.Request())
-        _creds_cache[0] = creds.token
-        _creds_cache[1] = now
-    return _creds_cache[0]
+def _get_adc_token():
+    creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    creds.refresh(google.auth.transport.requests.Request())
+    return creds.token
 
 
-def _dataplex_get(path):
-    headers = {"Authorization": f"Bearer {_get_token()}"}
-    resp = _get_http_session().get(f"{DATAPLEX_URL}/{path}", headers=headers)
-    if resp.status_code == 200:
-        return resp.json()
-    return {"error": f"HTTP {resp.status_code}: {resp.text[:500]}"}
-
-
-def _dataplex_post(path, body):
-    headers = {"Authorization": f"Bearer {_get_token()}", "Content-Type": "application/json"}
-    resp = _get_http_session().post(f"{DATAPLEX_URL}/{path}", headers=headers, json=body)
-    if resp.status_code == 200:
-        return resp.json()
-    return {"error": f"HTTP {resp.status_code}: {resp.text[:500]}"}
-
-
-@FunctionTool
-def search_entries(query: str) -> str:
-    """Search for data entries in Knowledge Catalog using semantic search.
-
-    Use this to discover tables, views, and other data assets by topic.
-    Examples: "customer deposits", "loan delinquency", "portfolio performance"
-    Returns entry names that can be passed to lookup_entry for details.
-    """
-    try:
-        result = _dataplex_post(
-            f"projects/{DATAPLEX_PROJECT}/locations/us:searchEntries",
-            {"query": query, "pageSize": 10, "scope": f"projects/{DATAPLEX_PROJECT}"}
-        )
-        if "error" in result:
-            return f"Search error: {result['error']}"
-
-        entries = result.get("results", [])
-        if not entries:
-            return "No entries found for that search query."
-
-        lines = [f"Found {len(entries)} entries:\n"]
-        for entry in entries:
-            snippets = entry.get("snippets", {})
-            e = entry.get("dataplexEntry", {})
-            name = e.get("name", "")
-            fqn = e.get("fullyQualifiedName", "")
-            entry_type = e.get("entryType", "").split("/")[-1] if e.get("entryType") else ""
-            desc_snippet = snippets.get("dataplexEntry", {}).get("description", "")
-            lines.append(f"- **{fqn}** ({entry_type})")
-            if desc_snippet:
-                lines.append(f"  {desc_snippet}")
-            lines.append(f"  Entry: {name}")
-            if fqn.startswith("bigquery:"):
-                parts = fqn.replace("bigquery:", "").split(".")
-                if len(parts) == 3:
-                    lines.append(f"  BigQuery table: `{parts[0]}.{parts[1]}.{parts[2]}`")
-            lines.append("")
-
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Search error: {str(e)}"
-
-
-@FunctionTool
-def get_context(entry_names: list[str], question: str) -> str:
-    """Get rich LLM-ready context for one or more data entries using the
-    Knowledge Catalog Context API. Returns schema with linked glossary terms,
-    data quality info, custom aspects, and storage metadata — all pre-formatted
-    for analysis.
-
-    Pass entry names from search_entries results (the lines starting with 'Entry:').
-    Pass your question as context so the API can prioritize relevant metadata.
-
-    Example:
-        get_context(
-            entry_names=["projects/123/locations/us/entryGroups/@bigquery/entries/..."],
-            question="What is the total relationship value for HNW clients?"
-        )
-    """
-    try:
-        result = _dataplex_post(
-            f"projects/{DATAPLEX_PROJECT}/locations/us:lookupContext",
-            {
-                "resources": entry_names[:10],
-                "context": question,
-                "options": {"format": "yaml", "context_budget": "8000"},
-            }
-        )
-        if "error" in result:
-            return f"Context API error: {result['error']}"
-
-        context = result.get("context", "")
-        if not context:
-            return "No context returned. The entries may not exist or may not have metadata."
-
-        return context
-    except Exception as e:
-        return f"Context API error: {str(e)}"
+kc_toolset = McpToolset(
+    connection_params=StreamableHTTPConnectionParams(
+        url="https://dataplex.googleapis.com/mcp",
+    ),
+    header_provider=lambda ctx: {
+        "Authorization": f"Bearer {_get_adc_token()}",
+        "x-goog-user-project": PROJECT_ID,
+    },
+    tool_filter=[
+        "search_entries",
+        "lookup_context",
+        "lookup_entry",
+        "list_data_products",
+        "get_data_product",
+    ],
+)
 
 
 @FunctionTool
@@ -341,7 +261,7 @@ index constituents, interest rate curves (SOFR, Fed Funds, Treasuries), economic
 FX spot rates, credit spreads, and volatility surfaces.
 """
 
-_kc_tools = [search_entries, get_context, run_sql]
+_kc_tools = [kc_toolset, run_sql]
 if SNOWFLAKE_ENABLED:
     _kc_tools.append(query_snowflake)
 
@@ -377,7 +297,7 @@ async def run_interactive():
 
     print("\n" + "=" * 60)
     print("FSI Knowledge Catalog Agent (150+ tables WITH KC guidance)")
-    print("Powered by ADK + Knowledge Catalog Context API + BigQuery")
+    print("Powered by ADK + Knowledge Catalog MCP Server + BigQuery")
     print("=" * 60)
     print("\nExample questions:")
     print('  "What is our total relationship value for high-net-worth clients?"')
