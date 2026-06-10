@@ -143,7 +143,7 @@ def create_and_run_dataset_scan(cfg, dataset):
 
     body = {
         "data": {"resource": f"//bigquery.googleapis.com/projects/{pid}/datasets/{dataset}"},
-        "dataDocumentationSpec": {},
+        "dataDocumentationSpec": {"catalog_publishing_enabled": True},
         "displayName": f"Insights: {dataset} dataset",
         "description": f"Data documentation scan for {dataset} dataset",
     }
@@ -182,7 +182,7 @@ def main():
     for dataset, table in SCAN_TABLES:
         create_and_run_scan(cfg, dataset, table, "insights", {
             "type": "DATA_DOCUMENTATION",
-            "dataDocumentationSpec": {},
+            "dataDocumentationSpec": {"catalog_publishing_enabled": True},
         })
 
     logger.info("=" * 60)
