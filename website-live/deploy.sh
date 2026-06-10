@@ -48,6 +48,9 @@ POLICY
 sleep 5
 
 cd "${SCRIPT_DIR}"
+# Session affinity + a warm min instance + a low max keep the in-memory WebSocket
+# sessions (app.py) on a stable instance. Without these, reconnects land on cold or
+# other instances and in-flight agent streams are cut off (#81).
 gcloud run deploy "${SERVICE_NAME}" \
   --source=. \
   --project="${PROJECT_ID}" \
@@ -55,6 +58,9 @@ gcloud run deploy "${SERVICE_NAME}" \
   --memory=1Gi \
   --cpu=1 \
   --timeout=300 \
+  --min-instances=1 \
+  --max-instances=5 \
+  --session-affinity \
   --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},PROJECT_NUMBER=${PROJECT_NUMBER},BASIC_AGENT_ID=${BASIC_AGENT_ID},SCALED_AGENT_ID=${SCALED_AGENT_ID},KC_AGENT_ID=${KC_AGENT_ID},OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID},ENVIRONMENT_LABEL=${ENVIRONMENT_LABEL:-},SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT:-}" \
   --quiet
 
