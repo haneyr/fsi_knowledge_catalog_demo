@@ -325,29 +325,40 @@ class ChatPanel {
     const content = rendered.querySelector('.markdown-content');
     if (!content) return;
 
-    // Partition children into "discovery" and "answer" buckets.
-    // Discovery = the Data Discovery section (heading + content until the next heading).
-    // Answer = everything else.
+    // A "heading-like" element is a real heading or a short bold-only paragraph.
+    // The agent is inconsistent: sometimes it writes "## Analysis", often just
+    // "**Analysis**", and sometimes the answer has no heading at all.
+    const isHeadingLike = (el) => {
+      if (/^H[1-4]$/.test(el.tagName)) return true;
+      if (el.tagName === 'P') {
+        const strong = el.querySelector('strong');
+        const t = el.textContent.trim();
+        if (strong && strong.textContent.trim() === t && t.length <= 40) return true;
+      }
+      return false;
+    };
+
+    // Find the Data Discovery section: its heading, then the next non-discovery
+    // heading marks where the answer begins.
     const children = [...content.children];
     let discoveryStart = -1;
     let discoveryEnd = -1;
 
     for (let i = 0; i < children.length; i++) {
-      const el = children[i];
-      const text = el.textContent.toLowerCase().trim();
-      const isHeading = el.tagName === 'H2' || el.tagName === 'H3' ||
-        (el.tagName === 'P' && /^\*?\*?data discovery\*?\*?/i.test(el.textContent.trim()));
-      if (isHeading && /data discovery/i.test(text)) {
-        discoveryStart = i;
-      } else if (discoveryStart >= 0 && discoveryEnd < 0 && isHeading) {
+      if (!isHeadingLike(children[i])) continue;
+      const isDiscovery = /data discovery/i.test(children[i].textContent);
+      if (discoveryStart < 0) {
+        if (isDiscovery) discoveryStart = i;
+      } else if (discoveryEnd < 0 && !isDiscovery) {
         discoveryEnd = i;
       }
     }
 
-    if (discoveryStart < 0) return;
-    if (discoveryEnd < 0) discoveryEnd = children.length;
+    // Fail safe: if we can't cleanly identify a Data Discovery section followed
+    // by a separate answer section, leave the full response visible rather than
+    // risk hiding the answer inside a collapsed accordion (#84).
+    if (discoveryStart < 0 || discoveryEnd < 0) return;
 
-    // Separate the elements into two lists
     const answerEls = [];
     const discoveryEls = [];
     for (let i = 0; i < children.length; i++) {
@@ -358,26 +369,27 @@ class ChatPanel {
       }
     }
 
+    // Never hide the answer — if the split left nothing to show, bail out.
+    if (answerEls.length === 0) return;
+
     // Clear the content and rebuild: Answer box first, then collapsed Discovery
     content.replaceChildren();
 
     // Answer section (always open, green accent)
-    if (answerEls.length > 0) {
-      const answerDiv = document.createElement('div');
-      answerDiv.className = 'answer-section';
-      const header = document.createElement('div');
-      header.className = 'answer-header';
-      header.textContent = 'Analysis';
-      answerDiv.appendChild(header);
-      const answerContent = document.createElement('div');
-      answerContent.className = 'answer-content';
-      for (const el of answerEls) answerContent.appendChild(el);
-      answerDiv.appendChild(answerContent);
-      content.appendChild(answerDiv);
-    }
+    const answerDiv = document.createElement('div');
+    answerDiv.className = 'answer-section';
+    const header = document.createElement('div');
+    header.className = 'answer-header';
+    header.textContent = 'Analysis';
+    answerDiv.appendChild(header);
+    const answerContent = document.createElement('div');
+    answerContent.className = 'answer-content';
+    for (const el of answerEls) answerContent.appendChild(el);
+    answerDiv.appendChild(answerContent);
+    content.appendChild(answerDiv);
 
     // Discovery section (collapsed, at the bottom)
-    if (discoveryEls.length > 1) {
+    if (discoveryEls.length > 0) {
       const details = document.createElement('details');
       details.className = 'discovery-section';
       const summary = document.createElement('summary');
