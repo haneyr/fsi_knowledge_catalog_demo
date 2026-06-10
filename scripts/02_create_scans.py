@@ -91,6 +91,14 @@ def build_quality_rules():
     return rules
 
 
+def _spec_update_mask(stype):
+    return {
+        "profile": "dataProfileSpec",
+        "quality": "dataQualitySpec",
+        "insights": "dataDocumentationSpec",
+    }[stype]
+
+
 def create_and_run_scan(cfg, dataset, table, stype, spec_body):
     pid = cfg["project_id"]
     loc = cfg["location"]
@@ -106,7 +114,14 @@ def create_and_run_scan(cfg, dataset, table, stype, spec_body):
 
     result = api_call(url, "POST", body)
     if result.get("_exists"):
-        logger.info("  [%s] %s already exists", stype, sid)
+        mask = _spec_update_mask(stype)
+        patch_url = f"{DATAPLEX_URL}/projects/{pid}/locations/{loc}/dataScans/{sid}?updateMask={mask}"
+        patch_body = {k: v for k, v in spec_body.items() if k == mask}
+        if patch_body:
+            api_call(patch_url, "PATCH", patch_body)
+            logger.info("  [%s] %s already exists — updated spec", stype, sid)
+        else:
+            logger.info("  [%s] %s already exists", stype, sid)
     else:
         logger.info("  [%s] Created %s", stype, sid)
         time.sleep(3)
