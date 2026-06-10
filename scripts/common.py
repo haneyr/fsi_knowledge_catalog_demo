@@ -171,6 +171,11 @@ ALL_TABLES: List[Tuple[str, str]] = (
 
 SCAN_TABLES: List[Tuple[str, str]] = BRONZE_TABLES + SILVER_TABLES + GOLD_TABLES
 
+SCAN_DATASETS: List[str] = [
+    "fsi_bronze", "fsi_silver", "fsi_gold", "fsi_reference",
+    "fsi_staging", "fsi_snapshots", "fsi_dashboards", "fsi_audit",
+]
+
 
 def scan_id(dataset: str, table: str, scan_type: str) -> str:
     layer = dataset.replace("fsi_", "")

@@ -24,7 +24,7 @@ Usage: python3 02_create_scans.py
 import logging
 import time
 
-from common import load_config, api_call, DATAPLEX_URL, SCAN_TABLES, scan_id
+from common import load_config, api_call, DATAPLEX_URL, SCAN_TABLES, SCAN_DATASETS, scan_id
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +135,35 @@ def create_and_run_scan(cfg, dataset, table, stype, spec_body):
     time.sleep(0.5)
 
 
+def create_and_run_dataset_scan(cfg, dataset):
+    pid = cfg["project_id"]
+    loc = cfg["location"]
+    sid = f"fsi-{dataset.replace('fsi_', '')}-dataset-insights"
+    url = f"{DATAPLEX_URL}/projects/{pid}/locations/{loc}/dataScans?dataScanId={sid}"
+
+    body = {
+        "data": {"resource": f"//bigquery.googleapis.com/projects/{pid}/datasets/{dataset}"},
+        "dataDocumentationSpec": {"catalog_publishing_enabled": True},
+        "displayName": f"Insights: {dataset} dataset",
+        "description": f"Data documentation scan for {dataset} dataset",
+    }
+
+    result = api_call(url, "POST", body)
+    if result.get("_exists"):
+        logger.info("  [dataset-insights] %s already exists", sid)
+    else:
+        logger.info("  [dataset-insights] Created %s", sid)
+        time.sleep(3)
+
+    run_url = f"{DATAPLEX_URL}/projects/{pid}/locations/{loc}/dataScans/{sid}:run"
+    try:
+        api_call(run_url, "POST", {})
+        logger.info("  [dataset-insights] Started %s", sid)
+    except RuntimeError as e:
+        logger.warning("  [dataset-insights] Failed to run %s: %s", sid, str(e)[:100])
+    time.sleep(0.5)
+
+
 def main():
     cfg = load_config()
     logger.info("Project: %s | Location: %s", cfg["project_id"], cfg["location"])
@@ -153,7 +182,7 @@ def main():
     for dataset, table in SCAN_TABLES:
         create_and_run_scan(cfg, dataset, table, "insights", {
             "type": "DATA_DOCUMENTATION",
-            "dataDocumentationSpec": {},
+            "dataDocumentationSpec": {"catalog_publishing_enabled": True},
         })
 
     logger.info("=" * 60)
@@ -169,9 +198,14 @@ def main():
         })
 
     logger.info("=" * 60)
+    logger.info("PHASE 4: Dataset Insights Scans (%d datasets)", len(SCAN_DATASETS))
+    for dataset in SCAN_DATASETS:
+        create_and_run_dataset_scan(cfg, dataset)
+
+    logger.info("=" * 60)
     logger.info("SCAN CREATION COMPLETE")
     logger.info("  Profile scans:  %d", len(SCAN_TABLES))
-    logger.info("  Insights scans: %d", len(SCAN_TABLES))
+    logger.info("  Insights scans: %d (tables) + %d (datasets)", len(SCAN_TABLES), len(SCAN_DATASETS))
     logger.info("  Quality scans:  %d (total rules: %d)", len(SCAN_TABLES), total_rules)
     logger.info("=" * 60)
 
