@@ -22,6 +22,20 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)"
 cd "${SCRIPT_DIR}"
 
+# Fail fast if the Python auth stack cannot mint tokens — every step below
+# depends on it, and a broken credential otherwise fails all 15 steps one by
+# one with confusing per-step errors. Uses the same code path the steps use
+# (common.get_access_token). return/exit keeps this safe when sourced.
+if ! ADC_ERROR=$(python3 -c "import common; common.get_access_token()" 2>&1 >/dev/null); then
+    echo "ERROR: credentials preflight failed:"
+    echo "${ADC_ERROR}" | tail -n 3 | sed 's/^/    /'
+    echo "  GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-<unset>}"
+    echo "  If it is set, it may point to a stale or invalid service-account key —"
+    echo "  unset it, or refresh user credentials with:"
+    echo "    gcloud auth application-default login"
+    return 1 2>/dev/null || exit 1
+fi
+
 TOTAL=15
 FAILED=0
 SUCCEEDED=0

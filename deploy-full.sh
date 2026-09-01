@@ -62,6 +62,36 @@ for arg in "$@"; do
 done
 
 # ---------------------------------------------------------------------------
+# Step 0a: Install Python dependencies (no GCP side effects)
+# ---------------------------------------------------------------------------
+echo "=== Installing Python dependencies ==="
+if command -v uv &>/dev/null; then
+    uv sync --project "${SCRIPT_DIR}"
+    # Activate the venv for subsequent scripts
+    export PATH="${SCRIPT_DIR}/.venv/bin:${PATH}"
+    echo "  Installed via uv"
+else
+    echo "  uv not found, falling back to pip"
+    pip install google-adk google-cloud-aiplatform google-cloud-bigquery google-auth requests pyyaml -q
+fi
+
+# ---------------------------------------------------------------------------
+# Step 0b: Verify credentials BEFORE any billable side effects
+# (project creation, billing link, API enablement)
+# ---------------------------------------------------------------------------
+echo "=== Verifying Python auth stack ==="
+if ! ADC_ERROR=$(python3 -c "import sys; sys.path.insert(0, '${SCRIPT_DIR}/scripts'); import common; common.get_access_token()" 2>&1 >/dev/null); then
+    echo "ERROR: the installed Python environment cannot mint access tokens:"
+    echo "${ADC_ERROR}" | tail -n 3 | sed 's/^/    /'
+    echo "  GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-<unset>}"
+    echo "  If it is set, it may point to a stale or invalid service-account key —"
+    echo "  unset it, or refresh user credentials with:"
+    echo "    gcloud auth application-default login"
+    exit 1
+fi
+echo "  Credentials OK"
+
+# ---------------------------------------------------------------------------
 # Step 0: Project setup
 # ---------------------------------------------------------------------------
 if [ -z "${GOOGLE_CLOUD_PROJECT}" ]; then
@@ -128,20 +158,6 @@ if [ -n "${DEMO_USER}" ]; then
         echo "  Granted ${role}"
     done
     echo "Demo user permissions configured for ${DEMO_USER}"
-fi
-
-# ---------------------------------------------------------------------------
-# Step 1c: Install Python dependencies
-# ---------------------------------------------------------------------------
-echo "=== Installing Python dependencies ==="
-if command -v uv &>/dev/null; then
-    uv sync --project "${SCRIPT_DIR}"
-    # Activate the venv for subsequent scripts
-    export PATH="${SCRIPT_DIR}/.venv/bin:${PATH}"
-    echo "  Installed via uv"
-else
-    echo "  uv not found, falling back to pip"
-    pip install google-adk google-cloud-aiplatform google-cloud-bigquery google-auth requests pyyaml -q
 fi
 
 # ---------------------------------------------------------------------------
