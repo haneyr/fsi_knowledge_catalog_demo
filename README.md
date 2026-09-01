@@ -165,6 +165,11 @@ Edit `scripts/config.json` with your project ID and project number, then:
 source post_deploy.sh
 ```
 
+> **Note:** If the policy-tags step fails with a taxonomy 409 that never appears in
+> listings (the display name can be reserved server-side), re-run with an alternate
+> name: `export FSI_TAXONOMY_DISPLAY_NAME="<alternate name>"` — and keep it set for
+> all future runs so reruns keep targeting the same taxonomy.
+
 This runs 10 scripts that create:
 1. Business glossary (83 terms, 28 categories)
 2. Data quality scans (profile + quality + insights)

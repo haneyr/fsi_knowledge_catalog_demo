@@ -25,6 +25,7 @@ Usage: python3 16_create_policy_tags.py
 """
 
 import logging
+import os
 import time
 
 import google.auth
@@ -62,8 +63,11 @@ def _api(method, url, body=None):
     raise RuntimeError(f"{method} {url} -> {resp.status_code}: {resp.text[:300]}")
 
 
-TAXONOMY_ID = "fsi-data-classification"
-TAXONOMY_DISPLAY = "FSI Data Classification"
+# Overridable because taxonomy display names are deduplicated server-side per
+# project+location; a stuck/reserved name would otherwise dead-end this step.
+# Keep the override set on every subsequent run, or reruns will create a second
+# taxonomy under the default name and repoint the column tags to it.
+TAXONOMY_DISPLAY = os.environ.get("FSI_TAXONOMY_DISPLAY_NAME") or "FSI Data Classification"
 
 POLICY_TAGS = [
     {
@@ -108,10 +112,10 @@ COLUMN_TAGS = [
     ("fsi_gold", "gold_customer_360", "last_name", "sensitive"),
     ("fsi_bronze", "bronze_wm_clients", "first_name", "sensitive"),
     ("fsi_bronze", "bronze_wm_clients", "last_name", "sensitive"),
-    ("fsi_bronze", "bronze_wm_clients", "email", "sensitive"),
-    ("fsi_bronze", "bronze_wm_clients", "phone", "sensitive"),
+    ("fsi_bronze", "bronze_wm_clients", "tax_id", "highly-sensitive"),
     ("fsi_silver", "silver_wm_clients", "first_name", "sensitive"),
     ("fsi_silver", "silver_wm_clients", "last_name", "sensitive"),
+    ("fsi_silver", "silver_wm_clients", "tax_id_masked", "highly-sensitive"),
 
     ("fsi_bronze", "bronze_loans", "fico_score_at_origination", "confidential"),
     ("fsi_silver", "silver_loans", "fico_score_at_origination", "confidential"),
@@ -155,7 +159,9 @@ def create_taxonomy(pid, location="us"):
     if name:
         return name
     raise RuntimeError(
-        f"Taxonomy '{TAXONOMY_DISPLAY}' returned 409 but didn't appear in listings after retries"
+        f"Taxonomy '{TAXONOMY_DISPLAY}' returned 409 but didn't appear in listings after "
+        f"retries. The display name may be reserved server-side; re-run with "
+        f"FSI_TAXONOMY_DISPLAY_NAME=<alternate name> (and keep it set for future runs)."
     )
 
 

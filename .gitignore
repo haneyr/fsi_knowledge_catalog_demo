@@ -232,6 +232,9 @@ scripts/config.json
 
 # Claude
 .claude/
+CLAUDE.md
+CLAUDE.local.md
+.claude-checkpoints/
 
 # ADK deploy temp folders
 agents/*_tmp*/

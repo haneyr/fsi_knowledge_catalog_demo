@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 INJECTIONS = [
     {
         "table": "fsi_bronze.bronze_loans",
+        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_loans` WHERE loan_id LIKE 'LOAN-BAD-%'",
         "description": "Invalid FICO scores (0, 999, NULL), extreme LTV/DTI",
         "sql": """
 INSERT INTO `{pid}.fsi_bronze.bronze_loans`
@@ -67,6 +68,7 @@ FROM UNNEST(GENERATE_ARRAY(1, 150)) AS n
     },
     {
         "table": "fsi_bronze.bronze_accounts",
+        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_accounts` WHERE account_id LIKE 'ACCT-BAD-%'",
         "description": "Negative balances, NULL account types",
         "sql": """
 INSERT INTO `{pid}.fsi_bronze.bronze_accounts`
@@ -88,10 +90,11 @@ FROM UNNEST(GENERATE_ARRAY(1, 50)) AS n
     },
     {
         "table": "fsi_bronze.bronze_customers",
+        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_customers` WHERE customer_id LIKE 'CUST-BAD-%'",
         "description": "Invalid SSN format, future DOBs, NULL names",
         "sql": """
 INSERT INTO `{pid}.fsi_bronze.bronze_customers`
-(customer_id, first_name, last_name, date_of_birth, gender, ssn, email, phone,
+(customer_id, first_name, last_name, date_of_birth, ssn, email, phone,
  address_line1, city, state, zip_code, customer_type, customer_segment,
  kyc_risk_rating, kyc_status, home_branch_id, source_system, created_at)
 SELECT
@@ -103,7 +106,6 @@ SELECT
     WHEN MOD(n,3) = 1 THEN '2050-06-15'
     ELSE '1800-01-01'
   END,
-  'U',
   CASE
     WHEN MOD(n,4) = 0 THEN '123456789'
     WHEN MOD(n,4) = 1 THEN '12-34-5678'
@@ -128,6 +130,7 @@ FROM UNNEST(GENERATE_ARRAY(1, 100)) AS n
     },
     {
         "table": "fsi_bronze.bronze_securities",
+        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_securities` WHERE security_id LIKE 'SEC-BAD-%'",
         "description": "Invalid CUSIP/ISIN format, NULL tickers",
         "sql": """
 INSERT INTO `{pid}.fsi_bronze.bronze_securities`
@@ -166,6 +169,7 @@ FROM UNNEST(GENERATE_ARRAY(1, 75)) AS n
     },
     {
         "table": "fsi_bronze.bronze_credit_cards",
+        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_credit_cards` WHERE card_id LIKE 'CC-BAD-%'",
         "description": "Extreme APR values (negative, >30%)",
         "sql": """
 INSERT INTO `{pid}.fsi_bronze.bronze_credit_cards`
@@ -190,8 +194,8 @@ SELECT
   END,
   0.0,
   CASE WHEN MOD(n,2) = 0 THEN 200 ELSE 900 END,
-  '2023-01-01',
-  '2027-01-01',
+  DATE '2023-01-01',
+  DATE '2027-01-01',
   'Active',
   0.0, 'Points',
   CURRENT_TIMESTAMP(),
@@ -201,31 +205,31 @@ FROM UNNEST(GENERATE_ARRAY(1, 50)) AS n
     },
     {
         "table": "fsi_bronze.bronze_wire_transfers",
+        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_wire_transfers` WHERE wire_id LIKE 'WIRE-STRUCT-%'",
         "description": "Structuring pattern ($10,000.01 amounts)",
         "sql": """
 INSERT INTO `{pid}.fsi_bronze.bronze_wire_transfers`
-(wire_id, account_id, wire_type, direction, amount, currency, originator_name,
- originator_bank, beneficiary_name, beneficiary_bank, beneficiary_country,
- status, ofac_hold, requires_ctr, above_ctr_threshold, purpose,
- transaction_date, created_at, source_system)
+(wire_id, originator_account_id, originator_customer_id, beneficiary_name,
+ beneficiary_routing, beneficiary_account, amount, currency, wire_type,
+ initiation_date, status, ofac_hold, requires_ctr, above_ctr_threshold,
+ purpose, beneficiary_country, created_at, source_system)
 SELECT
   CONCAT('WIRE-STRUCT-', LPAD(CAST(n AS STRING), 5, '0')),
-  CONCAT('ACCT-', LPAD(CAST(CAST(FLOOR(RAND()*50000)+1 AS INT64) AS STRING), 10, '0')),
-  'DOMESTIC',
-  'Outgoing',
+  'ACCT-0000042424',
+  'CUST-00004242',
+  CONCAT('Beneficiary ', CAST(n AS STRING)),
+  CONCAT('0', CAST(10000000 + MOD(n * 31, 90000000) AS STRING)),
+  CAST(1000000 + MOD(n * 17, 9000000) AS STRING),
   10000.01,
   'USD',
-  'Suspicious Sender',
-  'Meridian National Bank',
-  CONCAT('Beneficiary ', CAST(n AS STRING)),
-  'External Bank',
-  'US',
+  'Domestic',
+  TIMESTAMP_ADD(TIMESTAMP '2024-06-01 00:00:00 UTC', INTERVAL CAST(n * 3 AS INT64) DAY),
   'Completed',
   FALSE,
   TRUE,
   TRUE,
   'Purpose: Other',
-  TIMESTAMP_ADD(TIMESTAMP '2024-06-01 00:00:00 UTC', INTERVAL CAST(n * 3 AS INT64) DAY),
+  'US',
   CURRENT_TIMESTAMP(),
   'ATLAS'
 FROM UNNEST(GENERATE_ARRAY(1, 20)) AS n
@@ -267,6 +271,9 @@ def main():
 
         logger.info("  %s: %s", table, desc)
         try:
+            # Idempotency: remove rows from any previous injection first, so
+            # reruns of the governance pipeline don't accumulate duplicates.
+            run_bq_query(cfg, injection["cleanup"].replace("{pid}", pid), "cleanup previous injection")
             run_bq_query(cfg, sql, desc)
             ds, tbl = table.split(".")
             affected_tables.append((ds, tbl))
