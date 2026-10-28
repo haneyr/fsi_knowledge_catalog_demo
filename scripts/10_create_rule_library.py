@@ -15,7 +15,7 @@
 # limitations under the License.
 ####################################################################################
 """
-Creates a reusable Data Quality Rule Library with FSI-specific templates.
+Creates a reusable Data Quality Rule Library with Retail-specific templates.
 
 Usage: python3 10_create_rule_library.py
 """
@@ -28,98 +28,98 @@ from common import load_config, api_call, poll_operation, glossary_term_entry, D
 
 logger = logging.getLogger(__name__)
 
-RULE_LIBRARY_ID = "fsi-rule-library-global"
+RULE_LIBRARY_ID = "retail-rule-library-global"
 
 TEMPLATES = [
     {
-        "id": "valid-cusip-format",
-        "display_name": "Valid CUSIP Format",
-        "description": "Validates 9-character CUSIP format (alphanumeric).",
+        "id": "valid-gtin13-checksum",
+        "display_name": "[Retail] Valid GTIN-13 Barcode Format & Checksum",
+        "description": "[Retail] Validates GTIN-13 barcode is a 13-digit numeric GS1 identifier.",
         "dimension": "VALIDITY",
-        "sql": r"SELECT * FROM ${data()} WHERE NOT (REGEXP_CONTAINS(${column()}, r'^[A-Z0-9]{9}$') IS TRUE)",
+        "sql": r"SELECT * FROM ${data()} WHERE NOT (REGEXP_CONTAINS(${column()}, r'^[0-9]{13}$') IS TRUE)",
         "params": {},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },
     {
-        "id": "valid-isin-format",
-        "display_name": "Valid ISIN Format",
-        "description": "Validates 12-character ISIN format (2-letter country + 9 alphanum + check digit).",
+        "id": "valid-sku-format",
+        "display_name": "[Retail] Valid Northwind Master SKU Format",
+        "description": "[Retail] Validates SKU code matches Northwind format NW-SKU-NNNNNN.",
         "dimension": "VALIDITY",
-        "sql": r"SELECT * FROM ${data()} WHERE NOT (REGEXP_CONTAINS(${column()}, r'^[A-Z]{2}[A-Z0-9]{9}[0-9]$') IS TRUE)",
+        "sql": r"SELECT * FROM ${data()} WHERE NOT (REGEXP_CONTAINS(${column()}, r'^NW-SKU-[0-9]{6}$') IS TRUE)",
         "params": {},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },
     {
-        "id": "valid-ssn-tin-masked",
-        "display_name": "Valid Masked SSN/TIN Format",
-        "description": "Validates SSN/TIN is masked as XXX-XX-NNNN.",
+        "id": "valid-pii-email-phone-masked",
+        "display_name": "[Retail] Valid Masked Shopper PII / Member-TIN Format",
+        "description": "[Retail] Validates shopper PII / Member-TIN is masked as XXX-XX-NNNN and email/phone PII complies with CCPA masking.",
         "dimension": "VALIDITY",
         "sql": r"SELECT * FROM ${data()} WHERE NOT (REGEXP_CONTAINS(${column()}, r'^XXX-XX-[0-9]{4}$') IS TRUE)",
         "params": {},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },
     {
-        "id": "valid-account-id-format",
-        "display_name": "Valid Account ID Format",
-        "description": "Validates account ID matches ACCT-NNNNNNNNNN format.",
+        "id": "valid-tender-type-enum",
+        "display_name": "[Retail] Valid Loyalty Account & Tender Format",
+        "description": "[Retail] Validates loyalty account / tender identifier matches ACCT-NNNNNNNNNN format.",
         "dimension": "VALIDITY",
         "sql": r"SELECT * FROM ${data()} WHERE NOT (REGEXP_CONTAINS(${column()}, r'^ACCT-\d{10}$') IS TRUE)",
         "params": {},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },
     {
-        "id": "balance-non-negative",
-        "display_name": "Balance Non-Negative",
-        "description": "Validates financial balance columns are non-negative.",
+        "id": "inventory-and-order-total-non-negative",
+        "display_name": "[Retail] Non-Negative On-Hand Qty & Order Total Balance",
+        "description": "[Retail] Validates on-hand inventory quantity, loyalty balance, and order total equal to sum of line items are non-negative.",
         "dimension": "VALIDITY",
         "sql": r"SELECT * FROM ${data()} WHERE ${column()} < 0",
         "params": {},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },
     {
-        "id": "interest-rate-range",
-        "display_name": "Interest Rate In Valid Range",
-        "description": "Validates interest rate is between 0% and 30%.",
+        "id": "negative-margin-guard",
+        "display_name": "[Retail] Negative Margin & Financing Rate Guard",
+        "description": "[Retail] Guards against negative gross margin rates or promotional APR outside 0% to 30%.",
         "dimension": "VALIDITY",
         "sql": r"SELECT * FROM ${data()} WHERE ${column()} < 0 OR ${column()} > 0.30",
         "params": {},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },
     {
-        "id": "fico-score-range",
-        "display_name": "FICO Score Range",
-        "description": "Validates FICO score is between 300 and 850.",
+        "id": "loyalty-return-risk-score-range",
+        "display_name": "[Retail] Loyalty Tier & Return-Risk Score Range (1-100)",
+        "description": "[Retail] Validates shopper loyalty return-risk score is between 1 and 100.",
         "dimension": "VALIDITY",
-        "sql": r"SELECT * FROM ${data()} WHERE CAST(${column()} AS INT64) < 300 OR CAST(${column()} AS INT64) > 850",
+        "sql": r"SELECT * FROM ${data()} WHERE CAST(${column()} AS INT64) < 1 OR CAST(${column()} AS INT64) > 100",
         "params": {},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },
     {
-        "id": "date-not-future",
-        "display_name": "Date Not In Future",
-        "description": "Validates a date column does not contain future dates.",
+        "id": "duplicate-loyalty-id-guard",
+        "display_name": "[Retail] Valid Enrollment Date & Duplicate Loyalty ID Guard",
+        "description": "[Retail] Validates loyalty enrollment/order dates are not in the future.",
         "dimension": "VALIDITY",
         "sql": r"SELECT * FROM ${data()} WHERE ${column()} > CURRENT_DATE()",
         "params": {},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },
     {
-        "id": "date-ordering",
-        "display_name": "Date Column Ordering",
-        "description": "Validates one date column is on or before another (e.g., origination <= maturity).",
+        "id": "order-ship-delivery-date-ordering",
+        "display_name": "[Retail] Order <= Ship <= Delivery Date Ordering",
+        "description": "[Retail] Validates chronological date ordering (order_date <= ship_date <= delivery_date).",
         "dimension": "CONSISTENCY",
         "sql": r"SELECT * FROM ${data()} WHERE NOT (${column()} <= `${param(end_date_column)}`) IS TRUE",
-        "params": {"end_date_column": {"description": "The later date column to compare against"}},
+        "params": {"end_date_column": {"description": "The later fulfillment/delivery date column to compare against"}},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },
     {
         "id": "foreign-key-exists",
-        "display_name": "Foreign Key Reference Exists",
-        "description": "Validates every value in a column exists in a reference table.",
+        "display_name": "[Retail] Foreign Key Reference Exists",
+        "description": "[Retail] Validates every foreign key value (e.g., customer_id, store_id, sku_code) exists in its master reference table.",
         "dimension": "CONSISTENCY",
         "sql": r"SELECT t.* FROM ${data()} AS t LEFT JOIN `${param(reference_table)}` AS s ON t.${column()} = s.`${param(reference_column)}` WHERE s.`${param(reference_column)}` IS NULL",
         "params": {
-            "reference_table": {"description": "Fully qualified reference table"},
+            "reference_table": {"description": "Fully qualified master reference table"},
             "reference_column": {"description": "Primary key column in reference table"},
         },
         "capabilities": ["THRESHOLD"],
@@ -135,8 +135,8 @@ def create_rule_library(cfg):
     pid = cfg["project_id"]
     url = f"{DATAPLEX_URL}/projects/{pid}/locations/global/entryGroups?entryGroupId={RULE_LIBRARY_ID}"
     result = api_call(url, "POST", {
-        "displayName": "Meridian National Bank Data Quality Rule Library",
-        "description": "Centralized, reusable rule templates for FSI data validation.",
+        "displayName": "[Retail] Northwind Retail Group Data Quality Rule Library",
+        "description": "[Retail] Centralized, reusable rule templates for Northwind Retail data validation.",
         "labels": {"goog-dataplex-entry-group-type": "rule_library"},
     })
     if result.get("_exists"):
@@ -173,31 +173,33 @@ def create_templates(cfg):
 
 
 def attach_rules_to_terms(cfg):
+    logger.info("=== Attaching rule templates to glossary terms ===")
+
     term_rules = {
-        "fico-score": [
-            {"name": "fico-range-check", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
-             "description": "FICO score must be 300-850",
-             "templateReference": {"name": _tref(cfg, "fico-score-range")}},
+        "loyalty-return-risk-score": [
+            {"name": "return-risk-score-range-check", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
+             "description": "[Retail] Return-Risk score must be between 1 and 100",
+             "templateReference": {"name": _tref(cfg, "loyalty-return-risk-score-range")}},
         ],
-        "tin": [
-            {"name": "tin-masking-check", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
-             "description": "TIN/SSN must be masked as XXX-XX-NNNN",
-             "templateReference": {"name": _tref(cfg, "valid-ssn-tin-masked")}},
+        "member-tin": [
+            {"name": "member-tin-masking-check", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
+             "description": "[Retail] Shopper PII / Member-TIN must be masked as XXX-XX-NNNN",
+             "templateReference": {"name": _tref(cfg, "valid-pii-email-phone-masked")}},
         ],
-        "cusip": [
-            {"name": "cusip-format-check", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
-             "description": "CUSIP must be 9 alphanumeric characters",
-             "templateReference": {"name": _tref(cfg, "valid-cusip-format")}},
+        "gtin-13": [
+            {"name": "gtin13-format-check", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
+             "description": "[Retail] GTIN-13 barcode must be a 13-digit GS1 identifier",
+             "templateReference": {"name": _tref(cfg, "valid-gtin13-checksum")}},
         ],
-        "isin": [
-            {"name": "isin-format-check", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
-             "description": "ISIN must be 12-character international format",
-             "templateReference": {"name": _tref(cfg, "valid-isin-format")}},
+        "sku-code": [
+            {"name": "sku-code-format-check", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
+             "description": "[Retail] SKU code must match Northwind format NW-SKU-NNNNNN",
+             "templateReference": {"name": _tref(cfg, "valid-sku-format")}},
         ],
-        "account-balance": [
-            {"name": "balance-non-negative", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
-             "description": "Account balance must be non-negative",
-             "templateReference": {"name": _tref(cfg, "balance-non-negative")}},
+        "loyalty-account-balance": [
+            {"name": "inventory-and-order-total-non-negative", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
+             "description": "[Retail] Loyalty balance, on-hand inventory, and order total must be non-negative",
+             "templateReference": {"name": _tref(cfg, "inventory-and-order-total-non-negative")}},
         ],
     }
 

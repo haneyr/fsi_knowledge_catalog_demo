@@ -14,7 +14,7 @@
 # limitations under the License.
 
 ####################################################################################
-# FSI Knowledge Catalog Demo - Deploy (Terraform, ENVIRONMENT-selected: dev|prod)
+# [Retail] Northwind Retail Knowledge Catalog Demo - Deploy (Terraform, ENVIRONMENT-selected: dev|prod)
 # Requires Terraform and Terragrunt. For deployment without Terraform,
 # use deploy-full.sh instead (recommended).
 ####################################################################################
@@ -24,7 +24,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
-echo "=== FSI Knowledge Catalog Demo - Deploy ==="
+echo "=== [Retail] Northwind Retail Knowledge Catalog Demo - Deploy ==="
 
 # Select environment (dev|prod). Defaults to dev for local/manual runs.
 export ENVIRONMENT="${ENVIRONMENT:-dev}"

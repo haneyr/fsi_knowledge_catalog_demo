@@ -43,18 +43,18 @@ module "dashboards" {
   depends_on   = [module.medallion]
 }
 
-resource "google_bigquery_dataset" "agent_analytics" {
+resource "google_bigquery_dataset" "retail_agent_analytics" {
   project    = var.project_id
-  dataset_id = "agent_analytics"
+  dataset_id = "retail_agent_analytics"
   location   = var.multi_region
 
   labels = {
     purpose = "agent-analytics"
-    demo    = "fsi-knowledge-catalog"
+    demo    = "retail-knowledge-catalog"
   }
 }
 
 output "bronze_dataset" { value = module.medallion.bronze_dataset_id }
 output "silver_dataset" { value = module.medallion.silver_dataset_id }
 output "gold_dataset" { value = module.medallion.gold_dataset_id }
-output "agent_analytics_dataset" { value = google_bigquery_dataset.agent_analytics.dataset_id }
+output "retail_agent_analytics_dataset" { value = google_bigquery_dataset.retail_agent_analytics.dataset_id }

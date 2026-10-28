@@ -24,56 +24,56 @@ variable "multi_region" {
 }
 
 locals {
-  # ATLAS (Retail Banking) — 14 tables
-  atlas_bronze = [
-    "bronze_customers", "bronze_accounts", "bronze_transactions",
-    "bronze_loans", "bronze_loan_payments", "bronze_credit_cards",
-    "bronze_card_transactions", "bronze_fraud_alerts", "bronze_kyc_records",
-    "bronze_branches", "bronze_employees", "bronze_wire_transfers",
-    "bronze_ach_transfers", "bronze_atm_transactions",
+  # ORION (Store Ops & POS) — 14 tables
+  orion_bronze = [
+    "bronze_customers", "bronze_loyalty_accounts", "bronze_pos_transactions",
+    "bronze_bnpl_plans", "bronze_bnpl_payments", "bronze_store_cards",
+    "bronze_payment_tenders", "bronze_fraud_alerts", "bronze_privacy_consents",
+    "bronze_stores", "bronze_store_associates", "bronze_high_value_refunds",
+    "bronze_vendor_settlements", "bronze_kiosk_transactions",
   ]
 
-  # FORTUNA (Wealth Management) — 13 tables
-  fortuna_bronze = [
-    "bronze_wm_clients", "bronze_portfolios", "bronze_holdings",
-    "bronze_trades", "bronze_securities", "bronze_advisors",
-    "bronze_performance", "bronze_fee_schedules", "bronze_benchmarks",
-    "bronze_client_goals", "bronze_risk_profiles", "bronze_distributions",
-    "bronze_custodian_feeds",
+  # LUMEN (Digital Commerce & Loyalty) — 13 tables
+  lumen_bronze = [
+    "bronze_vip_members", "bronze_merch_assortments", "bronze_inventory_positions",
+    "bronze_ecom_orders", "bronze_product_skus", "bronze_category_managers",
+    "bronze_assortment_performance", "bronze_promo_rules", "bronze_category_benchmarks",
+    "bronze_customer_preferences", "bronze_return_risk_profiles", "bronze_reward_redemptions",
+    "bronze_carrier_feeds",
   ]
 
-  # ARGUS (Finance & Risk) — 13 tables
-  argus_bronze = [
+  # HELIOS (Merchandising, Supply Chain & Finance) — 13 tables
+  helios_bronze = [
     "bronze_gl_entries", "bronze_gl_accounts", "bronze_cost_centers",
-    "bronze_regulatory_capital", "bronze_risk_exposures", "bronze_counterparties",
-    "bronze_market_data", "bronze_stress_tests", "bronze_audit_events",
-    "bronze_regulatory_filings", "bronze_interest_rates", "bronze_fx_rates",
-    "bronze_compliance_cases",
+    "bronze_working_capital", "bronze_shrinkage_exposures", "bronze_suppliers",
+    "bronze_competitor_pricing", "bronze_demand_scenarios", "bronze_audit_events",
+    "bronze_compliance_attestations", "bronze_markdown_rates", "bronze_fx_rates",
+    "bronze_promo_abuse_cases",
   ]
 
-  bronze_tables = concat(local.atlas_bronze, local.fortuna_bronze, local.argus_bronze)
+  bronze_tables = concat(local.orion_bronze, local.lumen_bronze, local.helios_bronze)
 
   silver_tables = [for t in local.bronze_tables : replace(t, "bronze_", "silver_")]
 
   gold_tables = [
-    "gold_customer_360", "gold_account_summary", "gold_transaction_patterns",
-    "gold_loan_portfolio_summary", "gold_delinquency_analysis",
-    "gold_fraud_analytics", "gold_aml_risk_scoring", "gold_branch_performance",
-    "gold_portfolio_performance", "gold_client_revenue", "gold_asset_allocation",
-    "gold_advisor_scorecard", "gold_fee_revenue", "gold_net_interest_margin",
-    "gold_capital_adequacy", "gold_liquidity_coverage", "gold_market_risk_var",
-    "gold_operational_risk", "gold_regulatory_dashboard", "gold_balance_sheet_summary",
+    "gold_customer_360", "gold_loyalty_account_summary", "gold_order_patterns",
+    "gold_bnpl_plan_summary", "gold_bnpl_delinquency_analysis",
+    "gold_return_fraud_analytics", "gold_promo_fraud_scoring", "gold_store_performance",
+    "gold_assortment_performance", "gold_vip_member_revenue", "gold_inventory_allocation",
+    "gold_category_manager_scorecard", "gold_promo_margin_impact", "gold_gross_margin_analysis",
+    "gold_working_capital_adequacy", "gold_inventory_turnover_coverage", "gold_markdown_risk_var",
+    "gold_shrinkage_operational_risk", "gold_compliance_dashboard", "gold_financial_summary",
   ]
 
   # Additional datasets for supplementary tables
   staging_tables = [
-    "staging_call_report_rc", "staging_call_report_ri",
-    "staging_call_report_rc_r", "staging_call_report_rc_c", "staging_fr_y9c",
+    "staging_pci_aoc_summary", "staging_channel_revenue_recon",
+    "staging_supplier_audit_schedule", "staging_ccpa_dsar_log", "staging_annual_omniretail_filing",
   ]
 
   snapshot_tables = [
-    "snapshot_monthly_balances", "snapshot_quarterly_positions",
-    "snapshot_daily_market_data",
+    "snapshot_monthly_loyalty_balances", "snapshot_quarterly_inventory_positions",
+    "snapshot_daily_competitor_pricing",
   ]
 
   audit_tables = [
@@ -86,51 +86,93 @@ locals {
 # ============================================================
 resource "google_bigquery_dataset" "bronze" {
   project     = var.project_id
-  dataset_id  = "fsi_bronze"
+  dataset_id  = "retail_bronze"
   location    = var.multi_region
-  description = "Meridian National Bank — raw ingestion layer (ATLAS + FORTUNA + ARGUS)"
+  description = "[Retail] Northwind Retail Group — raw ingestion layer (ORION + LUMEN + HELIOS)"
+  labels = {
+    use-case = "retail"
+    demo     = "retail-knowledge-catalog"
+    owner    = "alitch"
+    env      = "demo"
+  }
 }
 
 resource "google_bigquery_dataset" "silver" {
   project     = var.project_id
-  dataset_id  = "fsi_silver"
+  dataset_id  = "retail_silver"
   location    = var.multi_region
-  description = "Meridian National Bank — cleansed and conformed layer"
+  description = "[Retail] Northwind Retail Group — cleansed and conformed layer"
+  labels = {
+    use-case = "retail"
+    demo     = "retail-knowledge-catalog"
+    owner    = "alitch"
+    env      = "demo"
+  }
 }
 
 resource "google_bigquery_dataset" "gold" {
   project     = var.project_id
-  dataset_id  = "fsi_gold"
+  dataset_id  = "retail_gold"
   location    = var.multi_region
-  description = "Meridian National Bank — business analytics layer"
+  description = "[Retail] Northwind Retail Group — business analytics layer"
+  labels = {
+    use-case = "retail"
+    demo     = "retail-knowledge-catalog"
+    owner    = "alitch"
+    env      = "demo"
+  }
 }
 
 resource "google_bigquery_dataset" "scan_results" {
   project     = var.project_id
-  dataset_id  = "fsi_scan_results"
+  dataset_id  = "retail_scan_results"
   location    = var.multi_region
-  description = "Data quality and profile scan results for FSI tables"
+  description = "[Retail] Data quality and profile scan results for Retail tables"
+  labels = {
+    use-case = "retail"
+    demo     = "retail-knowledge-catalog"
+    owner    = "alitch"
+    env      = "demo"
+  }
 }
 
 resource "google_bigquery_dataset" "staging" {
   project     = var.project_id
-  dataset_id  = "fsi_staging"
+  dataset_id  = "retail_staging"
   location    = var.multi_region
-  description = "Regulatory filing staging tables"
+  description = "[Retail] Regulatory filing staging tables"
+  labels = {
+    use-case = "retail"
+    demo     = "retail-knowledge-catalog"
+    owner    = "alitch"
+    env      = "demo"
+  }
 }
 
 resource "google_bigquery_dataset" "snapshots" {
   project     = var.project_id
-  dataset_id  = "fsi_snapshots"
+  dataset_id  = "retail_snapshots"
   location    = var.multi_region
-  description = "Historical snapshot tables"
+  description = "[Retail] Historical snapshot tables"
+  labels = {
+    use-case = "retail"
+    demo     = "retail-knowledge-catalog"
+    owner    = "alitch"
+    env      = "demo"
+  }
 }
 
 resource "google_bigquery_dataset" "audit" {
   project     = var.project_id
-  dataset_id  = "fsi_audit"
+  dataset_id  = "retail_audit"
   location    = var.multi_region
-  description = "Audit trail and model decision logs"
+  description = "[Retail] Audit trail and model decision logs"
+  labels = {
+    use-case = "retail"
+    demo     = "retail-knowledge-catalog"
+    owner    = "alitch"
+    env      = "demo"
+  }
 }
 
 # ============================================================

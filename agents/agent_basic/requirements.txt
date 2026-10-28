@@ -1,5 +1,5 @@
-google-adk>=0.3.0
+google-adk==2.8.0
 google-cloud-bigquery>=3.0
 google-cloud-bigquery-storage>=2.0
-google-cloud-aiplatform>=1.60
+google-cloud-aiplatform==2.6.0
 pyarrow>=14.0

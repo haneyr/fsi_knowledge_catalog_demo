@@ -22,16 +22,22 @@ locals {
   dashboard_views = [
     "vw_dq_scorecard", "vw_dq_by_dimension", "vw_dq_failed_rules",
     "vw_dq_rule_detail", "vw_profile_summary",
-    "vw_customer_total_relationship", "vw_branch_retail_wealth",
-    "vw_regulatory_summary",
+    "vw_customer_lifetime_value", "vw_store_omnichannel_performance",
+    "vw_compliance_summary",
   ]
 }
 
 resource "google_bigquery_dataset" "dashboards" {
   project     = var.project_id
-  dataset_id  = "fsi_dashboards"
+  dataset_id  = "retail_dashboards"
   location    = var.multi_region
-  description = "Pre-aggregated views for Looker Studio dashboards"
+  description = "[Retail] Pre-aggregated views for Looker Studio dashboards"
+  labels = {
+    use-case = "retail"
+    demo     = "retail-knowledge-catalog"
+    owner    = "alitch"
+    env      = "demo"
+  }
 }
 
 resource "google_bigquery_job" "dashboards" {

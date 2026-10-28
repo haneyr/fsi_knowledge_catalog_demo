@@ -1,4 +1,6 @@
-# FSI Knowledge Catalog Demo
+# [Retail] Northwind Retail Knowledge Catalog Demo
+
+> **Derived from:** `https://github.com/haneyr/fsi_knowledge_catalog_demo` (refactored for the Northwind Retail Group omnichannel specialty retail domain).
 
 End-to-end Knowledge Catalog and data governance demo for a financial services institution, built on Google Cloud. Demonstrates how Knowledge Catalog solves the **agent scale problem** — enabling AI agents to navigate 128+ tables across multiple source systems.
 
@@ -14,31 +16,31 @@ End-to-end Knowledge Catalog and data governance demo for a financial services i
 
 | Component | Count | Details |
 |---|---|---|
-| **BigQuery Datasets** | 10 | fsi_bronze, fsi_silver, fsi_gold, fsi_reference, fsi_dashboards, fsi_staging, fsi_snapshots, fsi_audit, fsi_scan_results |
+| **BigQuery Datasets** | 10 | retail_bronze, retail_silver, retail_gold, retail_reference, retail_dashboards, retail_staging, retail_snapshots, retail_audit, retail_scan_results |
 | **BigQuery Tables** | 128 | 40 bronze + 40 silver + 20 gold + 8 views + 10 reference + 5 staging + 3 snapshots + 2 audit |
-| **Source Systems** | 3 | ATLAS (IBM DB2), FORTUNA (Temenos T24), ARGUS (SAP S/4HANA) |
+| **Source Systems** | 3 | ORION (IBM DB2), LUMEN (Salesforce T24), HELIOS (SAP S/4HANA) |
 | **Business Glossary** | 1 | 80+ terms, 10 categories, 20 sub-categories, overviews, contacts |
 | **Data Scans** | 300+ | Profile + Quality + Insights for 100 tables |
-| **Data Products** | 5 | Customer 360, Lending & Credit Risk, Wealth Management, Regulatory, Financial Performance |
+| **Data Products** | 5 | Customer 360, Lending & Credit Risk, Omnichannel Loyalty Management, Regulatory, Financial Performance |
 | **Custom Aspects** | 7 types | Data Classification, Retention, Compliance, Lineage, Access Control, Risk, Regulatory Reporting |
 | **Data Lineage** | 80+ links | 3 source systems → Bronze → Silver → Gold (5 processes) |
-| **Rule Library** | 10 templates | CUSIP, ISIN, SSN masking, FICO range, balance checks, date ordering, FK validation |
+| **Rule Library** | 10 templates | GTIN, SKU, Member-TIN masking, Return-Risk range, balance checks, date ordering, FK validation |
 | **Agents** | 3 | Basic, Scaled, KC-Guided — deployed to Vertex AI Agent Engine |
 
 ## Architecture
 
 ```
-ATLAS (IBM DB2 Mainframe)          FORTUNA (Temenos T24)         ARGUS (SAP S/4HANA)
- Retail Banking: 14 tables          Wealth Mgmt: 13 tables       Finance & Risk: 13 tables
+ORION (IBM DB2 Mainframe)          LUMEN (Salesforce T24)         HELIOS (SAP S/4HANA)
+ Retail Retail: 14 tables          Omnichannel Loyalty Mgmt: 13 tables       Finance & Risk: 13 tables
          │ IBM CDC                         │ Extract API                  │ SAP SLT
          ▼                                 ▼                              ▼
-fsi_bronze (40 raw tables, ~500K rows total)
+retail_bronze (40 raw tables, ~500K rows total)
          │ Cleanse, Dedupe, Mask PII, Standardize
          ▼
-fsi_silver (40 conformed tables, PK/FK constraints)
+retail_silver (40 conformed tables, PK/FK constraints)
          │ Aggregate, Join, Compute Metrics
          ▼
-fsi_gold (20 analytics tables)
+retail_gold (20 analytics tables)
          │
          ├── Data Products (5)
          ├── Business Glossary (80+ terms linked to columns)
@@ -124,7 +126,7 @@ gcloud auth login
 gcloud auth application-default login
 
 # Create project (or use an existing one)
-gcloud projects create YOUR-PROJECT-ID --name="FSI KC Demo" --organization=YOUR-ORG-ID
+gcloud projects create YOUR-PROJECT-ID --name="Retail KC Demo" --organization=YOUR-ORG-ID
 gcloud billing projects link YOUR-PROJECT-ID --billing-account=YOUR-BILLING-ACCOUNT
 
 # Enable required APIs
@@ -167,13 +169,13 @@ source post_deploy.sh
 
 > **Note:** If the policy-tags step fails with a taxonomy 409 that never appears in
 > listings (the display name can be reserved server-side), re-run with an alternate
-> name: `export FSI_TAXONOMY_DISPLAY_NAME="<alternate name>"` — and keep it set for
+> name: `export RETAIL_TAXONOMY_DISPLAY_NAME="<alternate name>"` — and keep it set for
 > all future runs so reruns keep targeting the same taxonomy.
 
 This runs 10 scripts that create:
 1. Business glossary (83 terms, 28 categories)
 2. Data quality scans (profile + quality + insights)
-3. Source system entries (ATLAS, FORTUNA, ARGUS)
+3. Source system entries (ORION, LUMEN, HELIOS)
 4. Custom aspects on all tables
 5. Data products (5 with asset assignments)
 6. Glossary-to-column links (77)
@@ -320,8 +322,8 @@ deploy without an OAuth client ID configured, and the application returns
 
 3. Go back to **Credentials** and click **+ Create Credentials → OAuth client ID**.
    - Application type: **Web application**
-   - Name: `FSI KC Demo` (or any name you prefer)
-   - **Authorized JavaScript origins**: Add the Cloud Run URL from your deployment output (e.g. `https://fsi-kc-demo-ui-live-xxxxx-uc.a.run.app`). If running locally, also add `http://localhost:8080`.
+   - Name: `Retail KC Demo` (or any name you prefer)
+   - **Authorized JavaScript origins**: Add the Cloud Run URL from your deployment output (e.g. `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`). If running locally, also add `http://localhost:8080`.
    - Leave **Authorized redirect URIs** empty — the app uses Google Identity Services (popup/one-tap), not a server-side redirect flow.
    - Click **Create**.
 
@@ -381,7 +383,7 @@ POLICY
 
 # 3. Wait ~10 seconds for propagation, then allow public access
 sleep 10
-gcloud run services add-iam-policy-binding fsi-kc-demo-ui-live \
+gcloud run services add-iam-policy-binding retail-kc-demo-ui-live \
   --region=$GOOGLE_CLOUD_LOCATION --member=allUsers --role=roles/run.invoker
 ```
 
@@ -404,11 +406,11 @@ See `snowflake/README.md` for full setup instructions.
 ```bash
 # Set Snowflake credentials (setup user)
 export SNOWFLAKE_ACCOUNT=your-account-id
-export SNOWFLAKE_USER=FSI_KC_SETUP
+export SNOWFLAKE_USER=RETAIL_KC_SETUP
 export SNOWFLAKE_PASSWORD=your-setup-password
 
 # Set agent credentials (read-only user, created after setup)
-export SNOWFLAKE_AGENT_USER=FSI_KC_AGENT
+export SNOWFLAKE_AGENT_USER=RETAIL_KC_AGENT
 export SNOWFLAKE_AGENT_PASSWORD=your-agent-password
 
 # Deploy everything including Snowflake

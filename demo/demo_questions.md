@@ -1,213 +1,113 @@
-# FSI Knowledge Catalog Demo — Scenario Playbook
+# [Retail] Northwind Retail Group — Knowledge Catalog Demo Questions
 
-Run the same question against all three agents and observe the divergence.
-Each scenario targets a specific failure mode that Knowledge Catalog solves.
-
----
-
-## Category 1: Baseline (all 3 agents succeed)
-
-Establishes credibility — proves all agents work when the task is simple.
-
-### Scenario 1.1
-> "What are our top 5 customers by total relationship value?"
-
-- All succeed: `gold_customer_360` is known to all agents, simple aggregation
-- **Demo point:** "All three agents work when the task is simple."
-
-### Scenario 1.2
-> "Show me our loan portfolio by product type and risk rating"
-
-- All succeed: `gold_loan_portfolio_summary` is well-known, single table
-- **Demo point:** "This isn't a model intelligence issue — it's a data discovery issue."
+These 16 questions (`3 base categories × 4 tiers` + `1 Cross-Cloud category × 4 tiers`) are synchronized with `website-live/static/index.html`.
+Every category preserves the 4-chip difficulty ladder:
+- **Tier 1**: Foundational Gold query — all three agents pass (`Basic`, `Scaled`, `KC`).
+- **Tier 2**: Cross-domain / multi-table — `Basic` fails (missing tables) and `Scaled` starts failing (schema ambiguity across 128 tables).
+- **Tier 3**: Governance & catalog metadata — requires Knowledge Catalog certifications, data owners/stewards, lineage, PCI/CCPA classification, or DQ scan rules (`Basic` and `Scaled` fail).
+- **Tier 4**: Governed analytics stress test — combines catalog metadata filtering + multi-table SQL analytics; only `KC` survives.
 
 ---
 
-## Category 2: Table Disambiguation (Scaled agent picks wrong table)
+## 1. MERCHANDISING & INVENTORY
+*Personas: Merchandising Manager, Supply Chain Planner*
 
-The scaled agent sees 128 table names but can't tell which one to use.
+- **Tier 1 (`1 Assortment Margin`)**
+  > Which merchandise assortments had the highest YTD return and market value in gold_assortment_performance?
+  - *Tables*: `retail_gold.gold_assortment_performance`
+  - *Expected behavior*: All three agents query `gold_assortment_performance` and return the top assortments (`PF-10002`, `PF-10005`, `PF-10001`, `PF-10004`, `PF-10003`).
 
-### Scenario 2.1 — Suspicious Activity
-> "Show me suspicious activity trends over the past year"
+- **Tier 2 (`2 Markdown Exposure`)**
+  > For active merchandise assortments, which GTIN-13 SKUs carry the largest unrealized inventory loss, who is the assigned category manager, and how does their sector's 1-day 99% Markdown Value at Risk compare?
+  - *Tables*: `retail_silver.silver_merch_assortments`, `retail_silver.silver_inventory_positions`, `retail_silver.silver_product_skus`, `retail_silver.silver_category_managers`, `retail_gold.gold_markdown_risk_var`
+  - *Glossary*: `[Retail] Global Trade Item Number (GTIN-13)`, `[Retail] Markdown Value at Risk (VaR)`
+  - *Expected behavior*: Basic fails (lacks SKU, inventory position, category manager, and markdown VaR tables). Scaled must disambiguate Bronze vs Silver tables (`bronze_merch_assortments` vs `silver_merch_assortments`, `bronze_inventory_positions` vs `silver_inventory_positions`, `bronze_product_skus` vs `silver_product_skus` vs `ref_product_catalog`) and join across 5 tables using non-obvious keys (`assortment_id`, `security_id`, `manager_id`, `sector`) while filtering 1-day `0.99` confidence VaR without column metadata. KC uses glossary and catalog descriptions to join cleanly.
 
-- **Scaled failure:** Sees `bronze_fraud_alerts`, `silver_fraud_alerts`, `gold_fraud_analytics`, `silver_compliance_cases`, `gold_aml_risk_scoring` — picks one arbitrarily or hallucinates a `suspicious_activity` table
-- **KC advantage:** Searches "suspicious activity" → discovers `gold_fraud_analytics` for fraud trends AND `gold_aml_risk_scoring` for BSA/AML → reads metadata to understand which is the monthly trend table → queries the right one → cites the BSA glossary term and data classification
-- **Key talking point:** *"128 tables means 128 chances to pick the wrong one. The KC agent doesn't guess — it searches semantically and reads metadata to understand what each table actually contains."*
+- **Tier 3 (`3 Certification & GTIN DQ`)**
+  > Which assortment and product SKU tables are certified in Knowledge Catalog, who owns them, and can we trust the GTIN-13 identifiers in silver_product_skus?
+  - *Tables*: `retail_gold.gold_assortment_performance`, `retail_silver.silver_merch_assortments`, `retail_silver.silver_product_skus`
+  - *Glossary*: `[Retail] Global Trade Item Number (GTIN-13)`
+  - *Expected behavior*: Basic and Scaled have no catalog tools and cannot see certification status, owners, or DQ rules. KC looks up `retail-certification`, `retail-governance` (owners/stewards), and flags the 7% invalid GTIN-13 check-digit DQ issue on `silver_product_skus.gtin`.
 
-### Scenario 2.2 — Interest Rate Risk
-> "What's our interest rate exposure?"
-
-- **Scaled failure:** Sees `bronze_interest_rates`, `silver_interest_rates`, `gold_net_interest_margin`, `gold_market_risk_var`, `gold_capital_adequacy` — confused about which dimension of "interest rate" to answer
-- **KC advantage:** Searches "interest rate risk" → finds `gold_net_interest_margin` for NIM analysis and `gold_market_risk_var` for VaR → reads glossary definitions of NIM and VaR → presents both dimensions with proper business context
-- **Key talking point:** *"Interest rate exposure means different things to a treasurer vs. a risk officer. Knowledge Catalog's glossary gives the agent the business context to answer comprehensively."*
-
----
-
-## Category 3: Cross-Domain Discovery (Scaled agent misses entire domains)
-
-Questions that span ATLAS (retail) and FORTUNA (wealth) — two separate source systems.
-
-### Scenario 3.1 — HNW Total Exposure
-> "For our high-net-worth clients, what's their total exposure including deposits, loans, and investments?"
-
-- **Scaled failure:** Queries only `silver_wm_clients` (wealth) OR `silver_customers` (retail), misses the pre-built `gold_customer_360` that joins both source systems
-- **KC advantage:** Searches "high net worth total relationship" → discovers `gold_customer_360` which joins ATLAS + FORTUNA → reads lineage showing it aggregates across both source systems → filters to Premier/Private Banking segments → presents unified view
-- **Key talking point:** *"A real bank has retail customers in one system and wealth clients in another. The KC agent discovers the gold table that already joins them — the scaled agent doesn't even know it exists."*
-
-### Scenario 3.2 — Branch Revenue (Retail + Wealth)
-> "Which branches generate the most revenue when you include both retail banking and wealth management?"
-
-- **Scaled failure:** Finds `gold_branch_performance` but it only covers retail. Misses that wealth revenue needs to come from `gold_fee_revenue` or `gold_client_revenue`
-- **KC advantage:** Searches "branch revenue" → finds both `gold_branch_performance` AND `gold_fee_revenue` → reads aspects showing different source systems → constructs a join → explains the cross-domain data lineage
-- **Key talking point:** *"No branch manager sees their full P&L because the data lives in two separate systems. The KC agent discovers both and combines them."*
+- **Tier 4 (`4 Governed Markdown Plan`)**
+  > Build a markdown risk plan for underperforming assortments using only certified Gold tables with no PCI-scoped columns, and quantify the working capital impact.
+  - *Tables*: `retail_gold.gold_assortment_performance`, `retail_gold.gold_markdown_risk_var`, `retail_gold.gold_working_capital_adequacy`
+  - *Glossary*: `[Retail] Markdown Value at Risk (VaR)`, `[Retail] Working Capital Ratio`
+  - *Expected behavior*: Only KC verifies certification (`retail-certification`) and PCI scope (`retail-data-classification`), then combines assortment performance, markdown VaR, and working capital adequacy into a governed markdown plan.
 
 ---
 
-## Category 4: Regulatory & Compliance (KC agent cites governance metadata)
+## 2. CUSTOMER & LOYALTY
+*Personas: Loyalty/CRM Marketer, Store Ops Director*
 
-Questions where the answer requires not just data but regulatory context.
+- **Tier 1 (`1 Loyalty Tiers`)**
+  > How many active customers and what total relationship value do we have by customer segment in gold_customer_360?
+  - *Tables*: `retail_gold.gold_customer_360`
+  - *Expected behavior*: All three agents group `gold_customer_360` by `customer_segment` and return customer counts and `SUM(total_relationship_value)`.
 
-### Scenario 4.1 — Basel III Capital
-> "Are we meeting our Basel III capital requirements? What's our buffer above the minimum?"
+- **Tier 2 (`2 Omnichannel Revenue`)**
+  > Across our active VIP loyalty tiers, how does Customer Lifetime Value (CLV) and e-commerce order volume compare against active BNPL balances and average Return-Risk Score by primary store region?
+  - *Tables*: `retail_silver.silver_vip_members`, `retail_silver.silver_customers`, `retail_silver.silver_stores`, `retail_silver.silver_ecom_orders`, `retail_silver.silver_bnpl_plans`
+  - *Glossary*: `[Retail] Customer Lifetime Value (CLV)`, `[Retail] Loyalty & Return-Risk Score`, `[Retail] Store Identifier`
+  - *Expected behavior*: Basic fails (lacks VIP member, store region, e-commerce order, and customer-level BNPL tables). Scaled must disambiguate Bronze vs Silver vs Gold tables across 4 domains (VIP loyalty, stores, e-commerce, and BNPL) and map business terms (`Customer Lifetime Value (CLV)` → `net_worth_estimate` / `total_relationship_value`, `Return-Risk Score` → `return_risk_score_at_signup` / `return_risk_score`, `primary store region` → `silver_customers.primary_store_id = silver_stores.store_id`) without glossary context. KC uses glossary terms and catalog entries to resolve the join path cleanly.
 
-- **Scaled failure:** Might find `gold_capital_adequacy` but doesn't understand CET1 minimums, conservation buffers, or countercyclical buffers — presents raw numbers without regulatory context
-- **KC advantage:** Searches "Basel III capital" → finds `gold_capital_adequacy` → reads glossary definitions of CET1, Basel III, risk-weighted assets → reads regulatory reporting aspect (Call Report Schedule RC-R) → presents ratios WITH regulatory context and buffer calculations → cites glossary definitions
-- **Key talking point:** *"The KC agent reads the glossary to understand that CET1 minimum is 4.5% plus a 2.5% conservation buffer. That business knowledge comes from Knowledge Catalog, not the model's training data."*
+- **Tier 3 (`3 Customer Lineage`)**
+  > Where does our customer and loyalty data originate, how does it flow from source systems to gold_customer_360, and who is the data steward?
+  - *Tables*: `retail_bronze.bronze_customers`, `retail_silver.silver_customers`, `retail_silver.silver_loyalty_accounts`, `retail_gold.gold_customer_360`
+  - *Source Systems*: `ORION` (Core Retail ERP), `LUMEN` (Omnichannel CRM & Loyalty), `HELIOS` (Payment & Risk)
+  - *Expected behavior*: Basic and Scaled have no lineage or aspect access. KC traces lineage from `ORION` / `LUMEN` / `HELIOS` through Bronze and Silver to `gold_customer_360` and cites the data steward from `retail-governance`.
 
-### Scenario 4.2 — KYC Compliance Gaps
-> "Do we have any KYC compliance gaps? Show me overdue reviews and high-risk customers."
-
-- **Scaled failure:** May query `bronze_kyc_records` (raw data with duplicates) or miss `gold_aml_risk_scoring` entirely
-- **KC advantage:** Searches "KYC compliance overdue" → discovers `gold_aml_risk_scoring` → reads glossary definitions of KYC, CDD, EDD, PEP → reads data classification (Restricted) → presents with compliance context
-- **Key talking point:** *"Compliance data has to be right. The KC agent checks data quality and sensitivity classifications before answering. It tells you the data is Restricted and sourced from the ATLAS core banking system — that's governance context a compliance officer needs."*
-
----
-
-## Category 5: Data Quality & Trust (KC agent assesses trustworthiness)
-
-Questions where knowing the answer isn't enough — you need to know if you can trust it.
-
-### Scenario 5.1 — FICO Score Trust
-> "What's the average FICO score across our loan portfolio, and should we trust this number?"
-
-- **Scaled failure:** Calculates the average but has no way to assess data quality
-- **KC advantage:** Searches "FICO score loans" → finds the right tables → reads DQ rules attached to the FICO glossary term ("validated in 300-850 range") → presents the average WITH a data quality assessment
-- **Key talking point:** *"Any agent can calculate an average. Only the KC agent can tell you whether to trust it. It reads the data quality rules from Knowledge Catalog and cites them in the answer."*
-
-### Scenario 5.2 — CUSIP Data Quality
-> "Show me our CUSIP-level holdings across all portfolios. Are there any data issues?"
-
-- **Scaled failure:** Might query `silver_holdings` but can't assess quality
-- **KC advantage:** Searches "CUSIP holdings" → reads CUSIP glossary term with DQ rules ("9-character alphanumeric format") → flags format validation status → presents holdings with governance notes
-- **Key talking point:** *"The DQ rule attached to the CUSIP glossary term is centrally governed in Knowledge Catalog. Every agent that touches CUSIP data automatically knows the quality standard."*
+- **Tier 4 (`4 Consent & Return Abuse`)**
+  > Identify VIP or high-risk customers whose return and promo activity flags abuse risk, showing only their marketing consent verification status and high-value refunds.
+  - *Tables*: `retail_gold.gold_promo_fraud_scoring`, `retail_gold.gold_return_fraud_analytics`, `retail_silver.silver_privacy_consents`, `retail_silver.silver_high_value_refunds`
+  - *Glossary*: `[Retail] Return Abuse Alert`, `[Retail] Marketing Consent & Verification`
+  - *Expected behavior*: Only KC discovers `gold_promo_fraud_scoring` via `[Retail] Return Abuse Alert` and `[Retail] Marketing Consent & Verification`, respects PII/consent governance, and joins high-value refund activity.
 
 ---
 
-## Category 6: The "Impossible" Question (Scaled agent completely fails)
+## 3. PRIVACY & COMPLIANCE
+*Personas: Privacy & Compliance Officer*
 
-Multi-table, multi-domain questions that require discovering relationships between data assets.
+- **Tier 1 (`1 BNPL Risk Tiers`)**
+  > Give me a breakdown of our BNPL plans by plan type, risk rating, and average Return-Risk score.
+  - *Tables*: `retail_gold.gold_bnpl_plan_summary`
+  - *Glossary*: `[Retail] Return-Risk Score`
+  - *Expected behavior*: All three agents query `gold_bnpl_plan_summary` and return plan counts, total outstanding, and `avg_return_risk_score` by `plan_type` and `risk_rating`.
 
-### Scenario 6.1 — CRE Stress Test
-> "If commercial real estate defaults increased 5%, what would happen to our capital ratios?"
+- **Tier 2 (`2 Vintage Delinquency`)**
+  > Are BNPL delinquencies trending up or down across origination vintages, and which segments have the highest 90+ day delinquency rate?
+  - *Tables*: `retail_gold.gold_bnpl_delinquency_analysis`, `retail_gold.gold_bnpl_plan_summary`, `retail_snapshots.snapshot_bnpl_vintage`
+  - *Glossary*: `[Retail] BNPL Delinquency Rate`
+  - *Expected behavior*: Basic fails (`gold_bnpl_plan_summary` has no vintage column). Scaled gets confused across `gold_bnpl_plan_summary`, `silver_bnpl_plans`, and `snapshot_bnpl_vintage`. KC uses `[Retail] BNPL Delinquency Rate` to query `gold_bnpl_delinquency_analysis` by `vintage` and `segment`.
 
-- **Scaled failure:** Has no idea which tables to combine. Requires `gold_loan_portfolio_summary` (CRE exposure) + `gold_capital_adequacy` (current ratios) + `gold_delinquency_analysis` (default rates). Agent likely hallucinates or gives up.
-- **KC advantage:** Multiple searches → discovers all three tables → reads lineage to understand relationships → constructs multi-table scenario analysis → cites all sources and glossary terms
-- **Key talking point:** *"This is a question a CFO asks every quarter. The scaled agent can't even figure out where to start. The KC agent discovers three tables, understands their relationships through lineage, and constructs the analysis. That's the difference between a toy agent and an enterprise agent."*
+- **Tier 3 (`3 PCI & PII Scope`)**
+  > Which tables contain PCI-DSS payment card data or CCPA-regulated PII in Knowledge Catalog, and what are their data classification and access control levels?
+  - *Tables*: `retail_silver.silver_store_cards`, `retail_silver.silver_customers`, `retail_silver.silver_privacy_consents`, `retail_gold.gold_compliance_dashboard`
+  - *Expected behavior*: Basic and Scaled cannot read catalog aspects. KC inspects `retail-data-classification`, `retail-access-control`, and `retail-regulatory` aspects across payment card and customer tables.
 
-### Scenario 6.2 — Cross-Sell Opportunity
-> "Which of our wealth management clients should we cross-sell a mortgage to?"
-
-- **Scaled failure:** Requires joining wealth client data (FORTUNA) with lending data (ATLAS). Scaled agent can't reason about cross-system joins.
-- **KC advantage:** Discovers `gold_customer_360` bridges both systems → queries HNW clients with high AUM but no active mortgage → presents as a cross-sell opportunity list with relationship context
-- **Key talking point:** *"Cross-selling requires data from two completely separate core systems. The KC agent discovers the gold table that bridges them. Without Knowledge Catalog, you'd need a developer to hardcode that join for every use case."*
-
----
-
-## Recommended Demo Flow
-
-### Without Snowflake (~20 minutes)
-
-| Step | Scenario | What to show | Time |
-|---|---|---|---|
-| 1 | 1.1 — Top customers | All 3 agents succeed → baseline | 2 min |
-| 2 | 1.2 — Loan portfolio | All 3 succeed → "not a model issue" | 1 min |
-| 3 | 2.1 — Suspicious activity | Scaled picks wrong table → KC finds right one | 3 min |
-| 4 | 3.1 — HNW total exposure | Scaled misses cross-domain → KC discovers gold table | 3 min |
-| 5 | 4.1 — Basel III capital | KC cites glossary definitions & regulatory context | 3 min |
-| 6 | 5.1 — FICO trust | KC cites data quality rules & trust assessment | 3 min |
-| 7 | 6.1 — CRE stress test | Scaled fails completely → KC multi-table reasoning | 3 min |
-| 8 | Knowledge Catalog UI | Walk through glossary, lineage, DQ in the console | 2 min |
-
-### With Snowflake (~28 minutes)
-
-Run steps 1-8 above, then switch to the **Multi-Cloud** narrative tab:
-
-| Step | Scenario | What to show | Time |
-|---|---|---|---|
-| 9 | Visualization | Point out the Snowflake cluster (cyan, bottom-right) | 1 min |
-| 10 | 7.2 — Benchmark comparison | KC queries BQ + Snowflake, calculates over/under-performance | 3 min |
-| 11 | 7.3 — Yield curve + NIM | KC combines SOFR/Treasury yields (Snowflake) with NIM (BQ) | 3 min |
-| 12 | 7.5 — FX rate comparison | KC reconciles internal vs external FX rates across platforms | 1 min |
-
-> **Note:** If Snowflake is not configured (`SNOWFLAKE_ACCOUNT` not set), the Multi-Cloud
-> narrative tab is hidden, the Snowflake cluster is invisible, and the demo works exactly
-> as before with Categories 1-6 only. No changes needed — the app handles this automatically.
-
-## After Each KC Agent Answer, Highlight:
-
-1. **"It searched before it queried"** — show the `search_entries` tool call
-2. **"It chose the right table and explained why"** — table selection rationale citing metadata
-3. **"It cited the glossary"** — business term definitions in the response
-4. **"It checked data quality"** — DQ rules and trust assessment
-5. **"It traced the lineage"** — source system attribution (ATLAS / FORTUNA / ARGUS)
-6. **"It flagged sensitivity"** — data classification level in the response
+- **Tier 4 (`4 Dashboard Lineage & Audit`)**
+  > Which PCI-scoped or PII-classified columns feed our compliance and executive dashboards, what is their lineage back to the source system, and are all compliance schedules met?
+  - *Tables*: `retail_gold.gold_compliance_dashboard`, `retail_dashboards.vw_compliance_summary`, `retail_dashboards.vw_executive_kpis`, `retail_silver.silver_compliance_attestations`
+  - *Expected behavior*: Only KC combines catalog classification/lineage metadata with live SQL over `gold_compliance_dashboard` to report which compliance schedules are met vs at risk.
 
 ---
 
-## Category 7: Multi-Cloud Discovery (Multi-cloud KC agent with Snowflake enabled)
+## 4. CROSS-CLOUD (NEXUS · Snowflake — KC Agent Only)
+*Available exclusively on the KC Agent tab (disabled with explanatory tooltip on Basic & Scaled).*
 
-Demonstrates that the Multi-cloud KC agent discovers and queries data across BigQuery and Snowflake.
-Requires Snowflake integration to be configured (`SNOWFLAKE_ACCOUNT` set).
-Basic, Scaled, and BQ-only KC agents cannot answer these questions — they lack the `query_snowflake` tool.
+- **Tier 1 (`1 NEXUS Discovery`)**
+  > What external syndicated retail market intelligence tables are available in the NEXUS catalog?
+  - *Catalog Entries*: `retail-nexus-market-intel` (`nexus_competitor_prices`, `nexus_category_market_share`, `nexus_consumer_panel`, `nexus_regional_demand_index`, `nexus_promo_calendar_benchmark`, `nexus_basket_affinity`)
 
-### Scenario 7.1 — Current Security Pricing
-> "What are the latest closing prices from NEXUS for the securities in our top wealth portfolios?"
+- **Tier 2 (`2 Cross-Cloud Joins`)**
+  > Which NEXUS syndicated tables can I join to our Gold category and assortment performance data, and on what keys?
+  - *Catalog Entries & Targets*: `nexus_category_market_share`, `nexus_competitor_prices`, `nexus_basket_affinity` → `gold_assortment_performance`, `gold_gross_margin_analysis`, `gold_category_manager_scorecard`
 
-- **Other agents fail:** No access to NEXUS pricing data in Snowflake
-- **Multi-cloud KC:** Searches KC → discovers `gold_portfolio_performance` (BQ) + `security_prices` (Snowflake) → queries both → combines on CUSIP
-- **Key talking point:** *"The agent discovered that current pricing lives in an external vendor's Snowflake database. No hardcoded connections — Knowledge Catalog told it where to look."*
+- **Tier 3 (`3 License & Residency`)**
+  > What is the license classification and data residency of our NEXUS syndicated data, and who owns the external vendor agreement?
+  - *Governance Aspects*: `classification_level = "Third-Party Licensed"`, `access_level = "External Vendor Agreement"`, `cloud_platform = "Snowflake"`, `data_residency = "External / Non-GCP"`, `owner = "Sarah Jenkins, VP of Merchandising Analytics & Enterprise Data Procurement"`
 
-### Scenario 7.2 — Benchmark Comparison
-> "How do our portfolios compare to their benchmark indices this year? Use the external benchmark returns data."
-
-- **Other agents fail:** Can only see internal BQ data, not external benchmark returns
-- **Multi-cloud KC:** Finds `gold_portfolio_performance` (BQ) + `benchmark_returns` (Snowflake) → calculates over/under-performance
-- **Key talking point:** *"Portfolio returns from our internal system, benchmark returns from an external vendor in Snowflake — the Multi-cloud KC agent bridges both seamlessly."*
-
-### Scenario 7.3 — Yield Curve + NIM
-> "Show me the current SOFR and Treasury yield curve alongside our net interest margin. How sensitive is our NIM to rate changes?"
-
-- **Other agents fail:** No access to real-time yield curve data
-- **Multi-cloud KC:** Finds `gold_net_interest_margin` (BQ) + `interest_rate_curves` (Snowflake with SOFR, Fed Funds, Treasury 2Y/5Y/10Y/30Y) → presents NIM with rate context
-- **Key talking point:** *"The yield curve comes from NEXUS in Snowflake, NIM from our internal analytics in BigQuery. Knowledge Catalog connects them."*
-
-### Scenario 7.4 — Credit Spread Exposure
-> "What's our credit spread exposure by sector? Show current market spreads alongside our portfolio risk."
-
-- **Other agents fail:** Can see internal risk metrics but not current market spreads
-- **Multi-cloud KC:** Finds `gold_market_risk_var` (BQ) + `credit_spreads` (Snowflake) → combines risk metrics with live market spreads
-- **Key talking point:** *"Risk models in BigQuery, market spreads in Snowflake — the agent discovers the right data regardless of where it lives."*
-
-### Scenario 7.5 — FX Rate Discrepancy
-> "Compare our internal FX rates with the NEXUS spot rates. Are there any significant discrepancies?"
-
-- **Other agents fail:** Only see internal FX rates
-- **Multi-cloud KC:** Finds `bronze_fx_rates` (BQ) + `fx_spot_rates` (Snowflake) → compares internal vs external rates
-- **Key talking point:** *"Reconciling internal and external data sources is a common banking workflow. The agent finds both through KC without being told where they are."*
-
-### Scenario 7.6 — Security Fundamentals
-> "What are the P/E ratios and dividend yields for the securities in our largest portfolios? Use NEXUS fundamentals data."
-
-- **Other agents fail:** No access to NEXUS fundamentals in Snowflake
-- **Multi-cloud KC:** Finds `security_fundamentals` (Snowflake) → queries P/E, EPS, dividend yield, market cap
-- **Key talking point:** *"External market data enriches internal portfolio analysis. The agent finds it through catalog metadata, not hardcoded table lists."*
+- **Tier 4 (`4 Margin & Price Benchmarks`)**
+  > How do our margins on top-selling categories compare to syndicated market benchmarks, and which of our SKUs are priced above competitors?
+  - *C1 (Catalog-only)*: Queries BigQuery `gold_assortment_performance`, `gold_gross_margin_analysis`, and `silver_product_skus`, identifies `nexus_category_market_share` and `nexus_competitor_prices` plus join keys from Knowledge Catalog, and explicitly notes that live Snowflake cross-cloud query execution is not connected in C1 without fabricating numbers.
+  - *C2 (Live Snowflake)*: Executes `query_snowflake` and combines Snowflake benchmark rows with BigQuery actuals.

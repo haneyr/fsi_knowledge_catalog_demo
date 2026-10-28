@@ -1,0 +1,44 @@
+CREATE OR REPLACE TABLE `${project_id}.retail_bronze.bronze_privacy_consents` AS
+SELECT
+  CONCAT('CNS-', LPAD(CAST(n AS STRING), 8, '0')) AS kyc_id,
+  CONCAT('CUST-', LPAD(CAST(n AS STRING), 8, '0')) AS customer_id,
+  CASE MOD(n, 3) WHEN 0 THEN 'STANDARD_OPT_IN' WHEN 1 THEN 'ENHANCED_PRIVACY_REVIEW' ELSE 'EXPRESS_CHECKOUT_CONSENT' END AS due_diligence_level,
+  CASE MOD(n, 4) WHEN 0 THEN 'Completed' WHEN 1 THEN 'Completed' WHEN 2 THEN 'In Progress' ELSE 'Expired' END AS verification_status,
+  DATE_SUB(CURRENT_DATE(), INTERVAL CAST(30 + MOD(n, 300) AS INT64) DAY) AS last_review_date,
+  CASE
+    WHEN MOD(n, 5) IN (0, 4) THEN
+      CASE WHEN MOD(n, 100) = 0
+        THEN DATE_SUB(CURRENT_DATE(), INTERVAL CAST(1 + MOD(n, 25) AS INT64) DAY)
+        ELSE DATE_ADD(CURRENT_DATE(), INTERVAL CAST(15 + MOD(n, 320) AS INT64) DAY)
+      END
+    WHEN MOD(n, 5) IN (1, 2) THEN
+      CASE WHEN MOD(n, 25) = 0
+        THEN DATE_SUB(CURRENT_DATE(), INTERVAL CAST(1 + MOD(n, 35) AS INT64) DAY)
+        ELSE DATE_ADD(CURRENT_DATE(), INTERVAL CAST(10 + MOD(n, 280) AS INT64) DAY)
+      END
+    ELSE
+      CASE WHEN MOD(n, 11) = 0
+        THEN DATE_SUB(CURRENT_DATE(), INTERVAL CAST(1 + MOD(n, 45) AS INT64) DAY)
+        ELSE DATE_ADD(CURRENT_DATE(), INTERVAL CAST(7 + MOD(n, 240) AS INT64) DAY)
+      END
+  END AS next_review_date,
+  CASE MOD(n, 5) WHEN 0 THEN 'Low' WHEN 1 THEN 'Watch' WHEN 2 THEN 'Elevated' WHEN 3 THEN 'High Risk' ELSE 'Low' END AS risk_score_category,
+  CAST(CASE MOD(n, 5)
+    WHEN 0 THEN 6 + FLOOR(RAND() * 18)
+    WHEN 4 THEN 8 + FLOOR(RAND() * 18)
+    WHEN 1 THEN 30 + FLOOR(RAND() * 18)
+    WHEN 2 THEN 52 + FLOOR(RAND() * 18)
+    ELSE 74 + FLOOR(RAND() * 24)
+  END AS INT64) AS risk_score,
+  CASE WHEN MOD(n, 50) = 0 THEN TRUE ELSE FALSE END AS pep_flag,
+  CASE WHEN MOD(n, 100) = 0 THEN TRUE ELSE FALSE END AS sanctions_flag,
+  CASE WHEN MOD(n, 200) = 0 THEN TRUE ELSE FALSE END AS adverse_media_flag,
+  CASE MOD(n, 4)
+    WHEN 0 THEN 'Email Double Opt-In' WHEN 1 THEN 'SMS OTP Verification' WHEN 2 THEN 'Loyalty App Passkey' ELSE 'In-Store POS Consent'
+  END AS id_document_type,
+  CASE MOD(n, 3) WHEN 0 THEN 'US' WHEN 1 THEN 'US' ELSE CASE MOD(n, 10) WHEN 0 THEN 'GB' WHEN 1 THEN 'CA' WHEN 2 THEN 'MX' ELSE 'US' END END AS country_of_citizenship,
+  CASE WHEN MOD(n, 30) = 0 THEN CONCAT('HH-', LPAD(CAST(n AS STRING), 8, '0')) ELSE NULL END AS beneficial_owner_id,
+  CONCAT('ANL-', LPAD(CAST(MOD(n, 50) + 1 AS STRING), 3, '0')) AS reviewer_id,
+  TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
+  'ORION' AS source_system
+FROM UNNEST(GENERATE_ARRAY(1, 20000)) AS n

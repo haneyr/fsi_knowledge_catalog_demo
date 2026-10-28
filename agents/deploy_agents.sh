@@ -14,7 +14,7 @@
 # limitations under the License.
 
 ####################################################################################
-# FSI Knowledge Catalog Demo — Deploy Agents to Vertex AI Agent Engine
+# [Retail] Northwind Retail Knowledge Catalog Demo — Deploy Agents to Vertex AI Agent Engine
 #
 # Prerequisites:
 #   1. pip install google-adk google-cloud-aiplatform google-cloud-bigquery
@@ -30,14 +30,28 @@
 
 set -e
 
+export GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+export CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false
+export PATH="$HOME/.local/bin:$PATH"
+
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT before running this script}"
 REGION="${GOOGLE_CLOUD_LOCATION:-us-central1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Grant baseline IAM to all agent identities in the project via principalSet.
+# Ensure retail_agent_analytics dataset exists in US with [Retail] description and labels
+bq --project_id="${PROJECT_ID}" mk --dataset --location=US \
+  --description="[Retail] Northwind Retail Agent Analytics telemetry dataset" \
+  --label=use-case:retail --label=demo:retail-knowledge-catalog --label=owner:alitch --label=env:demo \
+  "${PROJECT_ID}:retail_agent_analytics" 2>/dev/null || \
+bq --project_id="${PROJECT_ID}" update \
+  --description="[Retail] Northwind Retail Agent Analytics telemetry dataset" \
+  --set_label=use-case:retail --set_label=demo:retail-knowledge-catalog --set_label=owner:alitch --set_label=env:demo \
+  "${PROJECT_ID}:retail_agent_analytics" >/dev/null 2>&1 || true
+
+# Grant foundational IAM to all agent identities in the project via principalSet.
 # Individual dataset-level grants are applied after each agent deploys.
 grant_agent_identity_permissions() {
-    echo "=== Granting baseline IAM to agent identities ==="
+    echo "=== Granting foundational IAM to agent identities ==="
     PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)' 2>/dev/null) || true
     if [ -z "${PROJECT_NUMBER}" ]; then
         echo "  Skipping (cannot resolve project number)"
@@ -54,10 +68,10 @@ grant_agent_identity_permissions() {
 
     for role in roles/serviceusage.serviceUsageConsumer roles/browser roles/aiplatform.expressUser roles/aiplatform.agentContextEditor roles/bigquery.jobUser; do
         gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-            --member="${PRINCIPAL_SET}" --role="${role}" --quiet 2>/dev/null || true
+            --member="${PRINCIPAL_SET}" --role="${role}" --condition=None --quiet 2>/dev/null || true
         echo "  Granted ${role} to all agents"
     done
-    echo "Agent identity baseline permissions configured."
+    echo "Agent identity foundational permissions configured."
 }
 
 # Grant dataset-level BQ access to a specific agent identity.
@@ -93,25 +107,25 @@ else:
 " 2>/dev/null || echo "  Warning: could not grant access on ${ds}"
     done
 
-    # Grant WRITER on agent_analytics for BQ Agent Analytics plugin
+    # Grant WRITER on retail_agent_analytics for BQ Agent Analytics plugin
     python3 -c "
 from google.cloud import bigquery
 client = bigquery.Client(project='${PROJECT_ID}')
-dataset = client.get_dataset('agent_analytics')
+dataset = client.get_dataset('retail_agent_analytics')
 entry = bigquery.AccessEntry('WRITER', 'iamMember', '${PRINCIPAL}')
 entries = list(dataset.access_entries)
 if entry not in entries:
     entries.append(entry)
     dataset.access_entries = entries
     client.update_dataset(dataset, ['access_entries'])
-    print('  Granted WRITER on agent_analytics')
+    print('  Granted WRITER on retail_agent_analytics')
 else:
-    print('  Already has access to agent_analytics')
-" 2>/dev/null || echo "  Warning: could not grant access on agent_analytics"
+    print('  Already has access to retail_agent_analytics')
+" 2>/dev/null || echo "  Warning: could not grant access on retail_agent_analytics"
 }
 
-NOKC_DATASETS="fsi_bronze_nokc fsi_silver_nokc fsi_gold_nokc fsi_reference_nokc fsi_dashboards_nokc fsi_staging_nokc fsi_snapshots_nokc fsi_audit_nokc"
-ENRICHED_DATASETS="fsi_bronze fsi_silver fsi_gold fsi_reference fsi_dashboards fsi_staging fsi_snapshots fsi_audit fsi_scan_results"
+NOKC_DATASETS="retail_bronze_nokc retail_silver_nokc retail_gold_nokc retail_reference_nokc retail_dashboards_nokc retail_staging_nokc retail_snapshots_nokc retail_audit_nokc"
+ENRICHED_DATASETS="retail_bronze retail_silver retail_gold retail_reference retail_dashboards retail_staging retail_snapshots retail_audit retail_scan_results"
 
 # Grant required IAM permissions to the Agent Engine service account
 grant_agent_engine_permissions() {
@@ -126,7 +140,7 @@ grant_agent_engine_permissions() {
     for role in roles/bigquery.jobUser roles/bigquery.dataEditor roles/dataplex.viewer roles/dataplex.catalogEditor roles/datalineage.viewer; do
         if gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
             --member="serviceAccount:${SA}" \
-            --role="${role}" --quiet 2>/dev/null | tail -1; then
+            --role="${role}" --condition=None --quiet 2>/dev/null | tail -1; then
             echo "  Granted ${role}"
         else
             echo "  Skipped ${role} (may lack IAM permissions in CI — grant manually or via bootstrap)"
@@ -142,7 +156,7 @@ create_env_files() {
 GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
 GOOGLE_CLOUD_LOCATION=${REGION}
 GOOGLE_GENAI_USE_VERTEXAI=True
-BQ_ANALYTICS_DATASET=agent_analytics
+BQ_ANALYTICS_DATASET=retail_agent_analytics
 EOF
     done
     # All agents: opt out of Context-Aware Access mTLS binding so Agent
@@ -182,23 +196,41 @@ read_agent_id() {
         --project="${PROJECT_ID}" 2>/dev/null || true
 }
 
-deploy_basic() {
-    echo "=== Deploying FSI Basic Agent ==="
-    local existing_id update_flag output
-    existing_id=$(read_agent_id "basic-agent-id")
-    update_flag=""
-    if [ -n "${existing_id}" ]; then
-        echo "  Updating existing agent: ${existing_id}"
-        update_flag="--agent_engine_id=${existing_id}"
+save_agent_id() {
+    local secret_name="$1"
+    local agent_id="$2"
+    if [ -z "${agent_id}" ]; then
+        return 0
     fi
-    output=$(adk deploy agent_engine \
-        --project="${PROJECT_ID}" \
-        --region="${REGION}" \
-        --display_name="FSI Basic Agent" \
-        ${update_flag} \
-        "${SCRIPT_DIR}/agent_basic" 2>&1)
-    echo "$output"
-    BASIC_AGENT_ID=$(echo "$output" | extract_agent_id)
+    gcloud secrets create "${secret_name}" --replication-policy="automatic" \
+        --project="${PROJECT_ID}" --quiet 2>/dev/null || true
+    printf "%s" "${agent_id}" | gcloud secrets versions add "${secret_name}" \
+        --data-file=- --project="${PROJECT_ID}" --quiet 2>/dev/null || true
+}
+
+deploy_basic() {
+    echo "=== Deploying Retail Basic Agent ==="
+    local existing_id update_flag output
+    existing_id=$(read_agent_id "retail-basic-agent-id")
+    update_flag=""
+    if [ -n "${existing_id}" ] && [ "${SKIP_DEPLOY_IF_EXISTS:-0}" = "1" ]; then
+        echo "  Reusing existing agent (SKIP_DEPLOY_IF_EXISTS=1): ${existing_id}"
+        BASIC_AGENT_ID="${existing_id}"
+    else
+        if [ -n "${existing_id}" ]; then
+            echo "  Updating existing agent: ${existing_id}"
+            update_flag="--agent_engine_id=${existing_id}"
+        fi
+        output=$(adk deploy agent_engine \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --display_name="[Retail] retail-agent-basic" \
+            ${update_flag} \
+            "${SCRIPT_DIR}/agent_basic" < /dev/null 2>&1)
+        echo "$output"
+        BASIC_AGENT_ID=$(echo "$output" | extract_agent_id)
+        save_agent_id "retail-basic-agent-id" "${BASIC_AGENT_ID}"
+    fi
     export BASIC_AGENT_ID
     echo "Basic agent deployed: ${BASIC_AGENT_ID}"
     echo "  Granting _nokc dataset access..."
@@ -206,22 +238,28 @@ deploy_basic() {
 }
 
 deploy_scaled() {
-    echo "=== Deploying FSI Scaled Agent ==="
+    echo "=== Deploying Retail Scaled Agent ==="
     local existing_id update_flag output
-    existing_id=$(read_agent_id "scaled-agent-id")
+    existing_id=$(read_agent_id "retail-scaled-agent-id")
     update_flag=""
-    if [ -n "${existing_id}" ]; then
-        echo "  Updating existing agent: ${existing_id}"
-        update_flag="--agent_engine_id=${existing_id}"
+    if [ -n "${existing_id}" ] && [ "${SKIP_DEPLOY_IF_EXISTS:-0}" = "1" ]; then
+        echo "  Reusing existing agent (SKIP_DEPLOY_IF_EXISTS=1): ${existing_id}"
+        SCALED_AGENT_ID="${existing_id}"
+    else
+        if [ -n "${existing_id}" ]; then
+            echo "  Updating existing agent: ${existing_id}"
+            update_flag="--agent_engine_id=${existing_id}"
+        fi
+        output=$(adk deploy agent_engine \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --display_name="[Retail] retail-agent-scaled" \
+            ${update_flag} \
+            "${SCRIPT_DIR}/agent_scaled" < /dev/null 2>&1)
+        echo "$output"
+        SCALED_AGENT_ID=$(echo "$output" | extract_agent_id)
+        save_agent_id "retail-scaled-agent-id" "${SCALED_AGENT_ID}"
     fi
-    output=$(adk deploy agent_engine \
-        --project="${PROJECT_ID}" \
-        --region="${REGION}" \
-        --display_name="FSI Scaled Agent" \
-        ${update_flag} \
-        "${SCRIPT_DIR}/agent_scaled" 2>&1)
-    echo "$output"
-    SCALED_AGENT_ID=$(echo "$output" | extract_agent_id)
     export SCALED_AGENT_ID
     echo "Scaled agent deployed: ${SCALED_AGENT_ID}"
     echo "  Granting _nokc dataset access..."
@@ -229,22 +267,28 @@ deploy_scaled() {
 }
 
 deploy_kc() {
-    echo "=== Deploying FSI KC Agent ==="
+    echo "=== Deploying Retail KC Agent ==="
     local existing_id update_flag output
-    existing_id=$(read_agent_id "kc-agent-id")
+    existing_id=$(read_agent_id "retail-kc-agent-id")
     update_flag=""
-    if [ -n "${existing_id}" ]; then
-        echo "  Updating existing agent: ${existing_id}"
-        update_flag="--agent_engine_id=${existing_id}"
+    if [ -n "${existing_id}" ] && [ "${SKIP_DEPLOY_IF_EXISTS:-0}" = "1" ]; then
+        echo "  Reusing existing agent (SKIP_DEPLOY_IF_EXISTS=1): ${existing_id}"
+        KC_AGENT_ID="${existing_id}"
+    else
+        if [ -n "${existing_id}" ]; then
+            echo "  Updating existing agent: ${existing_id}"
+            update_flag="--agent_engine_id=${existing_id}"
+        fi
+        output=$(adk deploy agent_engine \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --display_name="[Retail] retail-agent-kc" \
+            ${update_flag} \
+            "${SCRIPT_DIR}/agent_kc" < /dev/null 2>&1)
+        echo "$output"
+        KC_AGENT_ID=$(echo "$output" | extract_agent_id)
+        save_agent_id "retail-kc-agent-id" "${KC_AGENT_ID}"
     fi
-    output=$(adk deploy agent_engine \
-        --project="${PROJECT_ID}" \
-        --region="${REGION}" \
-        --display_name="FSI KC Agent" \
-        ${update_flag} \
-        "${SCRIPT_DIR}/agent_kc" 2>&1)
-    echo "$output"
-    KC_AGENT_ID=$(echo "$output" | extract_agent_id)
     export KC_AGENT_ID
     echo "KC agent deployed: ${KC_AGENT_ID}"
     echo "  Granting enriched dataset access..."
@@ -257,7 +301,7 @@ deploy_kc() {
         KC_PRINCIPAL="principal://agents.global.org-${ORG_ID}.system.id.goog/resources/aiplatform/projects/${PROJECT_NUMBER}/locations/${REGION}/reasoningEngines/${KC_AGENT_ID}"
         for role in roles/dataplex.viewer roles/dataplex.catalogEditor roles/datalineage.viewer roles/mcp.toolUser; do
             gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-                --member="${KC_PRINCIPAL}" --role="${role}" --quiet 2>/dev/null || true
+                --member="${KC_PRINCIPAL}" --role="${role}" --condition=None --quiet 2>/dev/null || true
             echo "  Granted ${role} to KC agent"
         done
     fi

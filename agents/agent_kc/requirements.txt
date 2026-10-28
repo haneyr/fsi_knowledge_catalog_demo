@@ -1,8 +1,8 @@
-google-adk>=0.3.0
+google-adk==2.8.0
 google-cloud-bigquery>=3.0
-google-cloud-aiplatform>=1.60
+google-cloud-aiplatform==2.6.0
 google-auth>=2.0
-mcp>=1.0
+mcp==1.30.0
 snowflake-connector-python>=3.0
 google-cloud-bigquery-storage>=2.0
 pyarrow>=14.0

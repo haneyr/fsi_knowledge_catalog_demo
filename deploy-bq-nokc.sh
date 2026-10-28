@@ -27,6 +27,11 @@
 
 set -e
 
+# Disable gcloud mTLS client-cert helper (avoids Python 3.14 segfault in bq CLI)
+export GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+export CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false
+export RETAIL_TAXONOMY_DISPLAY_NAME="${RETAIL_TAXONOMY_DISPLAY_NAME:-Retail Demo Sensitivity Taxonomy (alitch)}"
+
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT before running this script}"
 LOCATION="us"
 
@@ -38,20 +43,27 @@ fi
 
 # Source → _nokc dataset mapping
 DATASETS=(
-    fsi_bronze
-    fsi_silver
-    fsi_gold
-    fsi_reference
-    fsi_dashboards
-    fsi_staging
-    fsi_snapshots
-    fsi_audit
+    retail_bronze
+    retail_silver
+    retail_gold
+    retail_reference
+    retail_dashboards
+    retail_staging
+    retail_snapshots
+    retail_audit
 )
 
-echo "=== Creating _nokc datasets ==="
+echo "=== Creating _nokc datasets (8 shadow datasets with [Retail] descriptions & labels) ==="
 for ds in "${DATASETS[@]}"; do
+    desc="[Retail] Uncataloged shadow dataset (${ds}_nokc) for Scaled Agent comparison"
     bq --project_id="${PROJECT_ID}" mk --location="${LOCATION}" \
-        --dataset "${PROJECT_ID}:${ds}_nokc" 2>/dev/null || echo "  ${ds}_nokc already exists"
+        --description="${desc}" \
+        --label=use-case:retail --label=demo:retail-knowledge-catalog --label=owner:alitch --label=env:demo \
+        --dataset "${PROJECT_ID}:${ds}_nokc" 2>/dev/null || \
+    bq --project_id="${PROJECT_ID}" update \
+        --description="${desc}" \
+        --set_label=use-case:retail --set_label=demo:retail-knowledge-catalog --set_label=owner:alitch --set_label=env:demo \
+        --dataset "${PROJECT_ID}:${ds}_nokc" >/dev/null 2>&1 || echo "  ${ds}_nokc already exists"
 done
 
 echo "=== Copying tables to _nokc datasets ==="

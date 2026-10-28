@@ -25,7 +25,7 @@ import time
 
 from common import (
     load_config, api_call, LINEAGE_URL,
-    ATLAS_BRONZE, FORTUNA_BRONZE, ARGUS_BRONZE, BRONZE_TABLES, SILVER_TABLES,
+    ORION_BRONZE, LUMEN_BRONZE, HELIOS_BRONZE, BRONZE_TABLES, SILVER_TABLES,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,85 +39,85 @@ def main():
     def bq_fqn(ds, tbl):
         return f"bigquery:{pid}.{ds}.{tbl}"
 
-    atlas_src = {
-        "CUSTOMERS": "db2:atlas-prod.CORE_BANKING.CUSTOMERS",
-        "ACCOUNTS": "db2:atlas-prod.CORE_BANKING.ACCOUNTS",
-        "TRANSACTIONS": "db2:atlas-prod.CORE_BANKING.TRANSACTIONS",
-        "LOANS": "db2:atlas-prod.CORE_BANKING.LOANS",
-        "LOAN_PAYMENTS": "db2:atlas-prod.CORE_BANKING.LOAN_PAYMENTS",
-        "CREDIT_CARDS": "db2:atlas-prod.CORE_BANKING.CREDIT_CARDS",
-        "CARD_TRANSACTIONS": "db2:atlas-prod.CORE_BANKING.CARD_TRANSACTIONS",
-        "FRAUD_ALERTS": "db2:atlas-prod.CORE_BANKING.FRAUD_ALERTS",
-        "KYC_RECORDS": "db2:atlas-prod.CORE_BANKING.KYC_RECORDS",
-        "BRANCHES": "db2:atlas-prod.CORE_BANKING.BRANCHES",
-        "EMPLOYEES": "db2:atlas-prod.CORE_BANKING.EMPLOYEES",
-        "WIRE_TRANSFERS": "db2:atlas-prod.CORE_BANKING.WIRE_TRANSFERS",
-        "ACH_TRANSFERS": "db2:atlas-prod.CORE_BANKING.ACH_TRANSFERS",
-        "ATM_TRANSACTIONS": "db2:atlas-prod.CORE_BANKING.ATM_TRANSACTIONS",
+    orion_src = {
+        "CUSTOMERS": "db2:orion-prod.STORE_POS.CUSTOMERS",
+        "ACCOUNTS": "db2:orion-prod.STORE_POS.ACCOUNTS",
+        "TRANSACTIONS": "db2:orion-prod.STORE_POS.TRANSACTIONS",
+        "BNPL_PLANS": "db2:orion-prod.STORE_POS.BNPL_PLANS",
+        "BNPL_PAYMENTS": "db2:orion-prod.STORE_POS.BNPL_PAYMENTS",
+        "CREDIT_CARDS": "db2:orion-prod.STORE_POS.CREDIT_CARDS",
+        "CARD_TRANSACTIONS": "db2:orion-prod.STORE_POS.CARD_TRANSACTIONS",
+        "FRAUD_ALERTS": "db2:orion-prod.STORE_POS.FRAUD_ALERTS",
+        "KYC_RECORDS": "db2:orion-prod.STORE_POS.KYC_RECORDS",
+        "STORES": "db2:orion-prod.STORE_POS.STORES",
+        "EMPLOYEES": "db2:orion-prod.STORE_POS.EMPLOYEES",
+        "WIRE_TRANSFERS": "db2:orion-prod.STORE_POS.WIRE_TRANSFERS",
+        "ACH_TRANSFERS": "db2:orion-prod.STORE_POS.ACH_TRANSFERS",
+        "ATM_TRANSACTIONS": "db2:orion-prod.STORE_POS.ATM_TRANSACTIONS",
     }
 
-    fortuna_src = {
-        "WM_CLIENTS": "oracle:fortuna-prod.WEALTH_MGMT.WM_CLIENTS",
-        "PORTFOLIOS": "oracle:fortuna-prod.WEALTH_MGMT.PORTFOLIOS",
-        "HOLDINGS": "oracle:fortuna-prod.WEALTH_MGMT.HOLDINGS",
-        "TRADES": "oracle:fortuna-prod.WEALTH_MGMT.TRADES",
-        "SECURITIES": "oracle:fortuna-prod.WEALTH_MGMT.SECURITIES",
-        "ADVISORS": "oracle:fortuna-prod.WEALTH_MGMT.ADVISORS",
-        "PERFORMANCE": "oracle:fortuna-prod.WEALTH_MGMT.PERFORMANCE",
-        "FEE_SCHEDULES": "oracle:fortuna-prod.WEALTH_MGMT.FEE_SCHEDULES",
-        "BENCHMARKS": "oracle:fortuna-prod.WEALTH_MGMT.BENCHMARKS",
-        "CLIENT_GOALS": "oracle:fortuna-prod.WEALTH_MGMT.CLIENT_GOALS",
-        "RISK_PROFILES": "oracle:fortuna-prod.WEALTH_MGMT.RISK_PROFILES",
-        "DISTRIBUTIONS": "oracle:fortuna-prod.WEALTH_MGMT.DISTRIBUTIONS",
-        "CUSTODIAN_FEEDS": "oracle:fortuna-prod.WEALTH_MGMT.CUSTODIAN_FEEDS",
+    lumen_src = {
+        "WM_CLIENTS": "custom:lumen-prod.DIGITAL_COMMERCE.WM_CLIENTS",
+        "MERCH_ASSORTMENTS": "custom:lumen-prod.DIGITAL_COMMERCE.MERCH_ASSORTMENTS",
+        "HOLDINGS": "custom:lumen-prod.DIGITAL_COMMERCE.HOLDINGS",
+        "TRADES": "custom:lumen-prod.DIGITAL_COMMERCE.TRADES",
+        "PRODUCT_SKUS": "custom:lumen-prod.DIGITAL_COMMERCE.PRODUCT_SKUS",
+        "ADVISORS": "custom:lumen-prod.DIGITAL_COMMERCE.ADVISORS",
+        "PERFORMANCE": "custom:lumen-prod.DIGITAL_COMMERCE.PERFORMANCE",
+        "FEE_SCHEDULES": "custom:lumen-prod.DIGITAL_COMMERCE.FEE_SCHEDULES",
+        "BENCHMARKS": "custom:lumen-prod.DIGITAL_COMMERCE.BENCHMARKS",
+        "CLIENT_GOALS": "custom:lumen-prod.DIGITAL_COMMERCE.CLIENT_GOALS",
+        "RISK_PROFILES": "custom:lumen-prod.DIGITAL_COMMERCE.RISK_PROFILES",
+        "DISTRIBUTIONS": "custom:lumen-prod.DIGITAL_COMMERCE.DISTRIBUTIONS",
+        "CUSTODIAN_FEEDS": "custom:lumen-prod.DIGITAL_COMMERCE.CUSTODIAN_FEEDS",
     }
 
-    argus_src = {
-        "GL_ENTRIES": "oracle:argus-prod.FINANCE_RISK.GL_ENTRIES",
-        "GL_ACCOUNTS": "oracle:argus-prod.FINANCE_RISK.GL_ACCOUNTS",
-        "COST_CENTERS": "oracle:argus-prod.FINANCE_RISK.COST_CENTERS",
-        "REGULATORY_CAPITAL": "oracle:argus-prod.FINANCE_RISK.REGULATORY_CAPITAL",
-        "RISK_EXPOSURES": "oracle:argus-prod.FINANCE_RISK.RISK_EXPOSURES",
-        "COUNTERPARTIES": "oracle:argus-prod.FINANCE_RISK.COUNTERPARTIES",
-        "MARKET_DATA": "oracle:argus-prod.FINANCE_RISK.MARKET_DATA",
-        "STRESS_TESTS": "oracle:argus-prod.FINANCE_RISK.STRESS_TESTS",
-        "AUDIT_EVENTS": "oracle:argus-prod.FINANCE_RISK.AUDIT_EVENTS",
-        "REGULATORY_FILINGS": "oracle:argus-prod.FINANCE_RISK.REGULATORY_FILINGS",
-        "INTEREST_RATES": "oracle:argus-prod.FINANCE_RISK.INTEREST_RATES",
-        "FX_RATES": "oracle:argus-prod.FINANCE_RISK.FX_RATES",
-        "COMPLIANCE_CASES": "oracle:argus-prod.FINANCE_RISK.COMPLIANCE_CASES",
+    helios_src = {
+        "GL_ENTRIES": "custom:helios-prod.MERCH_FINANCE.GL_ENTRIES",
+        "GL_ACCOUNTS": "custom:helios-prod.MERCH_FINANCE.GL_ACCOUNTS",
+        "COST_CENTERS": "custom:helios-prod.MERCH_FINANCE.COST_CENTERS",
+        "REGULATORY_CAPITAL": "custom:helios-prod.MERCH_FINANCE.REGULATORY_CAPITAL",
+        "RISK_EXPOSURES": "custom:helios-prod.MERCH_FINANCE.RISK_EXPOSURES",
+        "COUNTERPARTIES": "custom:helios-prod.MERCH_FINANCE.COUNTERPARTIES",
+        "MARKET_DATA": "custom:helios-prod.MERCH_FINANCE.MARKET_DATA",
+        "STRESS_TESTS": "custom:helios-prod.MERCH_FINANCE.STRESS_TESTS",
+        "AUDIT_EVENTS": "custom:helios-prod.MERCH_FINANCE.AUDIT_EVENTS",
+        "REGULATORY_FILINGS": "custom:helios-prod.MERCH_FINANCE.REGULATORY_FILINGS",
+        "INTEREST_RATES": "custom:helios-prod.MERCH_FINANCE.INTEREST_RATES",
+        "FX_RATES": "custom:helios-prod.MERCH_FINANCE.FX_RATES",
+        "COMPLIANCE_CASES": "custom:helios-prod.MERCH_FINANCE.COMPLIANCE_CASES",
     }
 
-    # Process 1: ATLAS -> Bronze
-    logger.info("Process 1: IBM CDC (ATLAS -> Bronze)")
-    p1 = api_call(f"{base}/processes", "POST", {"displayName": "IBM CDC Replication - ATLAS to BigQuery", "origin": {"sourceType": "CUSTOM", "name": "ibm-cdc-atlas"}})
-    r1 = api_call(f"{LINEAGE_URL}/{p1['name']}/runs", "POST", {"displayName": "ATLAS CDC", "startTime": "2026-04-30T00:00:00Z", "endTime": "2026-04-30T23:59:59Z", "state": "COMPLETED"})
-    l1 = [{"source": {"fullyQualifiedName": fqn}, "target": {"fullyQualifiedName": bq_fqn("fsi_bronze", f"bronze_{name.lower()}")}}
-          for name, fqn in atlas_src.items()]
+    # Process 1: ORION -> Bronze
+    logger.info("Process 1: IBM CDC (ORION -> Bronze)")
+    p1 = api_call(f"{base}/processes", "POST", {"displayName": "IBM CDC Replication - ORION to BigQuery", "origin": {"sourceType": "CUSTOM", "name": "ibm-cdc-orion"}})
+    r1 = api_call(f"{LINEAGE_URL}/{p1['name']}/runs", "POST", {"displayName": "ORION CDC", "startTime": "2026-04-30T00:00:00Z", "endTime": "2026-04-30T23:59:59Z", "state": "COMPLETED"})
+    l1 = [{"source": {"fullyQualifiedName": fqn}, "target": {"fullyQualifiedName": bq_fqn("retail_bronze", f"bronze_{name.lower()}")}}
+          for name, fqn in orion_src.items()]
     api_call(f"{LINEAGE_URL}/{r1['name']}/lineageEvents", "POST", {"startTime": "2026-04-30T00:00:00Z", "endTime": "2026-04-30T23:59:59Z", "links": l1})
     logger.info("  %d links", len(l1))
 
-    # Process 2: FORTUNA -> Bronze
-    logger.info("Process 2: Temenos Extract API (FORTUNA -> Bronze)")
-    p2 = api_call(f"{base}/processes", "POST", {"displayName": "Temenos Extract API - FORTUNA to BigQuery", "origin": {"sourceType": "CUSTOM", "name": "temenos-extract-fortuna"}})
-    r2 = api_call(f"{LINEAGE_URL}/{p2['name']}/runs", "POST", {"displayName": "FORTUNA Extract", "startTime": "2026-04-30T01:00:00Z", "endTime": "2026-04-30T01:30:00Z", "state": "COMPLETED"})
-    l2 = [{"source": {"fullyQualifiedName": fqn}, "target": {"fullyQualifiedName": bq_fqn("fsi_bronze", f"bronze_{name.lower()}")}}
-          for name, fqn in fortuna_src.items()]
+    # Process 2: LUMEN -> Bronze
+    logger.info("Process 2: Salesforce Extract API (LUMEN -> Bronze)")
+    p2 = api_call(f"{base}/processes", "POST", {"displayName": "Salesforce Extract API - LUMEN to BigQuery", "origin": {"sourceType": "CUSTOM", "name": "salesforce-extract-lumen"}})
+    r2 = api_call(f"{LINEAGE_URL}/{p2['name']}/runs", "POST", {"displayName": "LUMEN Extract", "startTime": "2026-04-30T01:00:00Z", "endTime": "2026-04-30T01:30:00Z", "state": "COMPLETED"})
+    l2 = [{"source": {"fullyQualifiedName": fqn}, "target": {"fullyQualifiedName": bq_fqn("retail_bronze", f"bronze_{name.lower()}")}}
+          for name, fqn in lumen_src.items()]
     api_call(f"{LINEAGE_URL}/{r2['name']}/lineageEvents", "POST", {"startTime": "2026-04-30T01:00:00Z", "endTime": "2026-04-30T01:30:00Z", "links": l2})
     logger.info("  %d links", len(l2))
 
-    # Process 3: ARGUS -> Bronze
-    logger.info("Process 3: SAP SLT (ARGUS -> Bronze)")
-    p3 = api_call(f"{base}/processes", "POST", {"displayName": "SAP SLT Replication - ARGUS to BigQuery", "origin": {"sourceType": "CUSTOM", "name": "sap-slt-argus"}})
-    r3 = api_call(f"{LINEAGE_URL}/{p3['name']}/runs", "POST", {"displayName": "ARGUS SLT", "startTime": "2026-04-30T01:00:00Z", "endTime": "2026-04-30T01:45:00Z", "state": "COMPLETED"})
-    l3 = [{"source": {"fullyQualifiedName": fqn}, "target": {"fullyQualifiedName": bq_fqn("fsi_bronze", f"bronze_{name.lower()}")}}
-          for name, fqn in argus_src.items()]
+    # Process 3: HELIOS -> Bronze
+    logger.info("Process 3: SAP SLT (HELIOS -> Bronze)")
+    p3 = api_call(f"{base}/processes", "POST", {"displayName": "SAP SLT Replication - HELIOS to BigQuery", "origin": {"sourceType": "CUSTOM", "name": "sap-slt-helios"}})
+    r3 = api_call(f"{LINEAGE_URL}/{p3['name']}/runs", "POST", {"displayName": "HELIOS SLT", "startTime": "2026-04-30T01:00:00Z", "endTime": "2026-04-30T01:45:00Z", "state": "COMPLETED"})
+    l3 = [{"source": {"fullyQualifiedName": fqn}, "target": {"fullyQualifiedName": bq_fqn("retail_bronze", f"bronze_{name.lower()}")}}
+          for name, fqn in helios_src.items()]
     api_call(f"{LINEAGE_URL}/{r3['name']}/lineageEvents", "POST", {"startTime": "2026-04-30T01:00:00Z", "endTime": "2026-04-30T01:45:00Z", "links": l3})
     logger.info("  %d links", len(l3))
 
     # Process 4: Bronze -> Silver
     logger.info("Process 4: Bronze to Silver Transform")
-    p4 = api_call(f"{base}/processes", "POST", {"displayName": "FSI Medallion - Bronze to Silver Transform", "origin": {"sourceType": "CUSTOM", "name": "fsi-bronze-to-silver"}})
+    p4 = api_call(f"{base}/processes", "POST", {"displayName": "Retail Medallion - Bronze to Silver Transform", "origin": {"sourceType": "CUSTOM", "name": "retail-bronze-to-silver"}})
     r4 = api_call(f"{LINEAGE_URL}/{p4['name']}/runs", "POST", {"displayName": "Bronze to Silver", "startTime": "2026-04-30T02:00:00Z", "endTime": "2026-04-30T02:30:00Z", "state": "COMPLETED"})
     l4 = [{"source": {"fullyQualifiedName": bq_fqn(bds, btbl)}, "target": {"fullyQualifiedName": bq_fqn(sds, stbl)}}
           for (bds, btbl), (sds, stbl) in zip(BRONZE_TABLES, SILVER_TABLES)]
@@ -126,31 +126,31 @@ def main():
 
     # Process 5: Silver -> Gold
     logger.info("Process 5: Silver to Gold Aggregation")
-    p5 = api_call(f"{base}/processes", "POST", {"displayName": "FSI Medallion - Silver to Gold Aggregation", "origin": {"sourceType": "CUSTOM", "name": "fsi-silver-to-gold"}})
+    p5 = api_call(f"{base}/processes", "POST", {"displayName": "Retail Medallion - Silver to Gold Aggregation", "origin": {"sourceType": "CUSTOM", "name": "retail-silver-to-gold"}})
     r5 = api_call(f"{LINEAGE_URL}/{p5['name']}/runs", "POST", {"displayName": "Silver to Gold", "startTime": "2026-04-30T02:30:00Z", "endTime": "2026-04-30T02:45:00Z", "state": "COMPLETED"})
     gold_sources = {
-        "gold_customer_360": ["customers", "accounts", "loans", "credit_cards", "wm_clients"],
-        "gold_account_summary": ["accounts", "transactions"],
-        "gold_loan_portfolio_summary": ["loans"],
-        "gold_delinquency_analysis": ["loans"],
-        "gold_fraud_analytics": ["fraud_alerts"],
-        "gold_aml_risk_scoring": ["customers", "kyc_records", "compliance_cases", "wire_transfers"],
-        "gold_branch_performance": ["branches", "accounts", "loans", "transactions"],
-        "gold_portfolio_performance": ["portfolios", "performance", "holdings", "benchmarks"],
-        "gold_client_revenue": ["wm_clients", "fee_schedules", "portfolios", "trades"],
-        "gold_asset_allocation": ["holdings"],
-        "gold_advisor_scorecard": ["advisors", "portfolios", "performance", "trades"],
-        "gold_fee_revenue": ["fee_schedules", "wm_clients"],
-        "gold_net_interest_margin": ["accounts", "loans"],
-        "gold_capital_adequacy": ["regulatory_capital"],
-        "gold_market_risk_var": ["holdings", "market_data"],
-        "gold_regulatory_dashboard": ["regulatory_capital", "kyc_records", "regulatory_filings"],
-        "gold_balance_sheet_summary": ["accounts", "loans", "holdings", "regulatory_capital"],
+        "gold_customer_360": ["customers", "accounts", "bnpl_plans", "credit_cards", "wm_clients"],
+        "gold_loyalty_account_summary": ["accounts", "transactions"],
+        "gold_bnpl_plan_summary": ["bnpl_plans"],
+        "gold_bnpl_delinquency_analysis": ["bnpl_plans"],
+        "gold_return_fraud_analytics": ["fraud_alerts"],
+        "gold_promo_fraud_scoring": ["customers", "kyc_records", "compliance_cases", "wire_transfers"],
+        "gold_store_performance": ["stores", "accounts", "bnpl_plans", "transactions"],
+        "gold_assortment_performance": ["assortments", "performance", "holdings", "benchmarks"],
+        "gold_vip_member_revenue": ["wm_clients", "fee_schedules", "assortments", "trades"],
+        "gold_inventory_allocation": ["holdings"],
+        "gold_category_manager_scorecard": ["advisors", "assortments", "performance", "trades"],
+        "gold_promo_margin_impact": ["fee_schedules", "wm_clients"],
+        "gold_gross_margin_analysis": ["accounts", "bnpl_plans"],
+        "gold_working_capital_adequacy": ["regulatory_capital"],
+        "gold_markdown_risk_var": ["holdings", "market_data"],
+        "gold_compliance_dashboard": ["regulatory_capital", "kyc_records", "regulatory_filings"],
+        "gold_financial_summary": ["accounts", "bnpl_plans", "holdings", "regulatory_capital"],
     }
     l5 = []
     for gold_tbl, silver_tbls in gold_sources.items():
         for st in silver_tbls:
-            l5.append({"source": {"fullyQualifiedName": bq_fqn("fsi_silver", f"silver_{st}")}, "target": {"fullyQualifiedName": bq_fqn("fsi_gold", gold_tbl)}})
+            l5.append({"source": {"fullyQualifiedName": bq_fqn("retail_silver", f"silver_{st}")}, "target": {"fullyQualifiedName": bq_fqn("retail_gold", gold_tbl)}})
     api_call(f"{LINEAGE_URL}/{r5['name']}/lineageEvents", "POST", {"startTime": "2026-04-30T02:30:00Z", "endTime": "2026-04-30T02:45:00Z", "links": l5})
     logger.info("  %d links", len(l5))
 

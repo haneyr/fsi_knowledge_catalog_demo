@@ -14,11 +14,16 @@
 # limitations under the License.
 
 ####################################################################################
-# FSI Knowledge Catalog Demo - Clean Up
+# [Retail] Northwind Retail Knowledge Catalog Demo - Clean Up
 # Destroys all deployed infrastructure.
 ####################################################################################
 
 set -e
+
+# Disable gcloud mTLS client-cert helper (avoids Python 3.14 segfault in bq CLI)
+export GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+export CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false
+export RETAIL_TAXONOMY_DISPLAY_NAME="${RETAIL_TAXONOMY_DISPLAY_NAME:-Retail Demo Sensitivity Taxonomy (alitch)}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/stacks"

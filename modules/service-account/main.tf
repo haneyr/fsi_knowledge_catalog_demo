@@ -15,10 +15,10 @@
 variable "project_id" { type = string }
 variable "project_number" { type = string }
 
-resource "google_service_account" "fsi_governance" {
+resource "google_service_account" "retail_governance" {
   project      = var.project_id
-  account_id   = "fsi-governance"
-  display_name = "FSI Knowledge Catalog Demo Service Account"
+  account_id   = "retail-governance"
+  display_name = "[Retail] Northwind Retail Knowledge Catalog Demo Service Account"
 }
 
 locals {
@@ -47,7 +47,7 @@ resource "google_project_iam_member" "sa_roles" {
   for_each = toset(local.governance_sa_roles)
   project  = var.project_id
   role     = each.value
-  member   = "serviceAccount:${google_service_account.fsi_governance.email}"
+  member   = "serviceAccount:${google_service_account.retail_governance.email}"
 }
 
 resource "google_project_iam_member" "compute_sa_roles" {
@@ -58,5 +58,5 @@ resource "google_project_iam_member" "compute_sa_roles" {
 }
 
 output "email" {
-  value = google_service_account.fsi_governance.email
+  value = google_service_account.retail_governance.email
 }

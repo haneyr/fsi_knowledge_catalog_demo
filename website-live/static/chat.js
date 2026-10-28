@@ -6,8 +6,8 @@ if (typeof marked !== 'undefined') {
 
 let _DATASET_MAP = {};
 let _GLOSSARY_TERMS = {};
-let _GLOSSARY_ID = 'meridian-national-bank-glossary-us';
-const _TABLE_RE = /\b((?:gold|silver|bronze|ref|vw|staging|snapshot|audit)_[a-z0-9_]+)\b/g;
+let _GLOSSARY_ID = 'retail-northwind-glossary-us';
+const _TABLE_RE = /\b((?:gold|silver|bronze|ref|vw|staging|snapshot|audit|nexus)_[a-z0-9_]+)\b/g;
 let _projectNumber = '';
 let _snowflakeTables = new Set();
 let _snowflakeEnabled = false;
@@ -39,6 +39,11 @@ function _linkifyEntities(container, agentMode, projectId) {
     let modified = false;
 
     html = html.replace(_TABLE_RE, (match) => {
+      if (match.startsWith('nexus_')) {
+        const url = `https://console.cloud.google.com/dataplex/dp-entries/projects/${projectId}/locations/us/entryGroups/retail-nexus-market-intel/entries/${match}?project=${projectId}`;
+        modified = true;
+        return `<a href="${url}" target="_blank" rel="noopener" class="entity-link table-link">${match}</a>`;
+      }
       let ds = '';
       for (const [prefix, dataset] of Object.entries(_DATASET_MAP)) {
         if (match.startsWith(prefix)) { ds = dataset; break; }
@@ -102,6 +107,7 @@ class ChatPanel {
     this.sendBtn = document.getElementById('sendBtn');
     this.typingEl = document.getElementById('typingIndicator');
     this.agentMode = 'basic';
+    this.activeCategory = 'merchandising';
     this.projectId = '';
     this.staticData = null;
     this.liveMode = false;
@@ -199,6 +205,10 @@ class ChatPanel {
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
 
+  setCategory(category) {
+    this.activeCategory = category || 'merchandising';
+  }
+
   _activeContainer() {
     return this._agentContainers[this.agentMode] || this.messagesEl;
   }
@@ -220,12 +230,13 @@ class ChatPanel {
       const chips = document.createElement('div');
       chips.className = 'tool-chips';
       for (const tc of toolCalls) {
+        const upper = String(tc || '').toUpperCase();
         const chip = document.createElement('span');
         chip.className = 'tool-chip';
-        if (tc.includes('search')) chip.className += ' search';
-        else if (tc.includes('context') || tc.includes('lookup')) chip.className += ' lookup';
+        if (upper.includes('SEARCH')) chip.className += ' search';
+        else if (upper.includes('CONTEXT') || upper.includes('LOOKUP')) chip.className += ' lookup';
         else chip.className += ' sql';
-        chip.textContent = tc;
+        chip.textContent = upper;
         chips.appendChild(chip);
       }
       div.appendChild(chips);
@@ -252,25 +263,59 @@ class ChatPanel {
       this._currentAgentMsg._rawText = '';
       this._currentAgentMsg._rendered = document.createElement('div');
       this._currentAgentMsg.appendChild(this._currentAgentMsg._rendered);
+      this._currentAgentMsg._statusHistory = [];
+      this._currentAgentMsg._chipTimeline = [];
+      this._currentAgentMsg._edgeTimeline = [];
+      this._currentAgentMsg._textChunkTimeline = [];
+      this._currentAgentMsg._pendingTools = 0;
+      this._currentAgentMsg._sqlToolsCompleted = new Set();
+      this._currentAgentMsg._needsNewlineBeforeText = false;
       this._activeContainer().appendChild(this._currentAgentMsg);
     }
     return this._currentAgentMsg;
   }
 
-  _addToolChip(name) {
+  _addToolChip(name, serverElapsedMs) {
     const msg = this._getOrCreateAgentMsg();
+    const upper = String(name || '').toUpperCase();
     const chip = document.createElement('span');
     chip.className = 'tool-chip';
-    if (name.includes('search')) chip.className += ' search';
-    else if (name.includes('context') || name.includes('lookup')) chip.className += ' lookup';
+    if (upper.includes('SEARCH')) chip.className += ' search';
+    else if (upper.includes('CONTEXT') || upper.includes('LOOKUP')) chip.className += ' lookup';
     else chip.className += ' sql';
-    chip.textContent = name;
+    chip.textContent = upper;
+    const renderedAtMs = Math.round(performance.now());
+    chip.dataset.renderedAtMs = String(renderedAtMs);
+    if (serverElapsedMs !== undefined && serverElapsedMs !== null) {
+      chip.dataset.serverElapsedMs = String(serverElapsedMs);
+    }
     msg._chips.appendChild(chip);
+    if (msg._chipTimeline) {
+      msg._chipTimeline.push({
+        name: upper,
+        rendered_at_ms: renderedAtMs,
+        server_elapsed_ms: serverElapsedMs ?? null,
+      });
+    }
   }
 
-  _appendText(text) {
+  _appendText(text, serverElapsedMs) {
     const msg = this._getOrCreateAgentMsg();
+    if (msg._needsNewlineBeforeText) {
+      if (msg._rawText && !msg._rawText.endsWith('\n') && !String(text || '').startsWith('\n')) {
+        msg._rawText += '\n\n';
+      }
+      msg._needsNewlineBeforeText = false;
+    }
     msg._rawText += text;
+    if (msg._textChunkTimeline) {
+      msg._textChunkTimeline.push({
+        index: msg._textChunkTimeline.length,
+        length: String(text || '').length,
+        rendered_at_ms: Math.round(performance.now()),
+        server_elapsed_ms: serverElapsedMs ?? null,
+      });
+    }
     const rendered = _renderMarkdown(msg._rawText);
     _linkifyEntities(rendered, this.agentMode, this.projectId);
     msg._rendered.replaceChildren(rendered);
@@ -283,20 +328,38 @@ class ChatPanel {
   _updateWorkingStatus(toolName) {
     const msg = this._getOrCreateAgentMsg();
     if (!msg._status) return;
+    msg.classList.add('working');
+    msg._status.style.display = '';
     const labels = {
       search_entries: 'Searching Knowledge Catalog...',
-      get_context: 'Reading metadata & schema...',
+      lookup_context: 'Reading table metadata...',
+      get_context: 'Reading table metadata...',
       run_sql: 'Querying BigQuery...',
+      query_snowflake: 'Querying Snowflake...',
+      composing: 'Composing answer...',
     };
-    msg._status.innerHTML = `<span class="working-dot"></span> ${labels[toolName] || 'Agent is working...'}`;
+    const statusText = labels[toolName] || 'Agent is working...';
+    msg._status.innerHTML = `<span class="working-dot"></span> ${statusText}`;
+    if (!msg._statusHistory) msg._statusHistory = [];
+    if (msg._statusHistory[msg._statusHistory.length - 1] !== statusText) {
+      msg._statusHistory.push(statusText);
+    }
   }
 
-  _hideWorkingStatus() {
+  _hideWorkingStatus(removeNode = false) {
+    if (this._composingTimer) {
+      clearTimeout(this._composingTimer);
+      this._composingTimer = null;
+    }
     if (this._currentAgentMsg) {
       this._currentAgentMsg.classList.remove('working');
       if (this._currentAgentMsg._status) {
-        this._currentAgentMsg._status.remove();
-        this._currentAgentMsg._status = null;
+        if (removeNode) {
+          this._currentAgentMsg._status.remove();
+          this._currentAgentMsg._status = null;
+        } else {
+          this._currentAgentMsg._status.style.display = 'none';
+        }
       }
     }
   }
@@ -387,25 +450,51 @@ class ChatPanel {
     }
   }
 
-  async send() {
-    const text = this.inputEl.value.trim();
+  _filterTablesForScope(tables) {
+    if (!Array.isArray(tables)) return [];
+    const isCrossCloud = this.activeCategory === 'multicloud';
+    if (!isCrossCloud) {
+      return tables.filter(t => !String(t).toLowerCase().startsWith('nexus_'));
+    }
+    const excludedInternal = new Set([
+      'bronze_competitor_pricing',
+      'silver_competitor_pricing',
+      'snapshot_daily_competitor_pricing',
+    ]);
+    return tables.filter(t => !excludedInternal.has(String(t).toLowerCase()));
+  }
+
+  async send(presetText, category) {
+    const text = (typeof presetText === 'string' ? presetText : this.inputEl.value).trim();
     if (!text) return;
+    if (category) this.activeCategory = category;
+    const cat = this.activeCategory || 'merchandising';
     this.inputEl.value = '';
     this.sendBtn.disabled = true;
     this._addMessage(text, true);
     this._currentAgentMsg = null;
     this._showTyping();
+    this._getOrCreateAgentMsg();
     this.viz.clearAnimation();
 
+    if (!this.liveMode) {
+      await this._checkLiveMode();
+    }
+
     if (this.liveMode) {
-      await this._sendWebSocket(text);
+      await this._sendWebSocket(text, cat);
     } else {
       await this._sendStatic(text);
     }
     this.sendBtn.disabled = false;
   }
 
-  async _sendWebSocket(question) {
+  async _sendWebSocket(question, category) {
+    const cat = category || this.activeCategory || 'merchandising';
+    if (this.ws) {
+      try { this.ws.onclose = null; this.ws.onerror = null; this.ws.close(); } catch (e) {}
+      this.ws = null;
+    }
     return new Promise((resolve) => {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const token = localStorage.getItem('id_token') || '';
@@ -413,11 +502,18 @@ class ChatPanel {
         ? `${proto}//${location.host}/api/ws?token=${encodeURIComponent(token)}`
         : `${proto}//${location.host}/api/ws`;
       const ws = new WebSocket(wsUrl);
+      this.ws = ws;
       let resolved = false;
-      const done = () => { if (!resolved) { resolved = true; resolve(); } };
+      const done = () => {
+        if (!resolved) {
+          resolved = true;
+          if (this.ws === ws) this.ws = null;
+          resolve();
+        }
+      };
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ agent: this.agentMode, question }));
+        ws.send(JSON.stringify({ agent: this.agentMode, question, category: cat }));
       };
 
       ws.onmessage = (e) => {
@@ -425,6 +521,7 @@ class ChatPanel {
         this._handleLiveEvent(event);
         if (event.type === 'done' || event.type === 'error') {
           this._hideTyping();
+          this._hideWorkingStatus();
           ws.close();
           done();
         }
@@ -432,6 +529,7 @@ class ChatPanel {
 
       ws.onerror = () => {
         this._hideTyping();
+        this._hideWorkingStatus();
         this._sendStatic(question).then(done);
       };
 
@@ -443,47 +541,186 @@ class ChatPanel {
   _handleLiveEvent(event) {
     switch (event.type) {
       case 'status':
+        this._getOrCreateAgentMsg();
         break;
 
-      case 'tool_call':
-        this._addToolChip(event.name);
+      case 'tool_call': {
+        if (this._composingTimer) {
+          clearTimeout(this._composingTimer);
+          this._composingTimer = null;
+        }
+        const msg = this._getOrCreateAgentMsg();
+        if (msg._rawText && !msg._rawText.endsWith('\n')) {
+          msg._needsNewlineBeforeText = true;
+        }
+        msg._pendingTools = (msg._pendingTools || 0) + 1;
+        this._addToolChip(event.name, event.elapsed_ms);
         this._updateWorkingStatus(event.name);
         if (event.name === 'search_entries') {
           this.viz.triggerSearchPulse();
         }
-        if (event.tables && event.tables.length > 0) {
-          this.viz.illuminateTables(event.tables);
+        const scopedTables = this._filterTablesForScope(event.tables);
+        if (scopedTables.length > 0) {
+          const cap = event.name === 'lookup_context' ? 4 : 6;
+          this.viz.illuminateTables(scopedTables.slice(0, cap), true);
+        }
+        if (msg._edgeTimeline) {
+          msg._edgeTimeline.push({
+            event: `tool_call:${event.name}`,
+            edge_count: this.viz._getCappedEdgeTargets().length,
+            elapsed_ms: event.elapsed_ms ?? null,
+          });
         }
         break;
+      }
 
-      case 'tool_response':
-        if (event.tables && event.tables.length > 0) {
-          this.viz.illuminateTables(event.tables);
+      case 'tool_response': {
+        const msg = this._getOrCreateAgentMsg();
+        msg._pendingTools = Math.max(0, (msg._pendingTools || 1) - 1);
+        if (event.name === 'run_sql' || event.name === 'query_snowflake') {
+          if (msg._sqlToolsCompleted) msg._sqlToolsCompleted.add(event.name);
         }
-        if (event.glossary_terms && event.glossary_terms.length > 0) {
-          this.viz.showGlossaryArcsForTerms(event.glossary_terms);
+        const scopedTables = this._filterTablesForScope(event.tables);
+        if (scopedTables.length > 0) {
+          if (this.agentMode === 'kc') {
+            const isPrimary = event.name === 'lookup_context' || event.name === 'run_sql' || event.name === 'query_snowflake';
+            const cap = event.name === 'search_entries' ? 2 : (event.name === 'lookup_context' ? 4 : 6);
+            this.viz.illuminateTables(scopedTables.slice(0, cap), isPrimary);
+          } else {
+            const cap = this.agentMode === 'basic' ? 2 : 5;
+            this.viz.illuminateTables(scopedTables.slice(0, cap), true);
+          }
+        }
+        if (msg._edgeTimeline) {
+          msg._edgeTimeline.push({
+            event: `tool_response:${event.name}`,
+            edge_count: this.viz._getCappedEdgeTargets().length,
+            elapsed_ms: event.elapsed_ms ?? null,
+          });
+        }
+        if (msg._pendingTools === 0 && msg._sqlToolsCompleted && msg._sqlToolsCompleted.size > 0) {
+          const isMulticloudKc = this.agentMode === 'kc' && this.activeCategory === 'multicloud';
+          if (!isMulticloudKc || msg._sqlToolsCompleted.size >= 2) {
+            this._updateWorkingStatus('composing');
+          } else {
+            this._composingTimer = setTimeout(() => {
+              this._composingTimer = null;
+              if (this._currentAgentMsg === msg && msg._pendingTools === 0) {
+                this._updateWorkingStatus('composing');
+              }
+            }, 350);
+          }
         }
         break;
+      }
 
       case 'text_chunk':
         this._hideTyping();
-        this._hideWorkingStatus();
-        this._appendText(event.text);
+        this._hideWorkingStatus(false);
+        this._appendText(event.text, event.elapsed_ms);
+        if (this.agentMode === 'kc') {
+          this._updateKcGovernanceGraph(this._currentAgentMsg?._rawText || '');
+        }
         break;
 
-      case 'done':
+      case 'done': {
         this._hideTyping();
-        this._hideWorkingStatus();
+        this._hideWorkingStatus(true);
+        if (this._currentAgentMsg && event.phase_timings) {
+          this._currentAgentMsg._phaseTimings = event.phase_timings;
+        }
+        const rawText = this._currentAgentMsg?._rawText || '';
+        const citedInAnswer = this._filterTablesForScope(
+          rawText.match(/\b((?:gold|silver|bronze|ref|nexus)_[a-z0-9_]+)\b/gi) || []
+        );
+        const scopedAllTables = this._filterTablesForScope(event.all_tables || []);
+        if (this.agentMode === 'kc') {
+          const uniqueCited = [...new Set(citedInAnswer.map(t => t.toLowerCase()))];
+          if (uniqueCited.length > 0) {
+            this.viz.illuminateTables(uniqueCited.slice(0, 6), true);
+          }
+          if (this.viz.activeNodes.length < 4 && scopedAllTables.length > 0) {
+            this.viz.illuminateTables(scopedAllTables, false);
+          }
+          this._updateKcGovernanceGraph(rawText, event.all_glossary);
+        } else {
+          if (citedInAnswer.length > 0) {
+            this.viz.illuminateTables(citedInAnswer.slice(0, 5), true);
+          } else if (this.viz.activeNodes.length === 0 && scopedAllTables.length > 0) {
+            this.viz.illuminateTables(scopedAllTables.slice(0, 5), false);
+          }
+        }
+        if (this._currentAgentMsg && this._currentAgentMsg._edgeTimeline) {
+          this._currentAgentMsg._edgeTimeline.push({
+            event: 'done',
+            edge_count: this.viz._getCappedEdgeTargets().length,
+            elapsed_ms: event.total_ms ?? null,
+          });
+        }
         this._finalizeResponse();
-        if (event.all_tables) this.viz.illuminateTables(event.all_tables);
-        if (event.all_glossary) this.viz.showGlossaryArcsForTerms(event.all_glossary);
         this.viz.zoomToActive();
         break;
+      }
 
       case 'error':
         this._hideTyping();
         this._appendText(`Error: ${event.message}`);
         break;
+    }
+  }
+
+  _extractGovernanceGlossaryTerm(rawText, fallbackGlossary) {
+    if (!rawText) return null;
+    const govIdx = rawText.search(/Governance\s+Context/i);
+    const scope = govIdx >= 0 ? rawText.slice(govIdx) : rawText;
+
+    const bulletLineMatch = scope.match(/(?:^|\n)\s*[-*•]?\s*\*{0,2}Glossary\*{0,2}\s*(?:—|--|-|:)\s*([^\n]+)/i);
+    if (bulletLineMatch) {
+      const line = bulletLineMatch[1].trim();
+      const quoted = line.match(/[`"'](\[Retail\]\s*[^`"']{2,60}|[A-Z][A-Za-z0-9\s\/\-()&]{2,50})[`"']/);
+      if (quoted) {
+        return quoted[1].trim();
+      }
+      const retailPrefixed = line.match(/(\[Retail\]\s*[A-Za-z0-9\s\/\-()&]{2,50}?)(?:\s+—|\s+--|\s+-|\s*:|\s*\(|\s+is\b|\s+provides\b|\s+defines\b|\s+measures\b|\s+governs\b|\s+standardizes\b|\s+tracks\b|\s+represents\b|[.,;]|$)/i);
+      if (retailPrefixed) {
+        return retailPrefixed[1].trim();
+      }
+      for (const known of Object.keys(_GLOSSARY_TERMS || {})) {
+        const cleanKnown = known.replace(/^\[Retail\]\s*/i, '');
+        if (cleanKnown && line.toLowerCase().includes(cleanKnown.toLowerCase())) {
+          return known;
+        }
+      }
+    }
+
+    const anyRetail = scope.match(/[`"']?(\[Retail\]\s*[A-Za-z][A-Za-z0-9\s\/\-()&]{2,45}?)[`"']?(?:\s*\(|\s+—|\s+--|\s+-|[.,;:\n])/);
+    if (anyRetail) {
+      return anyRetail[1].trim();
+    }
+
+    for (const known of Object.keys(_GLOSSARY_TERMS || {})) {
+      const cleanKnown = known.replace(/^\[Retail\]\s*/i, '');
+      if (cleanKnown && scope.toLowerCase().includes(cleanKnown.toLowerCase())) {
+        return known;
+      }
+    }
+    if (Array.isArray(fallbackGlossary) && fallbackGlossary.length > 0) {
+      return fallbackGlossary[0];
+    }
+    return null;
+  }
+
+  _updateKcGovernanceGraph(rawText, fallbackGlossary) {
+    if (this.agentMode !== 'kc' || !this.viz) return;
+    const term = this._extractGovernanceGlossaryTerm(rawText, fallbackGlossary);
+    if (term) {
+      const govIdx = rawText.search(/Governance\s+Context/i);
+      const scope = govIdx >= 0 ? rawText.slice(govIdx) : rawText;
+      const bulletLineMatch = scope.match(/(?:^|\n)\s*[-*•]?\s*\*{0,2}Glossary\*{0,2}\s*(?:—|--|-|:)\s*([^\n]+)/i);
+      const tableInGlossary = bulletLineMatch
+        ? (bulletLineMatch[1].match(/\b((?:gold|silver|bronze|ref|nexus)_[a-z0-9_]+)\b/i) || [])[1]
+        : null;
+      this.viz.setGlossaryEdgeLabel(term, tableInGlossary || null);
     }
   }
 
@@ -523,9 +760,11 @@ class ChatPanel {
     return bestScore >= 2 ? best : null;
   }
 
-  sendPreset(question) {
-    this.inputEl.value = question;
-    this.send();
+  sendPreset(question, category) {
+    if (!question) return;
+    if (category) this.activeCategory = category;
+    this.inputEl.value = '';
+    return this.send(question, this.activeCategory);
   }
 
   async resetSession() {

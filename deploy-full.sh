@@ -14,7 +14,7 @@
 # limitations under the License.
 
 ####################################################################################
-# FSI Knowledge Catalog Demo — Full End-to-End Deployment
+# [Retail] Northwind Retail Knowledge Catalog Demo — Full End-to-End Deployment
 #
 # This script orchestrates the complete deployment:
 #   1. Creates a new GCP project (or uses existing)
@@ -48,6 +48,11 @@
 ####################################################################################
 
 set -e
+
+# Disable gcloud mTLS client-cert helper (avoids Python 3.14 segfault in bq CLI)
+export GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+export CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false
+export RETAIL_TAXONOMY_DISPLAY_NAME="${RETAIL_TAXONOMY_DISPLAY_NAME:-Retail Demo Sensitivity Taxonomy (alitch)}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -96,7 +101,7 @@ echo "  Credentials OK"
 # ---------------------------------------------------------------------------
 if [ -z "${GOOGLE_CLOUD_PROJECT}" ]; then
     SUFFIX=$(python3 -c "import random, string; print(''.join(random.choices(string.ascii_lowercase + string.digits, k=6)))")
-    export GOOGLE_CLOUD_PROJECT="fsi-kc-demo-${SUFFIX}"
+    export GOOGLE_CLOUD_PROJECT="retail-kc-demo-${SUFFIX}"
     echo "=== Creating new project: ${GOOGLE_CLOUD_PROJECT} ==="
 
     if [ -z "${ORG_ID}" ] || [ -z "${BILLING_ACCOUNT}" ]; then
@@ -107,7 +112,7 @@ if [ -z "${GOOGLE_CLOUD_PROJECT}" ]; then
     fi
 
     gcloud projects create "${GOOGLE_CLOUD_PROJECT}" \
-        --name="FSI Knowledge Catalog Demo" \
+        --name="[Retail] Northwind Retail Knowledge Catalog Demo" \
         --organization="${ORG_ID}"
     gcloud billing projects link "${GOOGLE_CLOUD_PROJECT}" \
         --billing-account="${BILLING_ACCOUNT}"
@@ -203,12 +208,12 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Step 5: Create agent_analytics dataset
+# Step 5: Create retail_agent_analytics dataset
 # ---------------------------------------------------------------------------
-echo "=== Creating agent_analytics dataset ==="
+echo "=== Creating retail_agent_analytics dataset ==="
 bq --project_id="${GOOGLE_CLOUD_PROJECT}" mk --location=US \
-    --dataset "${GOOGLE_CLOUD_PROJECT}:agent_analytics" 2>/dev/null || \
-    echo "  agent_analytics dataset already exists"
+    --dataset "${GOOGLE_CLOUD_PROJECT}:retail_agent_analytics" 2>/dev/null || \
+    echo "  retail_agent_analytics dataset already exists"
 
 # ---------------------------------------------------------------------------
 # Step 6: Deploy agents to Agent Engine
@@ -253,7 +258,7 @@ elif [[ -z "${OAUTH_CLIENT_ID:-}" ]] && ! gcloud secrets versions access latest 
 else
     echo "=== Deploying website ==="
     bash "${SCRIPT_DIR}/website-live/deploy.sh"
-    WEBSITE_URL=$(gcloud run services describe fsi-kc-demo-ui-live --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
+    WEBSITE_URL=$(gcloud run services describe retail-kc-demo-ui-live --project="${GOOGLE_CLOUD_PROJECT}" --region="${GOOGLE_CLOUD_LOCATION}" --format='value(status.url)' 2>/dev/null || echo "not deployed")
 fi
 
 # ---------------------------------------------------------------------------
@@ -261,7 +266,7 @@ fi
 # ---------------------------------------------------------------------------
 echo ""
 echo "============================================================"
-echo "FSI KNOWLEDGE CATALOG DEMO — DEPLOYMENT COMPLETE"
+echo "Retail KNOWLEDGE CATALOG DEMO — DEPLOYMENT COMPLETE"
 echo "============================================================"
 echo "  Project:    ${GOOGLE_CLOUD_PROJECT}"
 echo "  Region:     ${GOOGLE_CLOUD_LOCATION}"
@@ -270,7 +275,7 @@ echo "  Website:    ${WEBSITE_URL}"
 echo "  BigQuery:   https://console.cloud.google.com/bigquery?project=${GOOGLE_CLOUD_PROJECT}"
 echo "  Knowledge Catalog: https://console.cloud.google.com/dataplex?project=${GOOGLE_CLOUD_PROJECT}"
 echo "  Agents:     https://console.cloud.google.com/vertex-ai/agents?project=${GOOGLE_CLOUD_PROJECT}"
-echo "  Analytics:  SELECT * FROM \`${GOOGLE_CLOUD_PROJECT}.agent_analytics.*\`"
+echo "  Analytics:  SELECT * FROM \`${GOOGLE_CLOUD_PROJECT}.retail_agent_analytics.*\`"
 echo "============================================================"
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 [project]
-name = "fsi-knowledge-catalog-demo"
+name = "retail-knowledge-catalog-demo"
 version = "1.0.0"
-description = "FSI Knowledge Catalog Agent Demo for Google Cloud"
+description = "Retail Knowledge Catalog Agent Demo for Google Cloud"
 requires-python = ">=3.11"
 dependencies = [
     "google-auth>=2.0",

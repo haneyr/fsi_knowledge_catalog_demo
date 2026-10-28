@@ -1,4 +1,4 @@
-"""Vertex AI LLM-judged evaluation for FSI KC agent evaluation.
+"""Vertex AI LLM-judged evaluation for Retail KC agent evaluation.
 
 Uses vertexai.evaluation.EvalTask with PointwiseMetric to run
 LLM-judged scoring on agent responses. Called when --use-vertex-eval
@@ -28,7 +28,7 @@ def _response_quality_metric() -> PointwiseMetric:
         metric="response_quality",
         metric_prompt_template=PointwiseMetricPromptTemplate(
             metric_definition=(
-                "Evaluates the overall quality of an FSI data agent's response, "
+                "Evaluates the overall quality of an Retail data agent's response, "
                 "including factual accuracy, data completeness, and relevance to the question."
             ),
             criteria={
@@ -36,7 +36,7 @@ def _response_quality_metric() -> PointwiseMetric:
                 "2": "Partially relevant but missing critical financial data or metrics",
                 "3": "Adequate response with basic data but lacking depth",
                 "4": "Good response with comprehensive financial data and context",
-                "5": "Excellent response with complete, accurate data and expert-level FSI insight",
+                "5": "Excellent response with complete, accurate data and expert-level Retail insight",
             },
             rating_rubric={
                 "1": "Response fails to address the question, contains no relevant data, or has major factual errors",
@@ -56,7 +56,7 @@ def _tool_use_quality_metric() -> PointwiseMetric:
         metric_prompt_template=PointwiseMetricPromptTemplate(
             metric_definition=(
                 "Evaluates whether the agent selected appropriate tools and data tables "
-                "to answer an FSI question. The 'context' field lists the tools called and "
+                "to answer an Retail question. The 'context' field lists the tools called and "
                 "tables queried by the agent."
             ),
             criteria={
@@ -112,7 +112,7 @@ def _task_success_metric() -> PointwiseMetric:
         metric_prompt_template=PointwiseMetricPromptTemplate(
             metric_definition=(
                 "Evaluates whether the agent successfully completed the user's requested "
-                "task. For FSI data questions, success means providing the requested analysis "
+                "task. For Retail data questions, success means providing the requested analysis "
                 "or acknowledging inability when data is unavailable."
             ),
             criteria={

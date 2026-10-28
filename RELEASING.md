@@ -30,10 +30,10 @@ a long-lived branch), put it behind a runtime flag that is off in production, so
 
 ## Environments
 
-- dev (`fsi-kc-demo-dev`): auto-deploys from `main` on every push (path-scoped
+- dev (`retail-kc-demo-dev`): auto-deploys from `main` on every push (path-scoped
   triggers for website and each agent). This is the integration environment —
   expect it to run the bleeding edge.
-- prod (`fsi-kc-demo-prod`): deploys only from version tags (`vX.Y.Z`) via the
+- prod (`retail-kc-demo-prod`): deploys only from version tags (`vX.Y.Z`) via the
   release pipeline. Prod runs the last tagged release, not `main`.
 
 Use dev (or a dedicated preview deploy of a feature branch) to validate big work
@@ -60,7 +60,7 @@ still report success if its errors are swallowed. After any prod release, confir
 the live state directly:
 
 - The serving Cloud Run revision is new (`gcloud run services describe
-  fsi-kc-demo-ui-live --project=fsi-kc-demo-prod --region=us-central1
+  retail-kc-demo-ui-live --project=retail-kc-demo-prod --region=us-central1
   --format='value(status.latestReadyRevisionName)'`).
 - A known marker from the change is present in the served asset (e.g. curl the
   static file and grep for the new code).
@@ -72,7 +72,7 @@ This is the escape hatch for when prod needs a fix but `main` contains unrelease
 work. Needing it routinely is a signal that the "main is always releasable" rule
 has slipped — fix that rather than leaning on this.
 
-1. Branch from the last release tag: `git checkout -b release/vX.Y.Z+1 vX.Y.Z`.
+1. Store from the last release tag: `git checkout -b release/vX.Y.Z+1 vX.Y.Z`.
 2. Cherry-pick the fix commits from `main` (they must already be merged to `main`
    — the release pipeline only promotes commits that exist on `main`, verified by
    patch-id with `git cherry`). Cherry-picks must apply with their original diff

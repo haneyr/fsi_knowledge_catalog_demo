@@ -14,13 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ####################################################################################
-"""Shared utilities for FSI data governance post-deploy scripts."""
+"""Shared utilities for Retail data governance post-deploy scripts."""
 
 import json
 import logging
 import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
+
+os.environ.setdefault("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+os.environ.setdefault("CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE", "false")
 
 import google.auth
 import google.auth.transport.requests
@@ -36,131 +39,131 @@ LINEAGE_URL = "https://datalineage.googleapis.com/v1"
 TOKEN_REFRESH_SECONDS = 250
 _creds_cache: List[Any] = [None, 0]
 
-GLOSSARY_ID = "meridian-national-bank-glossary-us"
+GLOSSARY_ID = "retail-northwind-glossary-us"
 
 # ---------------------------------------------------------------------------
-# All FSI medallion tables
+# All Retail medallion tables
 # ---------------------------------------------------------------------------
 
-ATLAS_BRONZE: List[Tuple[str, str]] = [
-    ("fsi_bronze", "bronze_customers"),
-    ("fsi_bronze", "bronze_accounts"),
-    ("fsi_bronze", "bronze_transactions"),
-    ("fsi_bronze", "bronze_loans"),
-    ("fsi_bronze", "bronze_loan_payments"),
-    ("fsi_bronze", "bronze_credit_cards"),
-    ("fsi_bronze", "bronze_card_transactions"),
-    ("fsi_bronze", "bronze_fraud_alerts"),
-    ("fsi_bronze", "bronze_kyc_records"),
-    ("fsi_bronze", "bronze_branches"),
-    ("fsi_bronze", "bronze_employees"),
-    ("fsi_bronze", "bronze_wire_transfers"),
-    ("fsi_bronze", "bronze_ach_transfers"),
-    ("fsi_bronze", "bronze_atm_transactions"),
+ORION_BRONZE: List[Tuple[str, str]] = [
+    ("retail_bronze", "bronze_customers"),
+    ("retail_bronze", "bronze_loyalty_accounts"),
+    ("retail_bronze", "bronze_pos_transactions"),
+    ("retail_bronze", "bronze_bnpl_plans"),
+    ("retail_bronze", "bronze_bnpl_payments"),
+    ("retail_bronze", "bronze_store_cards"),
+    ("retail_bronze", "bronze_payment_tenders"),
+    ("retail_bronze", "bronze_fraud_alerts"),
+    ("retail_bronze", "bronze_privacy_consents"),
+    ("retail_bronze", "bronze_stores"),
+    ("retail_bronze", "bronze_store_associates"),
+    ("retail_bronze", "bronze_high_value_refunds"),
+    ("retail_bronze", "bronze_vendor_settlements"),
+    ("retail_bronze", "bronze_kiosk_transactions"),
 ]
 
-FORTUNA_BRONZE: List[Tuple[str, str]] = [
-    ("fsi_bronze", "bronze_wm_clients"),
-    ("fsi_bronze", "bronze_portfolios"),
-    ("fsi_bronze", "bronze_holdings"),
-    ("fsi_bronze", "bronze_trades"),
-    ("fsi_bronze", "bronze_securities"),
-    ("fsi_bronze", "bronze_advisors"),
-    ("fsi_bronze", "bronze_performance"),
-    ("fsi_bronze", "bronze_fee_schedules"),
-    ("fsi_bronze", "bronze_benchmarks"),
-    ("fsi_bronze", "bronze_client_goals"),
-    ("fsi_bronze", "bronze_risk_profiles"),
-    ("fsi_bronze", "bronze_distributions"),
-    ("fsi_bronze", "bronze_custodian_feeds"),
+LUMEN_BRONZE: List[Tuple[str, str]] = [
+    ("retail_bronze", "bronze_vip_members"),
+    ("retail_bronze", "bronze_merch_assortments"),
+    ("retail_bronze", "bronze_inventory_positions"),
+    ("retail_bronze", "bronze_ecom_orders"),
+    ("retail_bronze", "bronze_product_skus"),
+    ("retail_bronze", "bronze_category_managers"),
+    ("retail_bronze", "bronze_assortment_performance"),
+    ("retail_bronze", "bronze_promo_rules"),
+    ("retail_bronze", "bronze_category_benchmarks"),
+    ("retail_bronze", "bronze_customer_preferences"),
+    ("retail_bronze", "bronze_return_risk_profiles"),
+    ("retail_bronze", "bronze_reward_redemptions"),
+    ("retail_bronze", "bronze_carrier_feeds"),
 ]
 
-ARGUS_BRONZE: List[Tuple[str, str]] = [
-    ("fsi_bronze", "bronze_gl_entries"),
-    ("fsi_bronze", "bronze_gl_accounts"),
-    ("fsi_bronze", "bronze_cost_centers"),
-    ("fsi_bronze", "bronze_regulatory_capital"),
-    ("fsi_bronze", "bronze_risk_exposures"),
-    ("fsi_bronze", "bronze_counterparties"),
-    ("fsi_bronze", "bronze_market_data"),
-    ("fsi_bronze", "bronze_stress_tests"),
-    ("fsi_bronze", "bronze_audit_events"),
-    ("fsi_bronze", "bronze_regulatory_filings"),
-    ("fsi_bronze", "bronze_interest_rates"),
-    ("fsi_bronze", "bronze_fx_rates"),
-    ("fsi_bronze", "bronze_compliance_cases"),
+HELIOS_BRONZE: List[Tuple[str, str]] = [
+    ("retail_bronze", "bronze_gl_entries"),
+    ("retail_bronze", "bronze_gl_accounts"),
+    ("retail_bronze", "bronze_cost_centers"),
+    ("retail_bronze", "bronze_working_capital"),
+    ("retail_bronze", "bronze_shrinkage_exposures"),
+    ("retail_bronze", "bronze_suppliers"),
+    ("retail_bronze", "bronze_competitor_pricing"),
+    ("retail_bronze", "bronze_demand_scenarios"),
+    ("retail_bronze", "bronze_audit_events"),
+    ("retail_bronze", "bronze_compliance_attestations"),
+    ("retail_bronze", "bronze_markdown_rates"),
+    ("retail_bronze", "bronze_fx_rates"),
+    ("retail_bronze", "bronze_promo_abuse_cases"),
 ]
 
-BRONZE_TABLES = ATLAS_BRONZE + FORTUNA_BRONZE + ARGUS_BRONZE
+BRONZE_TABLES = ORION_BRONZE + LUMEN_BRONZE + HELIOS_BRONZE
 
 SILVER_TABLES: List[Tuple[str, str]] = [
-    ("fsi_silver", t.replace("bronze_", "silver_")) for _, t in BRONZE_TABLES
+    ("retail_silver", t.replace("bronze_", "silver_")) for _, t in BRONZE_TABLES
 ]
 
 GOLD_TABLES: List[Tuple[str, str]] = [
-    ("fsi_gold", "gold_customer_360"),
-    ("fsi_gold", "gold_account_summary"),
-    ("fsi_gold", "gold_transaction_patterns"),
-    ("fsi_gold", "gold_loan_portfolio_summary"),
-    ("fsi_gold", "gold_delinquency_analysis"),
-    ("fsi_gold", "gold_fraud_analytics"),
-    ("fsi_gold", "gold_aml_risk_scoring"),
-    ("fsi_gold", "gold_branch_performance"),
-    ("fsi_gold", "gold_portfolio_performance"),
-    ("fsi_gold", "gold_client_revenue"),
-    ("fsi_gold", "gold_asset_allocation"),
-    ("fsi_gold", "gold_advisor_scorecard"),
-    ("fsi_gold", "gold_fee_revenue"),
-    ("fsi_gold", "gold_net_interest_margin"),
-    ("fsi_gold", "gold_capital_adequacy"),
-    ("fsi_gold", "gold_liquidity_coverage"),
-    ("fsi_gold", "gold_market_risk_var"),
-    ("fsi_gold", "gold_operational_risk"),
-    ("fsi_gold", "gold_regulatory_dashboard"),
-    ("fsi_gold", "gold_balance_sheet_summary"),
+    ("retail_gold", "gold_customer_360"),
+    ("retail_gold", "gold_loyalty_account_summary"),
+    ("retail_gold", "gold_order_patterns"),
+    ("retail_gold", "gold_bnpl_plan_summary"),
+    ("retail_gold", "gold_bnpl_delinquency_analysis"),
+    ("retail_gold", "gold_return_fraud_analytics"),
+    ("retail_gold", "gold_promo_fraud_scoring"),
+    ("retail_gold", "gold_store_performance"),
+    ("retail_gold", "gold_assortment_performance"),
+    ("retail_gold", "gold_vip_member_revenue"),
+    ("retail_gold", "gold_inventory_allocation"),
+    ("retail_gold", "gold_category_manager_scorecard"),
+    ("retail_gold", "gold_promo_margin_impact"),
+    ("retail_gold", "gold_gross_margin_analysis"),
+    ("retail_gold", "gold_working_capital_adequacy"),
+    ("retail_gold", "gold_inventory_turnover_coverage"),
+    ("retail_gold", "gold_markdown_risk_var"),
+    ("retail_gold", "gold_shrinkage_operational_risk"),
+    ("retail_gold", "gold_compliance_dashboard"),
+    ("retail_gold", "gold_financial_summary"),
 ]
 
 DASHBOARD_VIEWS: List[Tuple[str, str]] = [
-    ("fsi_dashboards", "vw_dq_scorecard"),
-    ("fsi_dashboards", "vw_dq_by_dimension"),
-    ("fsi_dashboards", "vw_dq_failed_rules"),
-    ("fsi_dashboards", "vw_dq_rule_detail"),
-    ("fsi_dashboards", "vw_profile_summary"),
-    ("fsi_dashboards", "vw_customer_total_relationship"),
-    ("fsi_dashboards", "vw_branch_retail_wealth"),
-    ("fsi_dashboards", "vw_regulatory_summary"),
+    ("retail_dashboards", "vw_dq_scorecard"),
+    ("retail_dashboards", "vw_dq_by_dimension"),
+    ("retail_dashboards", "vw_dq_failed_rules"),
+    ("retail_dashboards", "vw_dq_rule_detail"),
+    ("retail_dashboards", "vw_profile_summary"),
+    ("retail_dashboards", "vw_customer_lifetime_value"),
+    ("retail_dashboards", "vw_store_omnichannel_performance"),
+    ("retail_dashboards", "vw_compliance_summary"),
 ]
 
 REFERENCE_TABLES: List[Tuple[str, str]] = [
-    ("fsi_reference", "ref_naics_codes"),
-    ("fsi_reference", "ref_country_codes"),
-    ("fsi_reference", "ref_currency_codes"),
-    ("fsi_reference", "ref_cusip_master"),
-    ("fsi_reference", "ref_isin_mapping"),
-    ("fsi_reference", "ref_lei_registry"),
-    ("fsi_reference", "ref_fed_district_codes"),
-    ("fsi_reference", "ref_product_catalog"),
-    ("fsi_reference", "ref_fee_tiers"),
-    ("fsi_reference", "ref_gl_account_hierarchy"),
+    ("retail_reference", "ref_merch_category_codes"),
+    ("retail_reference", "ref_country_codes"),
+    ("retail_reference", "ref_currency_codes"),
+    ("retail_reference", "ref_gtin_master"),
+    ("retail_reference", "ref_sku_gtin_mapping"),
+    ("retail_reference", "ref_supplier_registry"),
+    ("retail_reference", "ref_sales_region_codes"),
+    ("retail_reference", "ref_product_catalog"),
+    ("retail_reference", "ref_loyalty_tiers"),
+    ("retail_reference", "ref_gl_account_hierarchy"),
 ]
 
 STAGING_TABLES: List[Tuple[str, str]] = [
-    ("fsi_staging", "staging_call_report_rc"),
-    ("fsi_staging", "staging_call_report_ri"),
-    ("fsi_staging", "staging_call_report_rc_r"),
-    ("fsi_staging", "staging_call_report_rc_c"),
-    ("fsi_staging", "staging_fr_y9c"),
+    ("retail_staging", "staging_pci_aoc_summary"),
+    ("retail_staging", "staging_channel_revenue_recon"),
+    ("retail_staging", "staging_supplier_audit_schedule"),
+    ("retail_staging", "staging_ccpa_dsar_log"),
+    ("retail_staging", "staging_annual_omniretail_filing"),
 ]
 
 SNAPSHOT_TABLES: List[Tuple[str, str]] = [
-    ("fsi_snapshots", "snapshot_monthly_balances"),
-    ("fsi_snapshots", "snapshot_quarterly_positions"),
-    ("fsi_snapshots", "snapshot_daily_market_data"),
+    ("retail_snapshots", "snapshot_monthly_loyalty_balances"),
+    ("retail_snapshots", "snapshot_quarterly_inventory_positions"),
+    ("retail_snapshots", "snapshot_daily_competitor_pricing"),
 ]
 
 AUDIT_TABLES: List[Tuple[str, str]] = [
-    ("fsi_audit", "audit_data_access_log"),
-    ("fsi_audit", "audit_model_decisions"),
+    ("retail_audit", "audit_data_access_log"),
+    ("retail_audit", "audit_model_decisions"),
 ]
 
 ALL_TABLES: List[Tuple[str, str]] = (
@@ -172,18 +175,19 @@ ALL_TABLES: List[Tuple[str, str]] = (
 SCAN_TABLES: List[Tuple[str, str]] = BRONZE_TABLES + SILVER_TABLES + GOLD_TABLES
 
 SCAN_DATASETS: List[str] = [
-    "fsi_bronze", "fsi_silver", "fsi_gold", "fsi_reference",
-    "fsi_staging", "fsi_snapshots", "fsi_dashboards", "fsi_audit",
+    "retail_bronze", "retail_silver", "retail_gold", "retail_reference",
+    "retail_staging", "retail_snapshots", "retail_dashboards", "retail_audit",
 ]
 
 
 def scan_id(dataset: str, table: str, scan_type: str) -> str:
-    layer = dataset.replace("fsi_", "")
+    layer = dataset.replace("retail_", "")
     tname = (table.replace(f"{layer}_", "")
              .replace("bronze_", "")
              .replace("silver_", "")
-             .replace("gold_", ""))
-    return f"fsi-{layer}-{tname}-{scan_type}".replace("_", "-")
+             .replace("gold_", "")
+             .replace("snapshot_", ""))
+    return f"retail-{layer}-{tname}-{scan_type}".replace("_", "-")[:63].rstrip("-")
 
 
 def get_access_token() -> str:
@@ -275,7 +279,7 @@ def load_config() -> Dict[str, str]:
         raw = json.load(f)
     cfg: Dict[str, str] = {}
     for key, val in raw.items():
-        if isinstance(val, dict) and "value" in val:
+        if type(val) is dict and "value" in val:
             cfg[key] = val["value"]
         else:
             cfg[key] = val

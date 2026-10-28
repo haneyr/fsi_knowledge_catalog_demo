@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `${project_id}.fsi_reference.ref_currency_codes` AS
+CREATE OR REPLACE TABLE `${project_id}.retail_reference.ref_currency_codes` AS
 SELECT 'USD' AS currency_code, 'US Dollar' AS currency_name, '$' AS symbol, 2 AS decimals UNION ALL
 SELECT 'EUR', 'Euro', '€', 2 UNION ALL SELECT 'GBP', 'British Pound', '£', 2 UNION ALL
 SELECT 'JPY', 'Japanese Yen', '¥', 0 UNION ALL SELECT 'CHF', 'Swiss Franc', 'CHF', 2 UNION ALL

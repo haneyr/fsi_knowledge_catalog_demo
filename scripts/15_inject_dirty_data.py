@@ -17,7 +17,7 @@
 """
 Injects intentionally dirty data into bronze tables so that data quality
 scans produce real failures. The KC agent can then cite actual DQ scores
-(e.g., "97.3% pass rate on FICO validation") instead of theoretical rules.
+(e.g., "97.3% pass rate on Return-Risk validation") instead of theoretical rules.
 
 Usage: python3 15_inject_dirty_data.py
 """
@@ -32,24 +32,24 @@ logger = logging.getLogger(__name__)
 
 INJECTIONS = [
     {
-        "table": "fsi_bronze.bronze_loans",
-        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_loans` WHERE loan_id LIKE 'LOAN-BAD-%'",
-        "description": "Invalid FICO scores (0, 999, NULL), extreme LTV/DTI",
+        "table": "retail_bronze.bronze_bnpl_plans",
+        "cleanup": "DELETE FROM `{pid}.retail_bronze.bronze_bnpl_plans` WHERE bnpl_plan_id LIKE 'BNPL_PLAN-BAD-%'",
+        "description": "[Retail] Invalid Return-Risk scores (0, 999, NULL), extreme LTV/DTI",
         "sql": """
-INSERT INTO `{pid}.fsi_bronze.bronze_loans`
-(loan_id, customer_id, loan_type, original_amount, current_balance, interest_rate,
- term_months, origination_date, maturity_date, fico_score_at_origination,
+INSERT INTO `{pid}.retail_bronze.bronze_bnpl_plans`
+(bnpl_plan_id, customer_id, plan_type, original_amount, current_balance, interest_rate,
+ term_months, origination_date, maturity_date, return_risk_score_at_signup,
  ltv_ratio, dti_ratio, delinquency_status, risk_rating, source_system, created_at)
 SELECT
-  CONCAT('LOAN-BAD-', LPAD(CAST(n AS STRING), 6, '0')),
+  CONCAT('BNPL_PLAN-BAD-', LPAD(CAST(n AS STRING), 6, '0')),
   CONCAT('CUST-', LPAD(CAST(CAST(FLOOR(RAND()*20000)+1 AS INT64) AS STRING), 8, '0')),
-  CASE MOD(n,4) WHEN 0 THEN 'MORTGAGE' WHEN 1 THEN 'AUTO' WHEN 2 THEN 'PERSONAL' ELSE 'HELOC' END,
-  ROUND(10000 + RAND()*500000, 2),
-  ROUND(5000 + RAND()*400000, 2),
+  CASE MOD(n,4) WHEN 0 THEN 'PAY_IN_4' WHEN 1 THEN 'MONTHLY_3M' WHEN 2 THEN 'MONTHLY_6M' ELSE 'SEASONAL_PROMO_12M' END,
+  ROUND(60 + RAND()*350, 2),
+  ROUND(40 + RAND()*240, 2),
   ROUND(0.02 + RAND()*0.08, 4),
-  CASE MOD(n,3) WHEN 0 THEN 360 WHEN 1 THEN 180 ELSE 60 END,
-  DATE_ADD('2020-01-01', INTERVAL CAST(FLOOR(RAND()*1500) AS INT64) DAY),
-  DATE_ADD('2030-01-01', INTERVAL CAST(FLOOR(RAND()*3000) AS INT64) DAY),
+  CASE MOD(n,3) WHEN 0 THEN 12 WHEN 1 THEN 6 ELSE 3 END,
+  DATE_SUB(CURRENT_DATE(), INTERVAL CAST(FLOOR(RAND()*300)+15 AS INT64) DAY),
+  DATE_ADD(CURRENT_DATE(), INTERVAL CAST(FLOOR(RAND()*180)+30 AS INT64) DAY),
   CASE
     WHEN MOD(n,5) = 0 THEN 0
     WHEN MOD(n,5) = 1 THEN 999
@@ -59,21 +59,21 @@ SELECT
   END,
   CASE WHEN MOD(n,3) = 0 THEN 250.0 WHEN MOD(n,3) = 1 THEN -10.0 ELSE 350.0 END,
   CASE WHEN MOD(n,2) = 0 THEN -5.0 ELSE 120.0 END,
-  CASE MOD(n,3) WHEN 0 THEN 'CURRENT' WHEN 1 THEN '90_DAYS' ELSE '120_PLUS' END,
-  'Substandard',
-  'ATLAS',
+  CASE MOD(n,3) WHEN 0 THEN 'Current' WHEN 1 THEN '60 Days Past Due' ELSE '90+ Days Past Due' END,
+  'High Risk',
+  'ORION',
   CURRENT_TIMESTAMP()
 FROM UNNEST(GENERATE_ARRAY(1, 150)) AS n
 """,
     },
     {
-        "table": "fsi_bronze.bronze_accounts",
-        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_accounts` WHERE account_id LIKE 'ACCT-BAD-%'",
-        "description": "Negative balances, NULL account types",
+        "table": "retail_bronze.bronze_loyalty_accounts",
+        "cleanup": "DELETE FROM `{pid}.retail_bronze.bronze_loyalty_accounts` WHERE account_id LIKE 'ACCT-BAD-%'",
+        "description": "[Retail] Negative balances, NULL account types",
         "sql": """
-INSERT INTO `{pid}.fsi_bronze.bronze_accounts`
+INSERT INTO `{pid}.retail_bronze.bronze_loyalty_accounts`
 (account_id, customer_id, account_type, current_balance, interest_rate,
- open_date, branch_id, account_status, source_system, created_at)
+ open_date, store_id, account_status, source_system, created_at)
 SELECT
   CONCAT('ACCT-BAD-', LPAD(CAST(n AS STRING), 6, '0')),
   CONCAT('CUST-', LPAD(CAST(CAST(FLOOR(RAND()*20000)+1 AS INT64) AS STRING), 8, '0')),
@@ -83,20 +83,20 @@ SELECT
   DATE_ADD('2020-01-01', INTERVAL CAST(FLOOR(RAND()*1500) AS INT64) DAY),
   CONCAT('BR-', LPAD(CAST(MOD(n,500)+1 AS STRING), 4, '0')),
   'Active',
-  'ATLAS',
+  'ORION',
   CURRENT_TIMESTAMP()
 FROM UNNEST(GENERATE_ARRAY(1, 50)) AS n
 """,
     },
     {
-        "table": "fsi_bronze.bronze_customers",
-        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_customers` WHERE customer_id LIKE 'CUST-BAD-%'",
-        "description": "Invalid SSN format, future DOBs, NULL names",
+        "table": "retail_bronze.bronze_customers",
+        "cleanup": "DELETE FROM `{pid}.retail_bronze.bronze_customers` WHERE customer_id LIKE 'CUST-BAD-%'",
+        "description": "[Retail] Invalid Member-TIN format, future DOBs, NULL names",
         "sql": """
-INSERT INTO `{pid}.fsi_bronze.bronze_customers`
-(customer_id, first_name, last_name, date_of_birth, ssn, email, phone,
+INSERT INTO `{pid}.retail_bronze.bronze_customers`
+(customer_id, first_name, last_name, date_of_birth, member_tin, email, phone,
  address_line1, city, state, zip_code, customer_type, customer_segment,
- kyc_risk_rating, kyc_status, home_branch_id, source_system, created_at)
+ kyc_risk_rating, kyc_status, primary_store_id, source_system, created_at)
 SELECT
   CONCAT('CUST-BAD-', LPAD(CAST(n AS STRING), 6, '0')),
   CASE WHEN MOD(n,10) = 0 THEN CAST(NULL AS STRING) ELSE 'Test' END,
@@ -123,18 +123,18 @@ SELECT
   CASE WHEN MOD(n,2) = 0 THEN 'High' ELSE 'Medium' END,
   'Expired',
   CONCAT('BR-', LPAD(CAST(MOD(n,500)+1 AS STRING), 4, '0')),
-  'ATLAS',
+  'ORION',
   CURRENT_TIMESTAMP()
 FROM UNNEST(GENERATE_ARRAY(1, 100)) AS n
 """,
     },
     {
-        "table": "fsi_bronze.bronze_securities",
-        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_securities` WHERE security_id LIKE 'SEC-BAD-%'",
-        "description": "Invalid CUSIP/ISIN format, NULL tickers",
+        "table": "retail_bronze.bronze_product_skus",
+        "cleanup": "DELETE FROM `{pid}.retail_bronze.bronze_product_skus` WHERE security_id LIKE 'SEC-BAD-%'",
+        "description": "[Retail] Invalid GTIN/SKU format, NULL tickers",
         "sql": """
-INSERT INTO `{pid}.fsi_bronze.bronze_securities`
-(security_id, ticker, security_name, cusip, isin, security_type, asset_class,
+INSERT INTO `{pid}.retail_bronze.bronze_product_skus`
+(security_id, ticker, security_name, gtin_13, sku_code, security_type, asset_class,
  sector, country, currency, exchange, last_price, dividend_yield, coupon_rate,
  maturity_date, credit_rating, created_at, source_system)
 SELECT
@@ -150,7 +150,7 @@ SELECT
   END,
   CASE
     WHEN MOD(n,4) = 0 THEN '123'
-    WHEN MOD(n,4) = 1 THEN 'NOTAVALIDISINN'
+    WHEN MOD(n,4) = 1 THEN 'NOTAVALIDSKU00'
     WHEN MOD(n,4) = 2 THEN ''
     ELSE 'XX0000000000'
   END,
@@ -163,18 +163,18 @@ SELECT
   ROUND(RAND()*1000, 2),
   NULL, NULL, NULL, NULL,
   CURRENT_TIMESTAMP(),
-  'FORTUNA'
+  'LUMEN'
 FROM UNNEST(GENERATE_ARRAY(1, 75)) AS n
 """,
     },
     {
-        "table": "fsi_bronze.bronze_credit_cards",
-        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_credit_cards` WHERE card_id LIKE 'CC-BAD-%'",
-        "description": "Extreme APR values (negative, >30%)",
+        "table": "retail_bronze.bronze_store_cards",
+        "cleanup": "DELETE FROM `{pid}.retail_bronze.bronze_store_cards` WHERE card_id LIKE 'CC-BAD-%'",
+        "description": "[Retail] Extreme APR values (negative, >30%)",
         "sql": """
-INSERT INTO `{pid}.fsi_bronze.bronze_credit_cards`
+INSERT INTO `{pid}.retail_bronze.bronze_store_cards`
 (card_id, customer_id, account_id, card_type, network, masked_card_number,
- credit_limit, current_balance, available_credit, apr, annual_fee, fico_score,
+ credit_limit, current_balance, available_credit, apr, annual_fee, return_risk_score,
  issue_date, expiration_date, card_status, rewards_balance, rewards_type,
  created_at, source_system)
 SELECT
@@ -199,16 +199,16 @@ SELECT
   'Active',
   0.0, 'Points',
   CURRENT_TIMESTAMP(),
-  'ATLAS'
+  'ORION'
 FROM UNNEST(GENERATE_ARRAY(1, 50)) AS n
 """,
     },
     {
-        "table": "fsi_bronze.bronze_wire_transfers",
-        "cleanup": "DELETE FROM `{pid}.fsi_bronze.bronze_wire_transfers` WHERE wire_id LIKE 'WIRE-STRUCT-%'",
-        "description": "Structuring pattern ($10,000.01 amounts)",
+        "table": "retail_bronze.bronze_high_value_refunds",
+        "cleanup": "DELETE FROM `{pid}.retail_bronze.bronze_high_value_refunds` WHERE wire_id LIKE 'WIRE-STRUCT-%'",
+        "description": "[Retail] Structuring pattern ($10,000.01 amounts)",
         "sql": """
-INSERT INTO `{pid}.fsi_bronze.bronze_wire_transfers`
+INSERT INTO `{pid}.retail_bronze.bronze_high_value_refunds`
 (wire_id, originator_account_id, originator_customer_id, beneficiary_name,
  beneficiary_routing, beneficiary_account, amount, currency, wire_type,
  initiation_date, status, ofac_hold, requires_ctr, above_ctr_threshold,
@@ -231,7 +231,7 @@ SELECT
   'Purpose: Other',
   'US',
   CURRENT_TIMESTAMP(),
-  'ATLAS'
+  'ORION'
 FROM UNNEST(GENERATE_ARRAY(1, 20)) AS n
 """,
     },
@@ -242,10 +242,10 @@ def rerun_dq_scans(cfg, tables):
     pid = cfg["project_id"]
     loc = cfg["location"]
     for ds, tbl in tables:
-        layer = ds.replace("fsi_", "")
+        layer = ds.replace("retail_", "")
         tname = tbl.replace(f"{layer}_", "").replace("bronze_", "").replace("silver_", "").replace("gold_", "")
         for stype in ["quality", "profile"]:
-            sid = f"fsi-{layer}-{tname}-{stype}".replace("_", "-")
+            sid = f"retail-{layer}-{tname}-{stype}".replace("_", "-")
             run_url = f"{DATAPLEX_URL}/projects/{pid}/locations/{loc}/dataScans/{sid}:run"
             try:
                 api_call(run_url, "POST", {})
@@ -289,7 +289,7 @@ def main():
     logger.info("  Tables injected: %d", total_injected)
     logger.info("  DQ scans restarted for: %s", ", ".join(t[1] for t in affected_tables))
     logger.info("  Note: DQ scans may take a few minutes to complete.")
-    logger.info("  Check results: SELECT * FROM `%s.fsi_scan_results.*`", pid)
+    logger.info("  Check results: SELECT * FROM `%s.retail_scan_results.*`", pid)
     logger.info("=" * 60)
 
 

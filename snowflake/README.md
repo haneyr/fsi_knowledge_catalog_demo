@@ -15,24 +15,24 @@ Log into Snowflake as `ACCOUNTADMIN` to create the required roles and users. ACC
 ### Step 1: Create the setup user
 
 ```sql
-CREATE ROLE IF NOT EXISTS FSI_KC_SETUP_ROLE;
-GRANT CREATE DATABASE ON ACCOUNT TO ROLE FSI_KC_SETUP_ROLE;
-GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE FSI_KC_SETUP_ROLE;
-GRANT APPLY TAG ON ACCOUNT TO ROLE FSI_KC_SETUP_ROLE;
-GRANT IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE TO ROLE FSI_KC_SETUP_ROLE;
+CREATE ROLE IF NOT EXISTS RETAIL_KC_SETUP_ROLE;
+GRANT CREATE DATABASE ON ACCOUNT TO ROLE RETAIL_KC_SETUP_ROLE;
+GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE RETAIL_KC_SETUP_ROLE;
+GRANT APPLY TAG ON ACCOUNT TO ROLE RETAIL_KC_SETUP_ROLE;
+GRANT IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE TO ROLE RETAIL_KC_SETUP_ROLE;
 
-CREATE USER IF NOT EXISTS FSI_KC_SETUP
+CREATE USER IF NOT EXISTS RETAIL_KC_SETUP
   PASSWORD = '<choose-a-password>'
-  DEFAULT_ROLE = FSI_KC_SETUP_ROLE
+  DEFAULT_ROLE = RETAIL_KC_SETUP_ROLE
   MUST_CHANGE_PASSWORD = FALSE;
-GRANT ROLE FSI_KC_SETUP_ROLE TO USER FSI_KC_SETUP;
+GRANT ROLE RETAIL_KC_SETUP_ROLE TO USER RETAIL_KC_SETUP;
 ```
 
 ### Step 2: Run the setup scripts
 
 ```bash
 export SNOWFLAKE_ACCOUNT=your-account-id
-export SNOWFLAKE_USER=FSI_KC_SETUP
+export SNOWFLAKE_USER=RETAIL_KC_SETUP
 export SNOWFLAKE_PASSWORD=your-setup-password
 bash snowflake/deploy.sh
 ```
@@ -42,25 +42,25 @@ bash snowflake/deploy.sh
 After the setup scripts complete (the database and warehouse now exist):
 
 ```sql
-CREATE ROLE IF NOT EXISTS FSI_KC_AGENT_ROLE;
-GRANT USAGE ON WAREHOUSE NEXUS_WH TO ROLE FSI_KC_AGENT_ROLE;
-GRANT USAGE ON DATABASE NEXUS_MARKET_DATA TO ROLE FSI_KC_AGENT_ROLE;
-GRANT USAGE ON ALL SCHEMAS IN DATABASE NEXUS_MARKET_DATA TO ROLE FSI_KC_AGENT_ROLE;
-GRANT SELECT ON ALL TABLES IN DATABASE NEXUS_MARKET_DATA TO ROLE FSI_KC_AGENT_ROLE;
-GRANT SELECT ON FUTURE TABLES IN DATABASE NEXUS_MARKET_DATA TO ROLE FSI_KC_AGENT_ROLE;
+CREATE ROLE IF NOT EXISTS RETAIL_KC_AGENT_ROLE;
+GRANT USAGE ON WAREHOUSE NEXUS_WH TO ROLE RETAIL_KC_AGENT_ROLE;
+GRANT USAGE ON DATABASE NEXUS_MARKET_DATA TO ROLE RETAIL_KC_AGENT_ROLE;
+GRANT USAGE ON ALL SCHEMAS IN DATABASE NEXUS_MARKET_DATA TO ROLE RETAIL_KC_AGENT_ROLE;
+GRANT SELECT ON ALL TABLES IN DATABASE NEXUS_MARKET_DATA TO ROLE RETAIL_KC_AGENT_ROLE;
+GRANT SELECT ON FUTURE TABLES IN DATABASE NEXUS_MARKET_DATA TO ROLE RETAIL_KC_AGENT_ROLE;
 
-CREATE USER IF NOT EXISTS FSI_KC_AGENT
+CREATE USER IF NOT EXISTS RETAIL_KC_AGENT
   PASSWORD = '<choose-a-password>'
-  DEFAULT_ROLE = FSI_KC_AGENT_ROLE
+  DEFAULT_ROLE = RETAIL_KC_AGENT_ROLE
   DEFAULT_WAREHOUSE = NEXUS_WH
   MUST_CHANGE_PASSWORD = FALSE;
-GRANT ROLE FSI_KC_AGENT_ROLE TO USER FSI_KC_AGENT;
+GRANT ROLE RETAIL_KC_AGENT_ROLE TO USER RETAIL_KC_AGENT;
 ```
 
 ### Step 4: Set agent environment variables
 
 ```bash
-export SNOWFLAKE_AGENT_USER=FSI_KC_AGENT
+export SNOWFLAKE_AGENT_USER=RETAIL_KC_AGENT
 export SNOWFLAKE_AGENT_PASSWORD=your-agent-password
 ```
 
@@ -71,9 +71,9 @@ Then deploy the agents as normal — the deploy script will detect Snowflake con
 | Variable | Required For | Description |
 |---|---|---|
 | `SNOWFLAKE_ACCOUNT` | Setup + Agent | Account identifier (e.g., `xy12345.us-east-1`) |
-| `SNOWFLAKE_USER` | Setup | Setup user (FSI_KC_SETUP) |
+| `SNOWFLAKE_USER` | Setup | Setup user (RETAIL_KC_SETUP) |
 | `SNOWFLAKE_PASSWORD` | Setup | Setup user password |
-| `SNOWFLAKE_AGENT_USER` | Agent | Read-only agent user (FSI_KC_AGENT) |
+| `SNOWFLAKE_AGENT_USER` | Agent | Read-only agent user (RETAIL_KC_AGENT) |
 | `SNOWFLAKE_AGENT_PASSWORD` | Agent | Agent user password |
 | `SNOWFLAKE_WAREHOUSE` | Both | Warehouse name (default: `NEXUS_WH`) |
 | `SNOWFLAKE_DATABASE` | Both | Database name (default: `NEXUS_MARKET_DATA`) |
@@ -91,9 +91,9 @@ Environment variables are appropriate for this demo. For production deployments:
 |---|---|
 | Snowflake warehouse | `NEXUS_WH` (X-Small, auto-suspend 60s) |
 | Snowflake database | `NEXUS_MARKET_DATA` with 4 schemas, 10 tables |
-| Synthetic data | ~50K rows of market data aligned to BQ CUSIPs |
+| Synthetic data | ~50K rows of market data aligned to BQ GTINs |
 | Horizon tags | 5 governance tags applied to all tables |
 | Knowledge Catalog entries | Account, database, schema, table, tag, tag-ref entries |
-| Glossary links | CUSIP, ISIN, NIM, Risk Rating linked to Snowflake columns |
+| Glossary links | GTIN, SKU, NIM, Risk Rating linked to Snowflake columns |
 | Custom aspects | Classification, retention, compliance, lineage, access control |
 | Data lineage | NEXUS -> Snowflake feed (10 links) |

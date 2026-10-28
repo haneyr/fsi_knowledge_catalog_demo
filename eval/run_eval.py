@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FSI Knowledge Catalog Agent Evaluation Runner.
+"""Retail Knowledge Catalog Agent Evaluation Runner.
 
 Runs test cases against all 3 agents, scores results with custom metrics,
 and generates comparison reports.
@@ -7,7 +7,7 @@ and generates comparison reports.
 Usage:
     python eval/run_eval.py                          # Run all cases
     python eval/run_eval.py --case top_customers     # Single case
-    python eval/run_eval.py --filter audience=wealth_management
+    python eval/run_eval.py --filter audience=digital_commerce
     python eval/run_eval.py --agents basic,kc        # Specific agents only
 """
 
@@ -32,10 +32,10 @@ from metrics import score_all
 AE_BASE = "https://{location}-aiplatform.googleapis.com/v1"
 
 _BASE_SUFFIXES = [
-    "customers", "accounts", "transactions", "loans", "loan_payments", "credit_cards",
-    "card_transactions", "fraud_alerts", "kyc_records", "branches", "employees",
-    "wire_transfers", "ach_transfers", "atm_transactions", "wm_clients", "portfolios",
-    "holdings", "trades", "securities", "advisors", "performance", "fee_schedules",
+    "customers", "accounts", "transactions", "bnpl_plans", "bnpl_payments", "credit_cards",
+    "card_transactions", "fraud_alerts", "kyc_records", "stores", "employees",
+    "wire_transfers", "ach_transfers", "atm_transactions", "wm_clients", "assortments",
+    "holdings", "trades", "product_skus", "advisors", "performance", "fee_schedules",
     "benchmarks", "client_goals", "risk_profiles", "distributions", "custodian_feeds",
     "gl_entries", "gl_accounts", "cost_centers", "regulatory_capital", "risk_exposures",
     "counterparties", "market_data", "stress_tests", "audit_events", "regulatory_filings",
@@ -45,20 +45,20 @@ ALL_TABLE_NAMES = (
     [f"bronze_{s}" for s in _BASE_SUFFIXES]
     + [f"silver_{s}" for s in _BASE_SUFFIXES]
     + [
-        "gold_customer_360", "gold_account_summary", "gold_transaction_patterns",
-        "gold_loan_portfolio_summary", "gold_delinquency_analysis", "gold_fraud_analytics",
-        "gold_aml_risk_scoring", "gold_branch_performance", "gold_portfolio_performance",
-        "gold_client_revenue", "gold_asset_allocation", "gold_advisor_scorecard",
-        "gold_fee_revenue", "gold_net_interest_margin", "gold_capital_adequacy",
-        "gold_liquidity_coverage", "gold_market_risk_var", "gold_operational_risk",
-        "gold_regulatory_dashboard", "gold_balance_sheet_summary",
+        "gold_customer_360", "gold_loyalty_account_summary", "gold_order_patterns",
+        "gold_bnpl_plan_summary", "gold_bnpl_delinquency_analysis", "gold_return_fraud_analytics",
+        "gold_promo_fraud_scoring", "gold_store_performance", "gold_assortment_performance",
+        "gold_vip_member_revenue", "gold_inventory_allocation", "gold_category_manager_scorecard",
+        "gold_promo_margin_impact", "gold_gross_margin_analysis", "gold_working_capital_adequacy",
+        "gold_inventory_turnover_coverage", "gold_markdown_risk_var", "gold_shrinkage_operational_risk",
+        "gold_compliance_dashboard", "gold_financial_summary",
         "vw_dq_scorecard", "vw_dq_by_dimension", "vw_dq_failed_rules", "vw_dq_rule_detail",
-        "vw_profile_summary", "vw_customer_total_relationship", "vw_branch_retail_wealth",
-        "vw_regulatory_summary",
-        "ref_naics_codes", "ref_country_codes", "ref_currency_codes", "ref_cusip_master",
-        "ref_isin_mapping", "ref_lei_registry", "ref_fed_district_codes", "ref_product_catalog",
-        "staging_call_report_rc", "staging_call_report_ri", "staging_fr_y9c",
-        "snapshot_monthly_balances", "snapshot_quarterly_positions", "audit_data_access_log",
+        "vw_profile_summary", "vw_customer_lifetime_value", "vw_store_omnichannel_performance",
+        "vw_compliance_summary",
+        "ref_merch_category_codes", "ref_country_codes", "ref_currency_codes", "ref_gtin_master",
+        "ref_sku_gtin_mapping", "ref_supplier_registry", "ref_sales_region_codes", "ref_product_catalog",
+        "staging_pci_aoc_summary", "staging_channel_revenue_recon", "staging_annual_omniretail_filing",
+        "snapshot_monthly_loyalty_balances", "snapshot_quarterly_inventory_positions", "audit_data_access_log",
     ]
 )
 
@@ -117,7 +117,7 @@ def query_agent(agent_id: str, question: str, project_number: str,
         resp = http_requests.post(
             f"{url_base}:query",
             headers=headers,
-            json={"class_method": "create_session", "input": {"user_id": "eval_runner"}},
+            json={"class_method": "async_create_session", "input": {"user_id": "eval_runner"}},
             timeout=30,
         )
         if resp.status_code != 200:
@@ -126,13 +126,16 @@ def query_agent(agent_id: str, question: str, project_number: str,
             return result
 
         output = resp.json().get("output", {})
-        session_id = output.get("id", "") if isinstance(output, dict) else str(output)
+        session_id = output.get("id", "") if type(output) is dict else str(output)
 
         # Stream query
         resp = http_requests.post(
             f"{url_base}:streamQuery",
             headers=headers,
-            json={"input": {"message": question, "user_id": "eval_runner", "session_id": session_id}},
+            json={
+                "class_method": "async_stream_query",
+                "input": {"message": question, "user_id": "eval_runner", "session_id": session_id},
+            },
             stream=True, timeout=120,
         )
         if resp.status_code != 200:
@@ -237,7 +240,7 @@ def run_evaluation(args):
 
     total_runs = len(cases) * len(agents_to_run)
     print(f"\n{'=' * 60}")
-    print(f"  FSI Knowledge Catalog Agent Evaluation")
+    print(f"  Retail Knowledge Catalog Agent Evaluation")
     print(f"  {len(cases)} cases x {len(agents_to_run)} agents = {total_runs} runs")
     print(f"  Project: {project_id}")
     print(f"{'=' * 60}\n")
@@ -325,10 +328,10 @@ def run_evaluation(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="FSI KC Agent Evaluation Runner")
+    parser = argparse.ArgumentParser(description="Retail KC Agent Evaluation Runner")
     parser.add_argument("--config", default=str(Path(__file__).parent / "test_cases.yaml"))
     parser.add_argument("--case", help="Run a single test case by ID")
-    parser.add_argument("--filter", help="Filter by dimension, e.g. audience=wealth_management")
+    parser.add_argument("--filter", help="Filter by dimension, e.g. audience=digital_commerce")
     parser.add_argument("--agents", help="Comma-separated agent types to run (default: basic,scaled,kc)")
     parser.add_argument("--basic-id", help="Override basic agent ID")
     parser.add_argument("--scaled-id", help="Override scaled agent ID")

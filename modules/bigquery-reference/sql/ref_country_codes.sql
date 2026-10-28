@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `${project_id}.fsi_reference.ref_country_codes` AS
+CREATE OR REPLACE TABLE `${project_id}.retail_reference.ref_country_codes` AS
 SELECT 'US' AS country_code, 'United States' AS country_name, 'USD' AS currency UNION ALL
 SELECT 'GB', 'United Kingdom', 'GBP' UNION ALL SELECT 'DE', 'Germany', 'EUR' UNION ALL
 SELECT 'FR', 'France', 'EUR' UNION ALL SELECT 'JP', 'Japan', 'JPY' UNION ALL

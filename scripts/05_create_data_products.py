@@ -15,7 +15,7 @@
 # limitations under the License.
 ####################################################################################
 """
-Creates 5 FSI data products with assets, documentation, and refresh-cadence contracts.
+Creates 5 Retail data products with assets, documentation, and refresh-cadence contracts.
 
 Usage: python3 05_create_data_products.py
 """
@@ -33,70 +33,70 @@ def main():
     pid = cfg["project_id"]
     pn = cfg["project_number"]
     multi = cfg["multi_region"]
-    owner = cfg.get("gcp_account_name", "admin@meridianbank.com")
+    owner = cfg.get("gcp_account_name", "admin@northwindretail.com")
     base = f"{DATAPLEX_URL}/projects/{pid}/locations/{multi}"
 
     PRODUCTS = [
         {
-            "id": "fsi-customer-intelligence-360",
-            "display_name": "Customer Intelligence 360",
-            "description": "Unified customer view across retail banking and wealth management. Contains PII — access restricted under GLBA.",
+            "id": "retail-customer-loyalty-360",
+            "display_name": "[Retail] Customer & Loyalty 360",
+            "description": "[Retail] Unified shopper profile across store POS (ORION) and digital commerce & loyalty (LUMEN). Contains PII and marketing consent — governed under CCPA/CPRA and GDPR.",
             "assets": [
-                ("retail-customers", "fsi_silver", "silver_customers"),
-                ("wm-clients", "fsi_silver", "silver_wm_clients"),
-                ("kyc-records", "fsi_silver", "silver_kyc_records"),
-                ("customer-360", "fsi_gold", "gold_customer_360"),
-                ("aml-risk", "fsi_gold", "gold_aml_risk_scoring"),
+                ("retail-customers", "retail_silver", "silver_customers"),
+                ("vip-members", "retail_silver", "silver_vip_members"),
+                ("privacy-consents", "retail_silver", "silver_privacy_consents"),
+                ("customer-360", "retail_gold", "gold_customer_360"),
+                ("promo-fraud-risk", "retail_gold", "gold_promo_fraud_scoring"),
             ],
             "contract": {"frequency": "Daily", "refreshTime": "02:00 ET", "thresholdInMinutes": 30, "cronSchedule": "0 2 * * *"},
         },
         {
-            "id": "fsi-lending-credit-risk",
-            "display_name": "Lending & Credit Risk",
-            "description": "Loan portfolio analytics, delinquency tracking, and credit risk metrics for the lending division.",
+            "id": "retail-pricing-promo-margin",
+            "display_name": "[Retail] Pricing, Promotion & Margin",
+            "description": "[Retail] Promotional discount impact, BNPL financing plans, return-risk scoring, and gross margin analysis across stores and e-commerce.",
             "assets": [
-                ("loans", "fsi_silver", "silver_loans"),
-                ("loan-payments", "fsi_silver", "silver_loan_payments"),
-                ("portfolio-summary", "fsi_gold", "gold_loan_portfolio_summary"),
-                ("delinquency", "fsi_gold", "gold_delinquency_analysis"),
+                ("bnpl-plans", "retail_silver", "silver_bnpl_plans"),
+                ("bnpl-payments", "retail_silver", "silver_bnpl_payments"),
+                ("bnpl-summary", "retail_gold", "gold_bnpl_plan_summary"),
+                ("bnpl-delinquency", "retail_gold", "gold_bnpl_delinquency_analysis"),
             ],
             "contract": {"frequency": "Daily", "refreshTime": "03:00 ET", "thresholdInMinutes": 60, "cronSchedule": "0 3 * * *"},
         },
         {
-            "id": "fsi-wealth-management-analytics",
-            "display_name": "Wealth Management Analytics",
-            "description": "Portfolio performance, advisor scorecards, AUM trends, and fee revenue for the FORTUNA wealth platform.",
+            "id": "retail-merch-inventory",
+            "display_name": "[Retail] Merchandising & Inventory",
+            "description": "[Retail] Curated seasonal assortments, category manager scorecards, on-hand/in-transit inventory positions, and GMROI metrics from LUMEN and HELIOS.",
             "assets": [
-                ("portfolios", "fsi_silver", "silver_portfolios"),
-                ("holdings", "fsi_silver", "silver_holdings"),
-                ("performance", "fsi_gold", "gold_portfolio_performance"),
-                ("advisor-scorecard", "fsi_gold", "gold_advisor_scorecard"),
-                ("client-revenue", "fsi_gold", "gold_client_revenue"),
-                ("asset-allocation", "fsi_gold", "gold_asset_allocation"),
+                ("assortments", "retail_silver", "silver_merch_assortments"),
+                ("inventory-positions", "retail_silver", "silver_inventory_positions"),
+                ("assortment-perf", "retail_gold", "gold_assortment_performance"),
+                ("category-scorecard", "retail_gold", "gold_category_manager_scorecard"),
+                ("vip-revenue", "retail_gold", "gold_vip_member_revenue"),
+                ("inventory-alloc", "retail_gold", "gold_inventory_allocation"),
             ],
             "contract": {"frequency": "Daily", "refreshTime": "04:00 ET", "thresholdInMinutes": 60, "cronSchedule": "0 4 * * *"},
         },
         {
-            "id": "fsi-regulatory-compliance",
-            "display_name": "Regulatory & Compliance",
-            "description": "BSA/AML monitoring, capital adequacy, stress testing, and regulatory filing data for the compliance team.",
+            "id": "retail-privacy-consent-pci",
+            "display_name": "[Retail] Privacy, Consent & PCI Compliance",
+            "description": "[Retail] CCPA/CPRA consumer privacy consent, PCI-DSS payment card compliance, return/promo fraud analytics, and working capital governance.",
             "assets": [
-                ("fraud-analytics", "fsi_gold", "gold_fraud_analytics"),
-                ("aml-scoring", "fsi_gold", "gold_aml_risk_scoring"),
-                ("capital-adequacy", "fsi_gold", "gold_capital_adequacy"),
-                ("regulatory-dashboard", "fsi_gold", "gold_regulatory_dashboard"),
+                ("return-fraud", "retail_gold", "gold_return_fraud_analytics"),
+                ("promo-fraud", "retail_gold", "gold_promo_fraud_scoring"),
+                ("working-capital", "retail_gold", "gold_working_capital_adequacy"),
+                ("compliance-dash", "retail_gold", "gold_compliance_dashboard"),
             ],
             "contract": {"frequency": "Daily", "refreshTime": "06:00 ET", "thresholdInMinutes": 120, "cronSchedule": "0 6 * * 1-5"},
         },
         {
-            "id": "fsi-financial-performance",
-            "display_name": "Financial Performance",
-            "description": "NIM, fee revenue, branch P&L, balance sheet, and operational metrics for executive reporting.",
+            "id": "retail-store-channel-performance",
+            "display_name": "[Retail] Store & Channel Performance",
+            "description": "[Retail] Gross margin percentage, promotional fee impact, physical store P&L, omnichannel revenue, and retail balance sheet metrics for executive reporting.",
             "assets": [
-                ("nim", "fsi_gold", "gold_net_interest_margin"),
-                ("fee-revenue", "fsi_gold", "gold_fee_revenue"),
-                ("branch-perf", "fsi_gold", "gold_branch_performance"),
-                ("balance-sheet", "fsi_gold", "gold_balance_sheet_summary"),
+                ("gross-margin", "retail_gold", "gold_gross_margin_analysis"),
+                ("promo-margin", "retail_gold", "gold_promo_margin_impact"),
+                ("store-perf", "retail_gold", "gold_store_performance"),
+                ("financial-summary", "retail_gold", "gold_financial_summary"),
             ],
             "contract": {"frequency": "Monthly", "refreshTime": "00:00 ET", "thresholdInMinutes": 300, "cronSchedule": "0 0 5 * *"},
         },

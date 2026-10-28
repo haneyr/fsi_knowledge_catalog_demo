@@ -67,66 +67,68 @@ def _api(method, url, body=None):
 # project+location; a stuck/reserved name would otherwise dead-end this step.
 # Keep the override set on every subsequent run, or reruns will create a second
 # taxonomy under the default name and repoint the column tags to it.
-TAXONOMY_DISPLAY = os.environ.get("FSI_TAXONOMY_DISPLAY_NAME") or "FSI Data Classification"
+_RAW_TAXONOMY_DISPLAY = os.environ.get("RETAIL_TAXONOMY_DISPLAY_NAME") or "Retail Demo Sensitivity Taxonomy - alitch"
+# Data Catalog taxonomy/policyTag displayNames allow only letters, numbers, spaces, hyphens, and underscores.
+TAXONOMY_DISPLAY = _RAW_TAXONOMY_DISPLAY.replace("(", "- ").replace(")", "").replace("[", "").replace("]", "").strip()
 
 POLICY_TAGS = [
     {
         "id": "highly-sensitive",
-        "display_name": "Highly Sensitive PII",
-        "description": "Direct identifiers: SSN/TIN, date of birth. Requires encryption at rest and column-level masking. Subject to GLBA, FCRA, and state privacy laws.",
+        "display_name": "Retail - Highly Sensitive PII",
+        "description": "[Retail] Direct identifiers: Member-TIN/TIN, date of birth. Requires encryption at rest and column-level masking. Subject to CCPA, FCRA, and state privacy laws.",
     },
     {
         "id": "sensitive",
-        "display_name": "Sensitive PII",
-        "description": "Personal identifiers: name, email, phone, address. Requires access controls and audit logging. Subject to GLBA and CAN-SPAM.",
+        "display_name": "Retail - Sensitive PII",
+        "description": "[Retail] Personal identifiers: name, email, phone, address. Requires access controls and audit logging. Subject to CCPA and CAN-SPAM.",
     },
     {
         "id": "confidential",
-        "display_name": "Confidential Financial",
-        "description": "Non-public financial data: FICO scores, APR, AUM, account balances. Internal use only. Subject to Regulation FD and internal information barriers.",
+        "display_name": "Retail - Confidential Financial",
+        "description": "[Retail] Non-public financial data: Return-Risk scores, APR, AUM, account balances. Internal use only. Subject to Regulation FD and internal information barriers.",
     },
     {
         "id": "internal",
-        "display_name": "Internal",
-        "description": "Business operational data not for external distribution. Standard access controls apply.",
+        "display_name": "Retail - Internal",
+        "description": "[Retail] Business operational data not for external distribution. Standard access controls apply.",
     },
 ]
 
 COLUMN_TAGS = [
-    ("fsi_bronze", "bronze_customers", "ssn", "highly-sensitive"),
-    ("fsi_bronze", "bronze_customers", "date_of_birth", "highly-sensitive"),
-    ("fsi_silver", "silver_customers", "ssn_masked", "highly-sensitive"),
-    ("fsi_silver", "silver_customers", "date_of_birth", "highly-sensitive"),
+    ("retail_bronze", "bronze_customers", "member_tin", "highly-sensitive"),
+    ("retail_bronze", "bronze_customers", "date_of_birth", "highly-sensitive"),
+    ("retail_silver", "silver_customers", "member_tin_masked", "highly-sensitive"),
+    ("retail_silver", "silver_customers", "date_of_birth", "highly-sensitive"),
 
-    ("fsi_bronze", "bronze_customers", "first_name", "sensitive"),
-    ("fsi_bronze", "bronze_customers", "last_name", "sensitive"),
-    ("fsi_bronze", "bronze_customers", "email", "sensitive"),
-    ("fsi_bronze", "bronze_customers", "phone", "sensitive"),
-    ("fsi_bronze", "bronze_customers", "address_line1", "sensitive"),
-    ("fsi_silver", "silver_customers", "first_name", "sensitive"),
-    ("fsi_silver", "silver_customers", "last_name", "sensitive"),
-    ("fsi_silver", "silver_customers", "email", "sensitive"),
-    ("fsi_silver", "silver_customers", "phone", "sensitive"),
-    ("fsi_silver", "silver_customers", "address_line1", "sensitive"),
-    ("fsi_gold", "gold_customer_360", "first_name", "sensitive"),
-    ("fsi_gold", "gold_customer_360", "last_name", "sensitive"),
-    ("fsi_bronze", "bronze_wm_clients", "first_name", "sensitive"),
-    ("fsi_bronze", "bronze_wm_clients", "last_name", "sensitive"),
-    ("fsi_bronze", "bronze_wm_clients", "tax_id", "highly-sensitive"),
-    ("fsi_silver", "silver_wm_clients", "first_name", "sensitive"),
-    ("fsi_silver", "silver_wm_clients", "last_name", "sensitive"),
-    ("fsi_silver", "silver_wm_clients", "tax_id_masked", "highly-sensitive"),
+    ("retail_bronze", "bronze_customers", "first_name", "sensitive"),
+    ("retail_bronze", "bronze_customers", "last_name", "sensitive"),
+    ("retail_bronze", "bronze_customers", "email", "sensitive"),
+    ("retail_bronze", "bronze_customers", "phone", "sensitive"),
+    ("retail_bronze", "bronze_customers", "address_line1", "sensitive"),
+    ("retail_silver", "silver_customers", "first_name", "sensitive"),
+    ("retail_silver", "silver_customers", "last_name", "sensitive"),
+    ("retail_silver", "silver_customers", "email", "sensitive"),
+    ("retail_silver", "silver_customers", "phone", "sensitive"),
+    ("retail_silver", "silver_customers", "address_line1", "sensitive"),
+    ("retail_gold", "gold_customer_360", "first_name", "sensitive"),
+    ("retail_gold", "gold_customer_360", "last_name", "sensitive"),
+    ("retail_bronze", "bronze_vip_members", "first_name", "sensitive"),
+    ("retail_bronze", "bronze_vip_members", "last_name", "sensitive"),
+    ("retail_bronze", "bronze_vip_members", "tax_id", "highly-sensitive"),
+    ("retail_silver", "silver_vip_members", "first_name", "sensitive"),
+    ("retail_silver", "silver_vip_members", "last_name", "sensitive"),
+    ("retail_silver", "silver_vip_members", "tax_id_masked", "highly-sensitive"),
 
-    ("fsi_bronze", "bronze_loans", "fico_score_at_origination", "confidential"),
-    ("fsi_silver", "silver_loans", "fico_score_at_origination", "confidential"),
-    ("fsi_bronze", "bronze_credit_cards", "apr", "confidential"),
-    ("fsi_silver", "silver_credit_cards", "apr", "confidential"),
-    ("fsi_bronze", "bronze_wm_clients", "total_aum", "confidential"),
-    ("fsi_silver", "silver_wm_clients", "total_aum", "confidential"),
-    ("fsi_gold", "gold_customer_360", "total_aum", "confidential"),
-    ("fsi_gold", "gold_customer_360", "total_relationship_value", "confidential"),
-    ("fsi_bronze", "bronze_accounts", "current_balance", "confidential"),
-    ("fsi_silver", "silver_accounts", "current_balance", "confidential"),
+    ("retail_bronze", "bronze_bnpl_plans", "return_risk_score_at_signup", "confidential"),
+    ("retail_silver", "silver_bnpl_plans", "return_risk_score_at_signup", "confidential"),
+    ("retail_bronze", "bronze_store_cards", "apr", "confidential"),
+    ("retail_silver", "silver_store_cards", "apr", "confidential"),
+    ("retail_bronze", "bronze_vip_members", "total_aum", "confidential"),
+    ("retail_silver", "silver_vip_members", "total_aum", "confidential"),
+    ("retail_gold", "gold_customer_360", "total_aum", "confidential"),
+    ("retail_gold", "gold_customer_360", "total_relationship_value", "confidential"),
+    ("retail_bronze", "bronze_loyalty_accounts", "current_balance", "confidential"),
+    ("retail_silver", "silver_loyalty_accounts", "current_balance", "confidential"),
 ]
 
 
@@ -146,7 +148,7 @@ def create_taxonomy(pid, location="us"):
     url = f"{CATALOG_URL}/projects/{pid}/locations/{location}/taxonomies"
     body = {
         "displayName": TAXONOMY_DISPLAY,
-        "description": "Data classification taxonomy for Meridian National Bank FSI demo. Defines sensitivity levels for column-level policy enforcement.",
+        "description": "[Retail] Data classification taxonomy for Northwind Retail Group Retail demo. Defines sensitivity levels for column-level policy enforcement.",
         "activatedPolicyTypes": ["FINE_GRAINED_ACCESS_CONTROL"],
     }
     result = _api("POST", url, body)
@@ -161,7 +163,7 @@ def create_taxonomy(pid, location="us"):
     raise RuntimeError(
         f"Taxonomy '{TAXONOMY_DISPLAY}' returned 409 but didn't appear in listings after "
         f"retries. The display name may be reserved server-side; re-run with "
-        f"FSI_TAXONOMY_DISPLAY_NAME=<alternate name> (and keep it set for future runs)."
+        f"RETAIL_TAXONOMY_DISPLAY_NAME=<alternate name> (and keep it set for future runs)."
     )
 
 
@@ -283,10 +285,18 @@ def main():
             ["gcloud", "projects", "describe", pid, "--format=value(projectNumber)"],
             capture_output=True, text=True, timeout=10,
         ).stdout.strip()
-    for sa in [
+    active_user = subprocess.run(
+        ["gcloud", "config", "get-value", "account"],
+        capture_output=True, text=True, timeout=10,
+    ).stdout.strip()
+    principals = [
         f"serviceAccount:service-{pn}@gcp-sa-aiplatform-re.iam.gserviceaccount.com",
+        f"serviceAccount:service-{pn}@gcp-sa-dataplex.iam.gserviceaccount.com",
         f"serviceAccount:{pn}-compute@developer.gserviceaccount.com",
-    ]:
+    ]
+    if active_user:
+        principals.append(f"user:{active_user}")
+    for sa in principals:
         subprocess.run([
             "gcloud", "data-catalog", "taxonomies", "add-iam-policy-binding", taxonomy_name,
             "--location=us", f"--project={pid}",

@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `${project_id}.fsi_bronze.bronze_customers` AS
+CREATE OR REPLACE TABLE `${project_id}.retail_bronze.bronze_customers` AS
 WITH base AS (
   SELECT
     n,
@@ -23,7 +23,7 @@ WITH base AS (
     CASE MOD(n, 80)
       WHEN 0 THEN CONCAT(CAST(100 + MOD(n, 900) AS STRING), CAST(10 + MOD(n, 90) AS STRING), CAST(1000 + MOD(n, 9000) AS STRING))
       ELSE CONCAT(CAST(100 + MOD(n, 900) AS STRING), '-', CAST(10 + MOD(n, 90) AS STRING), '-', CAST(1000 + MOD(n, 9000) AS STRING))
-    END AS ssn,
+    END AS member_tin,
     CONCAT(CAST(100 + MOD(n, 9900) AS STRING), ' ', CASE MOD(n, 8)
       WHEN 0 THEN 'Main St' WHEN 1 THEN 'Oak Ave' WHEN 2 THEN 'Elm Dr' WHEN 3 THEN 'Park Blvd'
       WHEN 4 THEN 'Cedar Ln' WHEN 5 THEN 'Maple Rd' WHEN 6 THEN 'Pine St' ELSE 'Lake Ave'
@@ -53,32 +53,32 @@ WITH base AS (
       WHEN 12 THEN 'thomas' WHEN 13 THEN 'hernandez' ELSE 'moore'
     END), '@email.com') AS email,
     CASE MOD(n, 5)
-      WHEN 0 THEN 'Individual' WHEN 1 THEN 'Joint' WHEN 2 THEN 'Trust'
-      WHEN 3 THEN 'Business' ELSE 'Individual'
+      WHEN 0 THEN 'Individual Shopper' WHEN 1 THEN 'Family Household' WHEN 2 THEN 'VIP Insider'
+      WHEN 3 THEN 'Pro & Trade Buyer' ELSE 'Individual Shopper'
     END AS customer_type,
     CASE MOD(n, 6)
-      WHEN 0 THEN 'Standard' WHEN 1 THEN 'Preferred' WHEN 2 THEN 'Premier'
-      WHEN 3 THEN 'Private Banking' WHEN 4 THEN 'Small Business' ELSE 'Standard'
+      WHEN 0 THEN 'Core Shopper' WHEN 1 THEN 'Preferred Member' WHEN 2 THEN 'Premier Loyalist'
+      WHEN 3 THEN 'VIP Clienteling' WHEN 4 THEN 'Designer Trade' ELSE 'Core Shopper'
     END AS customer_segment,
     CASE MOD(n, 8)
-      WHEN 0 THEN 'US Citizen' WHEN 1 THEN 'US Resident' WHEN 2 THEN 'Non-Resident Alien'
-      ELSE 'US Citizen'
+      WHEN 0 THEN 'US Domestic' WHEN 1 THEN 'US Domestic' WHEN 2 THEN 'International Visitor'
+      ELSE 'US Domestic'
     END AS citizenship_status,
     LPAD(CAST(MOD(n * 13, 900000000) AS STRING), 9, '0') AS tin,
     CASE MOD(n, 10)
-      WHEN 0 THEN 'Agriculture' WHEN 1 THEN 'Manufacturing' WHEN 2 THEN 'Finance'
-      WHEN 3 THEN 'Technology' WHEN 4 THEN 'Healthcare' WHEN 5 THEN 'Retail'
-      WHEN 6 THEN 'Real Estate' WHEN 7 THEN 'Education' WHEN 8 THEN 'Government' ELSE 'Services'
+      WHEN 0 THEN 'Apparel & Fashion' WHEN 1 THEN 'Outdoor & Fitness' WHEN 2 THEN 'Home & Interior Design'
+      WHEN 3 THEN 'Consumer Electronics' WHEN 4 THEN 'Beauty & Wellness' WHEN 5 THEN 'Footwear & Athletic'
+      WHEN 6 THEN 'Home Furnishings' WHEN 7 THEN 'Gifting & Seasonal' WHEN 8 THEN 'Kids & Family' ELSE 'Everyday Essentials'
     END AS industry,
-    CASE MOD(n, 4)
-      WHEN 0 THEN 'Low' WHEN 1 THEN 'Medium' WHEN 2 THEN 'High' ELSE 'Medium'
+    CASE MOD(n, 5)
+      WHEN 0 THEN 'Low' WHEN 1 THEN 'Watch' WHEN 2 THEN 'Elevated' WHEN 3 THEN 'High Risk' ELSE 'Low'
     END AS kyc_risk_rating,
     CASE MOD(n, 3)
       WHEN 0 THEN 'Verified' WHEN 1 THEN 'Pending' ELSE 'Verified'
     END AS kyc_status,
-    CONCAT('BR-', LPAD(CAST(MOD(n, 500) + 1 AS STRING), 4, '0')) AS home_branch_id,
-    TIMESTAMP_ADD(TIMESTAMP '2010-01-01 00:00:00 UTC', INTERVAL CAST(FLOOR(RAND() * 5000 * 24 * 60) AS INT64) MINUTE) AS account_opened_date,
-    CASE MOD(n, 3) WHEN 0 THEN 'ATLAS' WHEN 1 THEN 'ATLAS_LEGACY' ELSE 'ATLAS' END AS source_system,
+    CONCAT('BR-', LPAD(CAST(MOD(n, 500) + 1 AS STRING), 4, '0')) AS primary_store_id,
+    TIMESTAMP_ADD(TIMESTAMP '2015-01-01 00:00:00 UTC', INTERVAL CAST(FLOOR(RAND() * 3600 * 24 * 60) AS INT64) MINUTE) AS account_opened_date,
+    CASE MOD(n, 3) WHEN 0 THEN 'ORION' WHEN 1 THEN 'ORION_LEGACY' ELSE 'ORION' END AS source_system,
     TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at
   FROM UNNEST(GENERATE_ARRAY(1, 20000)) AS n
 ),

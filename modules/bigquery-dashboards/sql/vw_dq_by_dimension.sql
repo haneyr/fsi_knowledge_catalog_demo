@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW `${project_id}.fsi_dashboards.vw_dq_by_dimension` AS
+CREATE OR REPLACE VIEW `${project_id}.retail_dashboards.vw_dq_by_dimension` AS
 SELECT 'COMPLETENESS' AS dimension, 96.8 AS avg_score, 42 AS rule_count UNION ALL
 SELECT 'VALIDITY', 97.5, 38 UNION ALL
 SELECT 'UNIQUENESS', 99.9, 20 UNION ALL

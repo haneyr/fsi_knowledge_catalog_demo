@@ -21,11 +21,11 @@ variable "multi_region" {
 
 variable "project_number" { type = string }
 
-resource "google_data_catalog_taxonomy" "fsi_classification" {
+resource "google_data_catalog_taxonomy" "retail_classification" {
   project      = var.project_id
   region       = var.multi_region
-  display_name = "FSI Data Classification"
-  description  = "Data classification taxonomy for Meridian National Bank FSI demo. Defines sensitivity levels for column-level policy enforcement."
+  display_name = "Retail Demo Sensitivity Taxonomy (alitch)"
+  description  = "Data classification taxonomy for Northwind Retail Group Retail demo. Defines sensitivity levels for column-level policy enforcement."
 
   activated_policy_types = ["FINE_GRAINED_ACCESS_CONTROL"]
 }
@@ -34,7 +34,7 @@ locals {
   policy_tags = {
     highly-sensitive = {
       display_name = "Highly Sensitive PII"
-      description  = "Direct identifiers: SSN/TIN, date of birth. Requires encryption at rest, column-level access control, and audit logging for every access."
+      description  = "Direct identifiers: Member-TIN/TIN, date of birth. Requires encryption at rest, column-level access control, and audit logging for every access."
     }
     sensitive = {
       display_name = "Sensitive PII"
@@ -42,7 +42,7 @@ locals {
     }
     confidential = {
       display_name = "Confidential Financial"
-      description  = "Non-public financial data: FICO scores, APR, AUM, account balances, transaction amounts. Restricted to authorized personnel."
+      description  = "Non-public financial data: Return-Risk scores, APR, AUM, account balances, transaction amounts. Restricted to authorized personnel."
     }
     internal = {
       display_name = "Internal"
@@ -56,23 +56,23 @@ locals {
 resource "google_data_catalog_policy_tag" "tags" {
   for_each = local.policy_tags
 
-  taxonomy     = google_data_catalog_taxonomy.fsi_classification.id
+  taxonomy     = google_data_catalog_taxonomy.retail_classification.id
   display_name = each.value.display_name
   description  = each.value.description
 }
 
 resource "google_data_catalog_taxonomy_iam_member" "agent_engine_reader" {
-  taxonomy = google_data_catalog_taxonomy.fsi_classification.id
+  taxonomy = google_data_catalog_taxonomy.retail_classification.id
   role     = "roles/datacatalog.categoryFineGrainedReader"
   member   = local.agent_engine_sa
 }
 
 output "taxonomy_id" {
-  value = google_data_catalog_taxonomy.fsi_classification.id
+  value = google_data_catalog_taxonomy.retail_classification.id
 }
 
 output "taxonomy_name" {
-  value = google_data_catalog_taxonomy.fsi_classification.name
+  value = google_data_catalog_taxonomy.retail_classification.name
 }
 
 output "policy_tag_ids" {

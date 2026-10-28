@@ -22,18 +22,18 @@ def main():
     DP = DATAPLEX_URL
 
     # --- Entry Group (in multi-region to match glossary for entry links) ---
-    logger.info("Creating entry group: snowflake-nexus (location=%s)", multi)
+    logger.info("Creating entry group: retail-nexus-market-intel (location=%s)", multi)
     for attempt in range(5):
         try:
             result = api_call(
-                f"{DP}/projects/{pid}/locations/{multi}/entryGroups?entryGroupId=snowflake-nexus",
+                f"{DP}/projects/{pid}/locations/{multi}/entryGroups?entryGroupId=retail-nexus-market-intel",
                 "POST",
-                {"displayName": "NEXUS Market Data (Snowflake)", "description": "Snowflake Horizon metadata for NEXUS external market data provider"},
+                {"displayName": "[Retail] NEXUS — Syndicated Retail Market Intelligence (Snowflake)", "description": "[Retail] Third-party licensed syndicated retail intelligence hosted in Snowflake (External / Non-GCP)"},
             )
             if "name" in result and "operations" in result.get("name", ""):
                 poll_operation(result["name"])
             status = "exists" if result.get("_exists") else "created"
-            logger.info("  snowflake-nexus: %s", status)
+            logger.info("  retail-nexus-market-intel: %s", status)
             break
         except RuntimeError as e:
             if "429" in str(e) and attempt < 4:
@@ -44,13 +44,9 @@ def main():
 
     # --- Entry Types (global so they work with any entry group region) ---
     entry_types = [
-        ("snowflake-account", "Snowflake Account", ["DATABASE"], "Snowflake", "Snowflake"),
-        ("snowflake-database", "Snowflake Database", ["DATABASE"], "Snowflake", "Snowflake"),
-        ("snowflake-schema", "Snowflake Schema", ["DATABASE_SCHEMA"], "Snowflake", "Snowflake"),
-        ("snowflake-table", "Snowflake Table", ["TABLE"], "Snowflake", "Snowflake"),
-        ("snowflake-view", "Snowflake View", ["TABLE"], "Snowflake", "Snowflake"),
-        ("snowflake-tag", "Snowflake Horizon Tag", [], "Snowflake", "Snowflake"),
-        ("snowflake-tag-ref", "Snowflake Tag Reference", [], "Snowflake", "Snowflake"),
+        ("retail-snowflake-instance", "[Retail] Snowflake Market Intelligence Instance", ["DATABASE"], "Snowflake", "Snowflake"),
+        ("retail-snowflake-schema", "[Retail] Snowflake Market Intelligence Schema", ["DATABASE_SCHEMA"], "Snowflake", "Snowflake"),
+        ("retail-snowflake-table", "[Retail] Snowflake Market Intelligence Table", ["TABLE"], "Snowflake", "Snowflake"),
     ]
 
     logger.info("Creating %d entry types...", len(entry_types))

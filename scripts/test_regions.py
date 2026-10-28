@@ -9,7 +9,7 @@ class RegionModelTest(unittest.TestCase):
     def setUp(self):
         # Shape produced by common.load_config()
         self.cfg = {
-            "project_id": "fsi-kc-demo-dev",
+            "project_id": "retail-kc-demo-dev",
             "multi_region": "us",
             "location": "us-central1",
             "region": "us-central1",

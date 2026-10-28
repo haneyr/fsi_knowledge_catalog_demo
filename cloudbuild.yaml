@@ -22,7 +22,7 @@
 #   _ENV:    "dev" or "prod" (selects env/<_ENV>.tfvars)
 #   _PR_NUMBER: PR number (plan mode only, for posting comments)
 #   _GITHUB_OWNER: GitHub org/user (e.g. "haneyr")
-#   _GITHUB_REPO: GitHub repo name (e.g. "fsi_knowledge_catalog_demo")
+#   _GITHUB_REPO: GitHub repo name (e.g. "knowledge_catalog_demo")
 
 substitutions:
   _ACTION: "plan"

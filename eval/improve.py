@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Iterative prompt improvement loop for FSI KC agents.
+"""Iterative prompt improvement loop for Retail KC agents.
 
 Analyzes eval failures, generates targeted prompt improvements via Gemini,
 and optionally applies them for re-evaluation.
@@ -200,7 +200,7 @@ Output a JSON array of suggestion objects. If no changes are needed, output an e
 
 Output ONLY the JSON array, no markdown fencing or explanation."""
 
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "fsi-kc-demo-dev")
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "retail-kc-demo-dev")
     client = genai.Client(vertexai=True, project=project, location="global")
 
     print(f"  Calling {MODEL} for suggestions...")

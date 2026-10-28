@@ -15,7 +15,7 @@
 # limitations under the License.
 ####################################################################################
 """
-Applies custom FSI aspects (data classification, retention, compliance, lineage,
+Applies custom Retail aspects (data classification, retention, compliance, lineage,
 access control, risk classification, regulatory reporting) to BQ tables and
 glossary terms.
 
@@ -36,88 +36,104 @@ ALL_TABLES = BRONZE_TABLES + SILVER_TABLES + GOLD_TABLES
 
 
 def get_table_aspects(ds, tbl):
-    layer = ds.replace("fsi_", "")
+    layer = ds.replace("retail_", "")
     aspects = {}
 
     if "customers" in tbl or "wm_clients" in tbl:
-        aspects["fsi-data-classification"] = {"classification_level": "Restricted", "pii_category": "Direct Identifier", "requires_encryption": True, "requires_masking": True, "regulatory_scope": "GLBA, CCPA, BSA/AML"}
-    elif any(x in tbl for x in ["transactions", "loans", "credit_cards", "card_trans", "billing", "wire", "ach"]):
-        aspects["fsi-data-classification"] = {"classification_level": "Confidential", "pii_category": "Financial Data", "requires_encryption": True, "requires_masking": False, "regulatory_scope": "GLBA, BSA/AML, Reg E"}
+        aspects["retail-data-classification"] = {"classification_level": "Restricted", "pii_category": "PII", "requires_encryption": True, "requires_masking": True, "regulatory_scope": "CCPA/CPRA, GDPR, Marketing Consent"}
+    elif any(x in tbl for x in ["transactions", "bnpl_plans", "credit_cards", "card_trans", "billing", "wire", "ach"]):
+        aspects["retail-data-classification"] = {"classification_level": "Confidential", "pii_category": "Payment Card Data", "requires_encryption": True, "requires_masking": False, "regulatory_scope": "PCI-DSS, CCPA/CPRA"}
     elif any(x in tbl for x in ["fraud", "kyc", "compliance"]):
-        aspects["fsi-data-classification"] = {"classification_level": "Highly Restricted", "pii_category": "Financial Data", "requires_encryption": True, "requires_masking": False, "regulatory_scope": "BSA/AML, FinCEN"}
+        aspects["retail-data-classification"] = {"classification_level": "Highly Restricted", "pii_category": "Payment Card Data", "requires_encryption": True, "requires_masking": False, "regulatory_scope": "PCI-DSS, CCPA/CPRA, Loss Prevention"}
     elif any(x in tbl for x in ["gl_", "capital", "risk", "stress"]):
-        aspects["fsi-data-classification"] = {"classification_level": "Confidential", "pii_category": "Not PII", "requires_encryption": False, "requires_masking": False, "regulatory_scope": "SOX, Basel III, DFAST"}
-    elif any(x in tbl for x in ["holdings", "portfolios", "trades", "performance"]):
-        aspects["fsi-data-classification"] = {"classification_level": "Confidential", "pii_category": "Account Data", "requires_encryption": True, "requires_masking": False, "regulatory_scope": "SEC, FINRA, Investment Advisers Act"}
+        aspects["retail-data-classification"] = {"classification_level": "Confidential", "pii_category": "Not PII", "requires_encryption": False, "requires_masking": False, "regulatory_scope": "PCI-DSS, SOX, Supplier-Confidential"}
+    elif any(x in tbl for x in ["holdings", "assortments", "trades", "performance"]):
+        aspects["retail-data-classification"] = {"classification_level": "Confidential", "pii_category": "Marketing Consent", "requires_encryption": True, "requires_masking": False, "regulatory_scope": "Supplier-Confidential, CCPA/CPRA"}
     else:
-        aspects["fsi-data-classification"] = {"classification_level": "Internal", "pii_category": "Not PII", "requires_encryption": False, "requires_masking": False, "regulatory_scope": "General"}
+        aspects["retail-data-classification"] = {"classification_level": "Internal", "pii_category": "Not PII", "requires_encryption": False, "requires_masking": False, "regulatory_scope": "General"}
 
     if any(x in tbl for x in ["fraud", "kyc", "compliance", "sar"]):
-        aspects["fsi-data-retention"] = {"retention_period_years": 7, "governing_regulation": "BSA/AML, FinCEN", "retention_start_event": "Date of record creation", "archival_required": True, "destruction_method": "Secure Purge"}
+        aspects["retail-data-retention"] = {"retention_period_years": 7, "governing_regulation": "PCI-DSS, CCPA/CPRA, Loss Prevention", "retention_start_event": "Date of record creation", "archival_required": True, "destruction_method": "Secure Purge"}
     elif any(x in tbl for x in ["gl_", "capital", "stress", "regulatory"]):
-        aspects["fsi-data-retention"] = {"retention_period_years": 7, "governing_regulation": "SOX, OCC, Federal Reserve", "retention_start_event": "End of fiscal year", "archival_required": True, "destruction_method": "Secure Purge"}
+        aspects["retail-data-retention"] = {"retention_period_years": 7, "governing_regulation": "SOX, OCC, Federal Reserve", "retention_start_event": "End of fiscal year", "archival_required": True, "destruction_method": "Secure Purge"}
     else:
-        aspects["fsi-data-retention"] = {"retention_period_years": 5, "governing_regulation": "GLBA, State law", "retention_start_event": "Account closure or last activity", "archival_required": True, "destruction_method": "Crypto Shredding"}
+        aspects["retail-data-retention"] = {"retention_period_years": 5, "governing_regulation": "CCPA, State law", "retention_start_event": "Account closure or last activity", "archival_required": True, "destruction_method": "Crypto Shredding"}
 
     if layer == "gold":
-        aspects["fsi-regulatory-compliance"] = {"applicable_regulations": "SOX, GLBA, Basel III, DFAST", "compliance_status": "Compliant", "last_audit_date": "2025-11-15", "audit_frequency": "Quarterly", "compliance_notes": f"Analytics table ({tbl})."}
+        aspects["retail-regulatory-compliance"] = {"applicable_regulations": "SOX, CCPA, PCI-DSS III, DFAST", "compliance_status": "Compliant", "last_audit_date": "2025-11-15", "audit_frequency": "Quarterly", "compliance_notes": f"Analytics table ({tbl})."}
     else:
-        aspects["fsi-regulatory-compliance"] = {"applicable_regulations": "GLBA, BSA/AML, Reg E", "compliance_status": "Compliant", "last_audit_date": "2025-11-15", "audit_frequency": "Annual", "compliance_notes": f"{'Raw' if layer == 'bronze' else 'Cleansed'} operational data."}
+        aspects["retail-regulatory-compliance"] = {"applicable_regulations": "PCI-DSS, CCPA/CPRA", "compliance_status": "Compliant", "last_audit_date": "2025-11-15", "audit_frequency": "Annual", "compliance_notes": f"{'Raw' if layer == 'bronze' else 'Cleansed'} operational data."}
 
     src_map = {
-        "customers": ("ATLAS DB2", "IBM CDC Replication", "Real-time"),
-        "accounts": ("ATLAS DB2", "IBM CDC Replication", "Real-time"),
-        "transactions": ("ATLAS DB2", "IBM CDC Replication", "Real-time"),
-        "loans": ("ATLAS DB2", "IBM CDC Replication", "End-of-Day"),
-        "credit_cards": ("ATLAS DB2", "IBM CDC Replication", "End-of-Day"),
-        "card_trans": ("ATLAS DB2", "IBM CDC Replication", "Real-time"),
-        "fraud": ("ATLAS DB2", "IBM CDC Replication", "Real-time"),
-        "kyc": ("ATLAS DB2", "IBM CDC Replication", "Daily"),
-        "wire": ("ATLAS DB2", "IBM CDC Replication", "Real-time"),
-        "ach": ("ATLAS DB2", "IBM CDC Replication", "Daily"),
-        "branch": ("ATLAS DB2", "Batch File Extract", "Daily"),
-        "employee": ("ATLAS DB2", "Batch File Extract", "Daily"),
-        "atm": ("ATLAS DB2", "IBM CDC Replication", "Real-time"),
-        "wm_client": ("FORTUNA T24", "Temenos Extract API", "End-of-Day"),
-        "portfolio": ("FORTUNA T24", "Temenos Extract API", "End-of-Day"),
-        "holding": ("FORTUNA T24", "Temenos Extract API", "End-of-Day"),
-        "trade": ("FORTUNA T24", "Temenos Extract API", "Intraday"),
-        "securit": ("FORTUNA T24", "Temenos Extract API", "End-of-Day"),
-        "advisor": ("FORTUNA T24", "Temenos Extract API", "Daily"),
-        "performance": ("FORTUNA T24", "Temenos Extract API", "End-of-Day"),
-        "fee_schedule": ("FORTUNA T24", "Temenos Extract API", "Daily"),
-        "benchmark": ("FORTUNA T24", "Temenos Extract API", "End-of-Day"),
-        "client_goal": ("FORTUNA T24", "Temenos Extract API", "Daily"),
-        "risk_profile": ("FORTUNA T24", "Temenos Extract API", "Daily"),
-        "distribution": ("FORTUNA T24", "Temenos Extract API", "Daily"),
-        "custodian": ("FORTUNA T24", "Temenos Extract API", "End-of-Day"),
-        "gl_": ("ARGUS S/4HANA", "SAP SLT Replication", "Real-time"),
-        "cost_center": ("ARGUS S/4HANA", "SAP SLT Replication", "Daily"),
-        "capital": ("ARGUS S/4HANA", "SAP SLT Replication", "Monthly"),
-        "risk_exposure": ("ARGUS S/4HANA", "SAP SLT Replication", "End-of-Day"),
-        "counterpart": ("ARGUS S/4HANA", "SAP SLT Replication", "Daily"),
-        "market_data": ("ARGUS S/4HANA", "API Integration", "End-of-Day"),
-        "stress": ("ARGUS S/4HANA", "SAP SLT Replication", "Quarterly"),
-        "audit": ("ARGUS S/4HANA", "SAP SLT Replication", "Real-time"),
-        "regulatory_filing": ("ARGUS S/4HANA", "SAP SLT Replication", "Quarterly"),
-        "interest_rate": ("ARGUS S/4HANA", "API Integration", "End-of-Day"),
-        "fx_rate": ("ARGUS S/4HANA", "API Integration", "End-of-Day"),
-        "compliance": ("ARGUS S/4HANA", "SAP SLT Replication", "Real-time"),
+        "customers": ("ORION IBM i POS", "IBM CDC Replication", "Real-time"),
+        "accounts": ("ORION IBM i POS", "IBM CDC Replication", "Real-time"),
+        "transactions": ("ORION IBM i POS", "IBM CDC Replication", "Real-time"),
+        "bnpl_plans": ("ORION IBM i POS", "IBM CDC Replication", "End-of-Day"),
+        "credit_cards": ("ORION IBM i POS", "IBM CDC Replication", "End-of-Day"),
+        "card_trans": ("ORION IBM i POS", "IBM CDC Replication", "Real-time"),
+        "fraud": ("ORION IBM i POS", "IBM CDC Replication", "Real-time"),
+        "kyc": ("ORION IBM i POS", "IBM CDC Replication", "Daily"),
+        "wire": ("ORION IBM i POS", "IBM CDC Replication", "Real-time"),
+        "ach": ("ORION IBM i POS", "IBM CDC Replication", "Daily"),
+        "store": ("ORION IBM i POS", "Batch File Extract", "Daily"),
+        "employee": ("ORION IBM i POS", "Batch File Extract", "Daily"),
+        "atm": ("ORION IBM i POS", "IBM CDC Replication", "Real-time"),
+        "wm_client": ("LUMEN Commerce Cloud", "Salesforce Extract API", "End-of-Day"),
+        "assortment": ("LUMEN Commerce Cloud", "Salesforce Extract API", "End-of-Day"),
+        "holding": ("LUMEN Commerce Cloud", "Salesforce Extract API", "End-of-Day"),
+        "trade": ("LUMEN Commerce Cloud", "Salesforce Extract API", "Intraday"),
+        "securit": ("LUMEN Commerce Cloud", "Salesforce Extract API", "End-of-Day"),
+        "advisor": ("LUMEN Commerce Cloud", "Salesforce Extract API", "Daily"),
+        "performance": ("LUMEN Commerce Cloud", "Salesforce Extract API", "End-of-Day"),
+        "fee_schedule": ("LUMEN Commerce Cloud", "Salesforce Extract API", "Daily"),
+        "benchmark": ("LUMEN Commerce Cloud", "Salesforce Extract API", "End-of-Day"),
+        "client_goal": ("LUMEN Commerce Cloud", "Salesforce Extract API", "Daily"),
+        "risk_profile": ("LUMEN Commerce Cloud", "Salesforce Extract API", "Daily"),
+        "distribution": ("LUMEN Commerce Cloud", "Salesforce Extract API", "Daily"),
+        "custodian": ("LUMEN Commerce Cloud", "Salesforce Extract API", "End-of-Day"),
+        "gl_": ("HELIOS SAP S/4HANA Retail", "SAP SLT Replication", "Real-time"),
+        "cost_center": ("HELIOS SAP S/4HANA Retail", "SAP SLT Replication", "Daily"),
+        "capital": ("HELIOS SAP S/4HANA Retail", "SAP SLT Replication", "Monthly"),
+        "risk_exposure": ("HELIOS SAP S/4HANA Retail", "SAP SLT Replication", "End-of-Day"),
+        "counterpart": ("HELIOS SAP S/4HANA Retail", "SAP SLT Replication", "Daily"),
+        "market_data": ("HELIOS SAP S/4HANA Retail", "API Integration", "End-of-Day"),
+        "stress": ("HELIOS SAP S/4HANA Retail", "SAP SLT Replication", "Quarterly"),
+        "audit": ("HELIOS SAP S/4HANA Retail", "SAP SLT Replication", "Real-time"),
+        "regulatory_filing": ("HELIOS SAP S/4HANA Retail", "SAP SLT Replication", "Quarterly"),
+        "interest_rate": ("HELIOS SAP S/4HANA Retail", "API Integration", "End-of-Day"),
+        "fx_rate": ("HELIOS SAP S/4HANA Retail", "API Integration", "End-of-Day"),
+        "compliance": ("HELIOS SAP S/4HANA Retail", "SAP SLT Replication", "Real-time"),
     }
     for key, (src, method, freq) in src_map.items():
         if key in tbl:
-            path = f"{src} -> {ds}.{tbl}" if layer == "bronze" else (f"{src} -> fsi_bronze -> {ds}.{tbl}" if layer == "silver" else f"fsi_silver -> aggregation -> {ds}.{tbl}")
-            aspects["fsi-data-lineage-metadata"] = {"source_system": src, "ingestion_method": method, "refresh_frequency": freq, "data_flow_path": path}
+            path = f"{src} -> {ds}.{tbl}" if layer == "bronze" else (f"{src} -> retail_bronze -> {ds}.{tbl}" if layer == "silver" else f"retail_silver -> aggregation -> {ds}.{tbl}")
+            aspects["retail-data-lineage-metadata"] = {"source_system": src, "ingestion_method": method, "refresh_frequency": freq, "data_flow_path": path}
             break
 
     if any(x in tbl for x in ["customers", "wm_clients", "kyc"]):
-        aspects["fsi-access-control"] = {"access_level": "Restricted", "authorized_roles": "Compliance, Relationship Manager, Branch Manager", "requires_mfa": True, "need_to_know_applies": True, "audit_all_access": True}
+        aspects["retail-access-control"] = {"access_level": "Restricted", "authorized_roles": "Compliance, Relationship Manager, Store Manager", "requires_mfa": True, "need_to_know_applies": True, "audit_all_access": True}
     elif any(x in tbl for x in ["fraud", "compliance", "sar"]):
-        aspects["fsi-access-control"] = {"access_level": "Highly Restricted", "authorized_roles": "BSA Officer, Compliance Analyst, Legal", "requires_mfa": True, "need_to_know_applies": True, "audit_all_access": True}
+        aspects["retail-access-control"] = {"access_level": "Highly Restricted", "authorized_roles": "Privacy & Compliance Officer, Loss Prevention, Legal", "requires_mfa": True, "need_to_know_applies": True, "audit_all_access": True}
     elif any(x in tbl for x in ["gl_", "capital", "stress"]):
-        aspects["fsi-access-control"] = {"access_level": "Confidential", "authorized_roles": "CFO, Controller, Finance Analyst, Internal Audit", "requires_mfa": True, "need_to_know_applies": True, "audit_all_access": True}
+        aspects["retail-access-control"] = {"access_level": "Confidential", "authorized_roles": "CFO, Controller, Finance Analyst, Internal Audit", "requires_mfa": True, "need_to_know_applies": True, "audit_all_access": True}
     else:
-        aspects["fsi-access-control"] = {"access_level": "Restricted", "authorized_roles": "Department Head, Data Analyst, Operations", "requires_mfa": False, "need_to_know_applies": True, "audit_all_access": False}
+        aspects["retail-access-control"] = {"access_level": "Restricted", "authorized_roles": "Department Head, Data Analyst, Operations", "requires_mfa": False, "need_to_know_applies": True, "audit_all_access": False}
+
+    if any(x in tbl for x in ["fraud", "return", "card_trans"]):
+        aspects["retail-risk-classification"] = {"risk_category": "Return and Fraud Risk", "model_dependency": "Model Input", "materiality_level": "Significant", "sox_relevant": False}
+    elif any(x in tbl for x in ["stress", "risk", "performance", "assortment"]):
+        aspects["retail-risk-classification"] = {"risk_category": "Demand and Markdown Risk", "model_dependency": "Model Output", "materiality_level": "Material", "sox_relevant": True}
+    elif any(x in tbl for x in ["capital", "gl_", "holding"]):
+        aspects["retail-risk-classification"] = {"risk_category": "Stockout and Liquidity Risk", "model_dependency": "Model Input", "materiality_level": "Material", "sox_relevant": True}
+    elif any(x in tbl for x in ["customers", "wm_clients", "kyc", "compliance"]):
+        aspects["retail-risk-classification"] = {"risk_category": "Privacy and PCI Risk", "model_dependency": "Not Model Related", "materiality_level": "Significant", "sox_relevant": False}
+
+    if any(x in tbl for x in ["regulatory", "compliance", "kyc"]):
+        aspects["retail-regulatory-reporting"] = {"report_name": "CCPA-CPRA Annual Privacy & Supplier Audit", "filing_frequency": "Annual", "regulatory_body": "CPPA CCPA-CPRA", "schedule_line_item": "Schedule A - Consumer Privacy & Supplier Compliance"}
+    elif any(x in tbl for x in ["card_trans", "credit_cards", "transactions", "fraud"]):
+        aspects["retail-regulatory-reporting"] = {"report_name": "PCI-DSS v4.0 Report on Compliance (ROC)", "filing_frequency": "Quarterly", "regulatory_body": "PCI-SSC", "schedule_line_item": "Req 3 & Req 10 - Cardholder Data Protection"}
+    elif any(x in tbl for x in ["gl_", "capital", "stress"]):
+        aspects["retail-regulatory-reporting"] = {"report_name": "Form 10-K / SOX 404 Retail Financial Controls", "filing_frequency": "Quarterly", "regulatory_body": "SEC", "schedule_line_item": "Item 7 - MD&A Inventory & Working Capital"}
 
     return aspects
 
@@ -141,28 +157,28 @@ def apply_table_aspects(cfg):
 def apply_glossary_aspects(cfg):
     logger.info("=== Applying aspects to glossary terms ===")
     PII_TERMS = {
-        "customer-id": ("Direct Identifier", "Restricted", True, True, "GLBA, CCPA"),
-        "tin": ("Direct Identifier", "Highly Restricted", True, True, "IRS, GLBA"),
-        "fico-score": ("Financial Data", "Confidential", True, False, "FCRA, GLBA"),
-        "checking-account": ("Account Data", "Confidential", True, False, "GLBA, Reg E"),
-        "savings-account": ("Account Data", "Confidential", True, False, "GLBA"),
-        "account-balance": ("Financial Data", "Confidential", True, False, "GLBA"),
-        "mortgage": ("Financial Data", "Confidential", True, False, "TILA, RESPA, GLBA"),
-        "credit-card": ("Account Data", "Confidential", True, False, "GLBA, PCI-DSS"),
-        "wire-transfer": ("Financial Data", "Confidential", True, False, "BSA/AML, OFAC"),
-        "sar": ("Financial Data", "Highly Restricted", True, False, "BSA/AML, FinCEN"),
-        "kyc": ("Financial Data", "Restricted", True, False, "BSA/AML, CDD Rule"),
-        "aum": ("Financial Data", "Confidential", True, False, "SEC, Investment Advisers Act"),
-        "general-ledger": ("Not PII", "Confidential", False, False, "SOX"),
-        "cet1-ratio": ("Not PII", "Internal", False, False, "Basel III, DFAST"),
-        "var": ("Not PII", "Confidential", False, False, "Basel III"),
-        "branch": ("Not PII", "Internal", False, False, "General"),
+        "customer-id": ("PII", "Restricted", True, True, "CCPA/CPRA, GDPR"),
+        "member-tin": ("PII", "Highly Restricted", True, True, "CCPA/CPRA, GDPR"),
+        "loyalty-return-risk-score": ("Marketing Consent", "Confidential", True, False, "CCPA/CPRA"),
+        "points-rewards-account": ("Marketing Consent", "Confidential", True, False, "CCPA/CPRA, Marketing Consent"),
+        "vip-cashback-account": ("Marketing Consent", "Confidential", True, False, "CCPA/CPRA, Marketing Consent"),
+        "loyalty-account-balance": ("Marketing Consent", "Confidential", True, False, "CCPA/CPRA"),
+        "extended-furniture-bnpl": ("Payment Card Data", "Confidential", True, False, "PCI-DSS, CCPA/CPRA"),
+        "cobranded-store-card": ("Payment Card Data", "Confidential", True, False, "PCI-DSS, CCPA/CPRA"),
+        "high-value-refund-payout": ("Payment Card Data", "Confidential", True, False, "PCI-DSS, Loss Prevention"),
+        "promo-abuse-incident-report": ("PII", "Highly Restricted", True, False, "CCPA/CPRA, Loss Prevention"),
+        "shopper-verification": ("Marketing Consent", "Restricted", True, False, "CCPA/CPRA, GDPR"),
+        "gross-merchandise-value": ("Supplier-Confidential", "Confidential", True, False, "Supplier-Confidential"),
+        "general-ledger": ("Not PII", "Confidential", False, False, "SOX, Supplier-Confidential"),
+        "core-working-capital-ratio": ("Not PII", "Internal", False, False, "PCI-DSS, Internal Audit"),
+        "markdown-value-at-risk": ("Supplier-Confidential", "Confidential", False, False, "Supplier-Confidential"),
+        "retail-store-location": ("Not PII", "Internal", False, False, "General"),
     }
     count = 0
     for term_id, (cat, level, enc, mask, reg) in PII_TERMS.items():
         try:
             entry = glossary_term_entry(cfg, term_id)
-            set_entry_aspect(cfg, entry, "fsi-data-classification", {
+            set_entry_aspect(cfg, entry, "retail-data-classification", {
                 "classification_level": level, "pii_category": cat,
                 "requires_encryption": enc, "requires_masking": mask,
                 "regulatory_scope": reg,

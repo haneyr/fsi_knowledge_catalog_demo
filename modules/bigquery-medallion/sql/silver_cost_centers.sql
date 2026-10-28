@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `${project_id}.fsi_silver.silver_cost_centers` AS
+CREATE OR REPLACE TABLE `${project_id}.retail_silver.silver_cost_centers` AS
 SELECT
   cost_center_id,
   cost_center_name,
@@ -12,7 +12,7 @@ SELECT
   CURRENT_TIMESTAMP() AS silver_loaded_at
 FROM (
   SELECT *, ROW_NUMBER() OVER (PARTITION BY cost_center_id ORDER BY created_at DESC) AS rn
-  FROM `${project_id}.fsi_bronze.bronze_cost_centers`
+  FROM `${project_id}.retail_bronze.bronze_cost_centers`
 )
 WHERE rn = 1
   AND cost_center_id IS NOT NULL

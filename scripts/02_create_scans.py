@@ -16,7 +16,7 @@
 ####################################################################################
 """
 Creates and runs Knowledge Catalog data profile, data quality, and data insights scans
-for all FSI medallion tables with financial-services-specific quality rules.
+for all Retail medallion tables with financial-services-specific quality rules.
 
 Usage: python3 02_create_scans.py
 """
@@ -36,7 +36,7 @@ def bq_resource(cfg, dataset, table):
 def build_quality_rules():
     rules = {}
 
-    rules[("fsi_bronze", "bronze_customers")] = [
+    rules[("retail_bronze", "bronze_customers")] = [
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "customer-id-not-null"},
         {"column": "customer_id", "regexExpectation": {"regex": r"^CUST-\d{8}$"}, "dimension": "VALIDITY", "name": "customer-id-format"},
         {"column": "first_name", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "first-name-not-null"},
@@ -45,46 +45,46 @@ def build_quality_rules():
         {"tableConditionExpectation": {"sqlExpression": "COUNT(*) >= 10000"}, "dimension": "VOLUME", "name": "min-row-count"},
     ]
 
-    rules[("fsi_bronze", "bronze_accounts")] = [
+    rules[("retail_bronze", "bronze_loyalty_accounts")] = [
         {"column": "account_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "account-id-not-null"},
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "customer-id-not-null"},
-        {"column": "account_type", "setExpectation": {"values": ["CHECKING", "SAVINGS", "MONEY_MARKET", "CD", "IRA"]}, "dimension": "VALIDITY", "name": "account-type-valid"},
-        {"column": "current_balance", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "balance-non-negative"},
+        {"column": "account_type", "setExpectation": {"values": ["POINTS_REWARDS", "VIP_CASHBACK", "STORE_CREDIT", "GIFT_WALLET", "EMPLOYEE_PERKS"]}, "dimension": "VALIDITY", "name": "account-type-valid"},
+        {"column": "current_balance", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "inventory-and-order-total-non-negative"},
     ]
 
-    rules[("fsi_bronze", "bronze_loans")] = [
-        {"column": "loan_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "loan-id-not-null"},
+    rules[("retail_bronze", "bronze_bnpl_plans")] = [
+        {"column": "bnpl_plan_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "bnpl-plan-id-not-null"},
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "customer-id-not-null"},
         {"column": "original_amount", "rangeExpectation": {"minValue": "0", "strictMinEnabled": True}, "dimension": "VALIDITY", "name": "amount-positive"},
         {"column": "interest_rate", "rangeExpectation": {"minValue": "0", "maxValue": "0.30"}, "dimension": "VALIDITY", "name": "rate-range"},
-        {"column": "fico_score_at_origination", "rangeExpectation": {"minValue": "300", "maxValue": "850"}, "dimension": "VALIDITY", "name": "fico-range"},
-        {"column": "risk_rating", "setExpectation": {"values": ["Pass", "Special Mention", "Substandard", "Doubtful", "Loss"]}, "dimension": "VALIDITY", "name": "risk-rating-valid"},
+        {"column": "return_risk_score_at_signup", "rangeExpectation": {"minValue": "1", "maxValue": "100"}, "dimension": "VALIDITY", "name": "return-risk-range"},
+        {"column": "risk_rating", "setExpectation": {"values": ["Low", "Watch", "Elevated", "High Risk"]}, "dimension": "VALIDITY", "name": "risk-rating-valid"},
     ]
 
-    rules[("fsi_silver", "silver_customers")] = [
+    rules[("retail_silver", "silver_customers")] = [
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "pk-not-null"},
         {"column": "customer_id", "uniquenessExpectation": {}, "dimension": "UNIQUENESS", "name": "pk-unique"},
-        {"column": "ssn_masked", "regexExpectation": {"regex": r"^XXX-XX-\d{4}$"}, "dimension": "VALIDITY", "name": "ssn-masked-format", "ignoreNull": True},
+        {"column": "member_tin_masked", "regexExpectation": {"regex": r"^XXX-XX-\d{4}$"}, "dimension": "VALIDITY", "name": "member-tin-masked-format", "ignoreNull": True},
         {"rowConditionExpectation": {"sqlExpression": "date_of_birth <= CURRENT_DATE()"}, "dimension": "VALIDITY", "name": "dob-not-future"},
     ]
 
-    rules[("fsi_silver", "silver_loans")] = [
-        {"column": "loan_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "pk-not-null"},
-        {"column": "loan_id", "uniquenessExpectation": {}, "dimension": "UNIQUENESS", "name": "pk-unique"},
+    rules[("retail_silver", "silver_bnpl_plans")] = [
+        {"column": "bnpl_plan_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "pk-not-null"},
+        {"column": "bnpl_plan_id", "uniquenessExpectation": {}, "dimension": "UNIQUENESS", "name": "pk-unique"},
         {"column": "original_amount", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "amount-non-negative"},
-        {"column": "current_balance", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "balance-non-negative"},
+        {"column": "current_balance", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "inventory-and-order-total-non-negative"},
         {"rowConditionExpectation": {"sqlExpression": "current_balance <= original_amount * 1.5"}, "dimension": "CONSISTENCY", "name": "balance-vs-original", "threshold": 0.95},
     ]
 
-    rules[("fsi_gold", "gold_customer_360")] = [
+    rules[("retail_gold", "gold_customer_360")] = [
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "pk-not-null"},
         {"column": "customer_id", "uniquenessExpectation": {}, "dimension": "UNIQUENESS", "name": "pk-unique"},
         {"column": "total_relationship_value", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "relationship-value-non-negative"},
-        {"column": "total_deposit_balance", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "deposits-non-negative"},
+        {"column": "total_loyalty_balance", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "loyalty-balances-non-negative"},
     ]
 
-    rules[("fsi_gold", "gold_loan_portfolio_summary")] = [
-        {"column": "loan_count", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "count-non-negative"},
+    rules[("retail_gold", "gold_bnpl_plan_summary")] = [
+        {"column": "plan_count", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "count-non-negative"},
         {"column": "delinquency_rate_pct", "rangeExpectation": {"minValue": "0", "maxValue": "100"}, "dimension": "VALIDITY", "name": "rate-pct-range"},
     ]
 
@@ -109,7 +109,7 @@ def create_and_run_scan(cfg, dataset, table, stype, spec_body):
         **spec_body,
         "data": {"resource": bq_resource(cfg, dataset, table)},
         "displayName": f"{stype.title()}: {dataset}.{table}",
-        "description": f"Data {stype} scan for {dataset}.{table}",
+        "description": f"[Retail] Data {stype} scan for {dataset}.{table}",
     }
 
     result = api_call(url, "POST", body)
@@ -138,14 +138,14 @@ def create_and_run_scan(cfg, dataset, table, stype, spec_body):
 def create_and_run_dataset_scan(cfg, dataset):
     pid = cfg["project_id"]
     loc = cfg["location"]
-    sid = f"fsi-{dataset.replace('fsi_', '')}-dataset-insights"
+    sid = f"retail-{dataset.replace('retail_', '')}-dataset-insights"
     url = f"{DATAPLEX_URL}/projects/{pid}/locations/{loc}/dataScans?dataScanId={sid}"
 
     body = {
         "data": {"resource": f"//bigquery.googleapis.com/projects/{pid}/datasets/{dataset}"},
         "dataDocumentationSpec": {"catalog_publishing_enabled": True},
         "displayName": f"Insights: {dataset} dataset",
-        "description": f"Data documentation scan for {dataset} dataset",
+        "description": f"[Retail] Data documentation scan for {dataset} dataset",
     }
 
     result = api_call(url, "POST", body)

@@ -254,3 +254,9 @@ snowflake/output/
 
 # Design mockups (internal)
 mockups/
+
+# Deployment logs
+logs/
+__pycache__/
+*.pyc
+*.bundle

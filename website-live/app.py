@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FSI Knowledge Catalog Demo — Live WebSocket Web Application
+[Retail] Northwind Retail Knowledge Catalog Demo — Live WebSocket Web Application
 
 Streams agent responses in real-time via WebSocket, parsing Agent Engine
 streamQuery events to drive point cloud animations on the frontend.
@@ -42,63 +42,77 @@ AGENT_IDS = {
 }
 
 OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID", "")
-ENVIRONMENT_LABEL = os.environ.get("ENVIRONMENT_LABEL", "")
+ENVIRONMENT_LABEL = os.environ.get("ENVIRONMENT_LABEL", "demo") or "demo"
 
 AE_BASE = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
 _SESSION_TTL = 3600
 _sessions = {}
 _session_times = {}
 
-_FSI_DATASETS = {
-    'fsi_gold', 'fsi_silver', 'fsi_bronze',
-    'fsi_reference', 'fsi_supplementary', 'fsi_dashboards',
+_RETAIL_DATASETS = {
+    'retail_gold', 'retail_silver', 'retail_bronze',
+    'retail_reference', 'retail_staging', 'retail_snapshots',
+    'retail_audit', 'retail_dashboards',
 }
 _DATASET_TO_TIER = {
-    'fsi_gold': 'gold', 'fsi_silver': 'silver', 'fsi_bronze': 'bronze',
-    'fsi_reference': 'ref', 'fsi_supplementary': 'ref', 'fsi_dashboards': 'ref',
+    'retail_gold': 'gold', 'retail_silver': 'silver', 'retail_bronze': 'bronze',
+    'retail_reference': 'ref', 'retail_staging': 'ref', 'retail_snapshots': 'ref',
+    'retail_audit': 'ref', 'retail_dashboards': 'ref',
 }
 
 BASIC_TABLES = [
-    'gold_customer_360', 'gold_account_summary', 'gold_loan_portfolio_summary',
-    'gold_portfolio_performance', 'gold_balance_sheet_summary',
+    'gold_customer_360', 'gold_loyalty_account_summary', 'gold_bnpl_plan_summary',
+    'gold_assortment_performance', 'gold_financial_summary',
 ]
 
 GOLD_SOURCES = {
-    'gold_customer_360': ['silver_customers', 'silver_accounts', 'silver_loans', 'silver_credit_cards', 'silver_wm_clients'],
-    'gold_account_summary': ['silver_accounts', 'silver_transactions'],
-    'gold_transaction_patterns': ['silver_transactions'],
-    'gold_loan_portfolio_summary': ['silver_loans'],
-    'gold_delinquency_analysis': ['silver_loans'],
-    'gold_fraud_analytics': ['silver_fraud_alerts'],
-    'gold_aml_risk_scoring': ['silver_customers', 'silver_kyc_records', 'silver_compliance_cases', 'silver_wire_transfers'],
-    'gold_branch_performance': ['silver_branches', 'silver_accounts', 'silver_loans', 'silver_transactions'],
-    'gold_portfolio_performance': ['silver_portfolios', 'silver_performance', 'silver_holdings', 'silver_benchmarks'],
-    'gold_client_revenue': ['silver_wm_clients', 'silver_fee_schedules', 'silver_portfolios', 'silver_trades'],
-    'gold_asset_allocation': ['silver_holdings'],
-    'gold_advisor_scorecard': ['silver_advisors', 'silver_portfolios', 'silver_performance', 'silver_trades'],
-    'gold_fee_revenue': ['silver_fee_schedules', 'silver_wm_clients'],
-    'gold_net_interest_margin': ['silver_accounts', 'silver_loans'],
-    'gold_capital_adequacy': ['silver_regulatory_capital'],
-    'gold_liquidity_coverage': ['silver_accounts'],
-    'gold_market_risk_var': ['silver_holdings', 'silver_market_data'],
-    'gold_operational_risk': ['silver_audit_events'],
-    'gold_regulatory_dashboard': ['silver_regulatory_capital', 'silver_kyc_records', 'silver_regulatory_filings'],
-    'gold_balance_sheet_summary': ['silver_accounts', 'silver_loans', 'silver_holdings', 'silver_regulatory_capital'],
+    'gold_customer_360': ['silver_customers', 'silver_loyalty_accounts', 'silver_bnpl_plans', 'silver_store_cards', 'silver_vip_members'],
+    'gold_loyalty_account_summary': ['silver_loyalty_accounts', 'silver_pos_transactions'],
+    'gold_order_patterns': ['silver_pos_transactions'],
+    'gold_bnpl_plan_summary': ['silver_bnpl_plans'],
+    'gold_bnpl_delinquency_analysis': ['silver_bnpl_plans'],
+    'gold_return_fraud_analytics': ['silver_fraud_alerts'],
+    'gold_promo_fraud_scoring': ['silver_customers', 'silver_privacy_consents', 'silver_promo_abuse_cases', 'silver_high_value_refunds'],
+    'gold_store_performance': ['silver_stores', 'silver_loyalty_accounts', 'silver_bnpl_plans', 'silver_pos_transactions'],
+    'gold_assortment_performance': ['silver_merch_assortments', 'silver_assortment_performance', 'silver_inventory_positions', 'silver_category_benchmarks'],
+    'gold_vip_member_revenue': ['silver_vip_members', 'silver_promo_rules', 'silver_merch_assortments', 'silver_ecom_orders'],
+    'gold_inventory_allocation': ['silver_inventory_positions'],
+    'gold_category_manager_scorecard': ['silver_category_managers', 'silver_merch_assortments', 'silver_assortment_performance', 'silver_ecom_orders'],
+    'gold_promo_margin_impact': ['silver_promo_rules', 'silver_vip_members'],
+    'gold_gross_margin_analysis': ['silver_loyalty_accounts', 'silver_bnpl_plans'],
+    'gold_working_capital_adequacy': ['silver_working_capital'],
+    'gold_inventory_turnover_coverage': ['silver_loyalty_accounts'],
+    'gold_markdown_risk_var': ['silver_inventory_positions', 'silver_competitor_pricing'],
+    'gold_shrinkage_operational_risk': ['silver_audit_events'],
+    'gold_compliance_dashboard': ['silver_working_capital', 'silver_privacy_consents', 'silver_compliance_attestations'],
+    'gold_financial_summary': ['silver_loyalty_accounts', 'silver_bnpl_plans', 'silver_inventory_positions', 'silver_working_capital'],
 }
 
 GLOSSARY_LINKS = {
-    'FICO Score': ['gold_loan_portfolio_summary', 'silver_loans', 'bronze_loans', 'gold_delinquency_analysis'],
-    'AUM': ['gold_customer_360', 'gold_advisor_scorecard', 'gold_client_revenue', 'silver_wm_clients'],
-    'SAR': ['gold_fraud_analytics', 'gold_aml_risk_scoring', 'bronze_fraud_alerts', 'bronze_compliance_cases'],
-    'CET1 Ratio': ['gold_capital_adequacy', 'silver_regulatory_capital', 'bronze_regulatory_capital'],
-    'Customer ID': ['gold_customer_360', 'silver_customers', 'bronze_customers', 'gold_account_summary'],
-    'Delinquency': ['gold_loan_portfolio_summary', 'gold_delinquency_analysis', 'silver_loans'],
-    'KYC': ['gold_aml_risk_scoring', 'bronze_kyc_records', 'gold_customer_360'],
-    'VaR': ['gold_market_risk_var', 'silver_holdings', 'silver_market_data'],
-    'CUSIP': ['silver_securities', 'bronze_securities', 'gold_asset_allocation'],
-    'Branch': ['gold_branch_performance', 'gold_customer_360', 'bronze_branches', 'gold_net_interest_margin'],
-    'NIM': ['gold_net_interest_margin', 'silver_accounts', 'silver_loans'],
-    'Risk Rating': ['gold_loan_portfolio_summary', 'silver_loans', 'bronze_loans'],
+    '[Retail] Return-Risk Score': ['gold_bnpl_plan_summary', 'silver_bnpl_plans', 'bronze_bnpl_plans', 'gold_bnpl_delinquency_analysis'],
+    'Return-Risk Score': ['gold_bnpl_plan_summary', 'silver_bnpl_plans', 'bronze_bnpl_plans', 'gold_bnpl_delinquency_analysis'],
+    '[Retail] Customer Lifetime Value (CLV)': ['gold_customer_360', 'gold_category_manager_scorecard', 'gold_vip_member_revenue', 'silver_vip_members'],
+    'CLV': ['gold_customer_360', 'gold_category_manager_scorecard', 'gold_vip_member_revenue', 'silver_vip_members'],
+    '[Retail] Return Abuse Alert': ['gold_return_fraud_analytics', 'gold_promo_fraud_scoring', 'bronze_fraud_alerts', 'bronze_promo_abuse_cases'],
+    'Return Abuse Alert': ['gold_return_fraud_analytics', 'gold_promo_fraud_scoring', 'bronze_fraud_alerts', 'bronze_promo_abuse_cases'],
+    '[Retail] Working Capital Ratio': ['gold_working_capital_adequacy', 'silver_working_capital', 'bronze_working_capital'],
+    'Working Capital Ratio': ['gold_working_capital_adequacy', 'silver_working_capital', 'bronze_working_capital'],
+    '[Retail] Customer ID': ['gold_customer_360', 'silver_customers', 'bronze_customers', 'gold_loyalty_account_summary'],
+    'Customer ID': ['gold_customer_360', 'silver_customers', 'bronze_customers', 'gold_loyalty_account_summary'],
+    '[Retail] BNPL Delinquency Rate': ['gold_bnpl_plan_summary', 'gold_bnpl_delinquency_analysis', 'silver_bnpl_plans'],
+    'Delinquency': ['gold_bnpl_plan_summary', 'gold_bnpl_delinquency_analysis', 'silver_bnpl_plans'],
+    '[Retail] Marketing Consent & Verification': ['gold_promo_fraud_scoring', 'bronze_privacy_consents', 'gold_customer_360'],
+    'Consent Verification': ['gold_promo_fraud_scoring', 'bronze_privacy_consents', 'gold_customer_360'],
+    '[Retail] Markdown Value at Risk (VaR)': ['gold_markdown_risk_var', 'silver_inventory_positions', 'silver_competitor_pricing'],
+    'VaR': ['gold_markdown_risk_var', 'silver_inventory_positions', 'silver_competitor_pricing'],
+    '[Retail] Global Trade Item Number (GTIN-13)': ['silver_product_skus', 'bronze_product_skus', 'gold_inventory_allocation'],
+    'GTIN': ['silver_product_skus', 'bronze_product_skus', 'gold_inventory_allocation'],
+    '[Retail] Store ID': ['gold_store_performance', 'gold_customer_360', 'bronze_stores', 'gold_gross_margin_analysis'],
+    'Store': ['gold_store_performance', 'gold_customer_360', 'bronze_stores', 'gold_gross_margin_analysis'],
+    '[Retail] Gross Margin Percentage': ['gold_gross_margin_analysis', 'silver_loyalty_accounts', 'silver_bnpl_plans'],
+    'Gross Margin': ['gold_gross_margin_analysis', 'silver_loyalty_accounts', 'silver_bnpl_plans'],
+    '[Retail] Return Risk Tier': ['gold_bnpl_plan_summary', 'silver_bnpl_plans', 'bronze_bnpl_plans'],
+    'Risk Rating': ['gold_bnpl_plan_summary', 'silver_bnpl_plans', 'bronze_bnpl_plans'],
 }
 
 # Discovered state — populated at startup by _discover_*() functions
@@ -152,8 +166,9 @@ def _ae_url(agent_id):
     return f"{AE_BASE}/projects/{pn}/locations/{LOCATION}/reasoningEngines/{agent_id}"
 
 
-def _get_or_create_session(agent_id, user_id):
-    key = f"{agent_id}:{user_id}"
+def _get_or_create_session(agent_id, user_id, category="merchandising"):
+    cat_key = (category or "merchandising").strip().lower()
+    key = f"{agent_id}:{user_id}:{cat_key}"
     if key in _sessions:
         if time.time() - _session_times.get(key, 0) < _SESSION_TTL:
             return _sessions[key]
@@ -163,17 +178,17 @@ def _get_or_create_session(agent_id, user_id):
     try:
         token = _get_token()
         url = f"{_ae_url(agent_id)}:query"
-        logger.info("Creating session: POST %s for user=%s", url, user_id)
+        logger.info("Creating session: POST %s for user=%s category=%s", url, user_id, cat_key)
         resp = _get_http_session().post(
             url,
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json={"class_method": "create_session", "input": {"user_id": user_id}},
+            json={"class_method": "async_create_session", "input": {"user_id": user_id}},
             timeout=30,
         )
         logger.info("Session response: status=%d body=%s", resp.status_code, resp.text[:500])
         if resp.status_code == 200:
             output = resp.json().get("output", {})
-            session_id = output.get("id", "") if isinstance(output, dict) else str(output)
+            session_id = output.get("id", "") if type(output) is dict else str(output)
             _sessions[key] = session_id
             _session_times[key] = time.time()
             return session_id
@@ -183,8 +198,54 @@ def _get_or_create_session(agent_id, user_id):
         return None
 
 
-def _extract_tables(text):
-    return [t for t in ALL_TABLE_NAMES if t in text.lower()]
+_INTERNAL_SCOPE_INSTRUCTION = (
+    "\n\n[MANDATORY SCOPE GATE — INTERNAL BIGQUERY ONLY]\n"
+    "Active UI Tab: INTERNAL (Merchandising / Customer / Privacy).\n"
+    "Strict rules for this turn:\n"
+    "1. Do NOT call `query_snowflake`.\n"
+    "2. Do NOT search for or pass any `retail-nexus-market-intel` or `nexus_*` entry in `search_entries` or `lookup_context`.\n"
+    "3. Use ONLY internal BigQuery tables (`retail_gold.*`, `retail_silver.*`, `retail_bronze.*`, `retail_reference.*`).\n"
+    "4. Do NOT output the words `NEXUS`, `Snowflake`, `SYNDICATED_INTEL`, `Third-Party Licensed`, `Vendor Data License`, `#NWR-NEXUS-2026`, or `external market data` anywhere in your response (not even in negative disclaimers). In **Governance Context.**, cite only internal source systems (`ORION`, `LUMEN`, `HELIOS`) and internal sensitivity classifications (`Internal`, `Confidential`, `Restricted` under `PCI-DSS` / `CCPA`)."
+)
+
+_CROSS_CLOUD_SCOPE_INSTRUCTION = (
+    "\n\n[MANDATORY SCOPE GATE — CROSS-CLOUD TAB]\n"
+    "Active UI Tab: CROSS-CLOUD.\n"
+    "Strict rules for this turn:\n"
+    "1. You MUST invoke BOTH the `query_snowflake` tool (against at least one `NEXUS_MARKET_DATA.SYNDICATED_INTEL.NEXUS_*` table such as `NEXUS_MARKET_DATA.SYNDICATED_INTEL.NEXUS_COMPETITOR_PRICES`) AND the `run_sql` tool (against internal BigQuery tables) BEFORE generating your text response. Never skip calling `query_snowflake` or `run_sql`.\n"
+    "2. In `lookup_context`, you MUST inspect the corresponding NEXUS entry (`projects/alitch-ca-demo/locations/us/entryGroups/retail-nexus-market-intel/entries/nexus_*`) alongside at least one Bronze (`bronze_product_skus`), one Silver (`silver_product_skus` or `silver_inventory_positions`), and one Gold (`gold_inventory_allocation`) BigQuery table. Do NOT use internal `bronze_competitor_pricing` or `silver_competitor_pricing`.\n"
+    "3. Cite the `nexus_*` asset in **Data discovery.** and **Governance Context.** (including `NEXUS`, `Snowflake`, `Third-Party Licensed`, and `Vendor Data License #NWR-NEXUS-2026`)."
+)
+
+_CROSS_CLOUD_EXCLUDED_INTERNAL = {
+    "bronze_competitor_pricing",
+    "silver_competitor_pricing",
+    "snapshot_daily_competitor_pricing",
+}
+
+
+def _is_cross_cloud_category(category):
+    return str(category or "").strip().lower() in ("multicloud", "cross-cloud", "cross_cloud")
+
+
+def _build_scoped_question(agent_type, question, category):
+    if agent_type != "kc":
+        return question
+    if _is_cross_cloud_category(category):
+        return f"{question}{_CROSS_CLOUD_SCOPE_INSTRUCTION}"
+    return f"{question}{_INTERNAL_SCOPE_INSTRUCTION}"
+
+
+def _extract_tables(text, is_cross_cloud=False):
+    lower = text.lower()
+    if is_cross_cloud:
+        candidates = [
+            t for t in (ALL_TABLE_NAMES + _SNOWFLAKE_TABLES)
+            if t not in _CROSS_CLOUD_EXCLUDED_INTERNAL
+        ]
+    else:
+        candidates = ALL_TABLE_NAMES
+    return [t for t in candidates if t in lower]
 
 
 def _extract_glossary_terms(text):
@@ -196,7 +257,23 @@ def _extract_glossary_terms(text):
     return list(terms)
 
 
-def _parse_stream_chunk(raw_text):
+def _iter_stream_lines(resp):
+    """Yield newline-delimited JSON chunks immediately as HTTP chunks arrive."""
+    buf = b""
+    for chunk in resp.raw.stream(65536, decode_content=True):
+        if not chunk:
+            continue
+        buf += chunk
+        while b"\n" in buf:
+            line, buf = buf.split(b"\n", 1)
+            line = line.strip()
+            if line:
+                yield line.decode("utf-8", errors="replace")
+    if buf.strip():
+        yield buf.strip().decode("utf-8", errors="replace")
+
+
+def _parse_stream_chunk(raw_text, is_cross_cloud=False, sse_mode=False):
     """Parse a single streamQuery response line into typed events."""
     events = []
     try:
@@ -204,11 +281,16 @@ def _parse_stream_chunk(raw_text):
     except json.JSONDecodeError:
         return events
 
+    is_partial = bool(data.get("partial"))
     content = data.get("content", {})
     parts = content.get("parts", [])
 
     for part in parts:
         if "function_call" in part:
+            # In ADK SSE mode, function_call is emitted twice (partial=True then partial=False).
+            # Emit tool_call only on the finalized event to avoid duplicate tool chips.
+            if is_partial:
+                continue
             fc = part["function_call"]
             args = fc.get("args", {})
             args_text = str(args)
@@ -216,13 +298,13 @@ def _parse_stream_chunk(raw_text):
                 "type": "tool_call",
                 "name": fc.get("name", ""),
                 "args": args,
-                "tables": _extract_tables(args_text),
+                "tables": _extract_tables(args_text, is_cross_cloud=is_cross_cloud),
             })
         elif "function_response" in part:
             fr = part["function_response"]
             resp_data = fr.get("response", {})
             result_text = resp_data.get("result", str(resp_data))
-            tables = _extract_tables(result_text)
+            tables = _extract_tables(result_text, is_cross_cloud=is_cross_cloud)
             glossary = _extract_glossary_terms(result_text)
             events.append({
                 "type": "tool_response",
@@ -230,7 +312,11 @@ def _parse_stream_chunk(raw_text):
                 "tables": tables,
                 "glossary_terms": glossary,
             })
-        elif "text" in part:
+        elif "text" in part and part["text"] and not part.get("thought"):
+            # In ADK SSE mode, all tokens stream as partial=True and partial=False is the
+            # turn-end aggregate duplicate saved to the session.
+            if sse_mode and not is_partial:
+                continue
             events.append({
                 "type": "text_chunk",
                 "text": part["text"],
@@ -294,7 +380,8 @@ def config():
         "oauth_client_id": OAUTH_CLIENT_ID,
         "live_mode": any(AGENT_IDS.values()),
         "agents": {k: bool(v) for k, v in AGENT_IDS.items()},
-        "snowflake_enabled": bool(os.environ.get("SNOWFLAKE_ACCOUNT")),
+        "snowflake_enabled": bool(_SNOWFLAKE_TABLES),
+        "snowflake_live": bool(os.environ.get("SNOWFLAKE_ACCOUNT")),
         "snowflake_tables": _SNOWFLAKE_TABLES,
         "environment": ENVIRONMENT_LABEL,
         "tables": _TABLES_BY_TIER,
@@ -324,66 +411,93 @@ def reset_session():
     else:
         return jsonify({"status": "ok"})
 
-    key = f"{agent_id}:{user_id}"
-    _sessions.pop(key, None)
-    _session_times.pop(key, None)
-    logger.info("Reset session: %s", key)
+    prefix = f"{agent_id}:{user_id}"
+    for k in [k for k in list(_sessions.keys()) if k == prefix or k.startswith(f"{prefix}:")]:
+        _sessions.pop(k, None)
+        _session_times.pop(k, None)
+    logger.info("Reset session prefix: %s", prefix)
     return jsonify({"status": "ok"})
 
 
 DATASET_MAP = {
-    'gold_': 'fsi_gold', 'silver_': 'fsi_silver', 'bronze_': 'fsi_bronze',
-    'ref_': 'fsi_reference', 'staging_': 'fsi_supplementary',
-    'snapshot_': 'fsi_supplementary', 'audit_': 'fsi_supplementary',
-    'vw_': 'fsi_dashboards',
+    'gold_': 'retail_gold', 'silver_': 'retail_silver', 'bronze_': 'retail_bronze',
+    'ref_': 'retail_reference', 'staging_': 'retail_staging',
+    'snapshot_': 'retail_snapshots', 'audit_': 'retail_audit',
+    'vw_': 'retail_dashboards',
 }
 
 _table_info_cache = {}
 _term_info_cache = {}
 
-GLOSSARY_ID = os.environ.get("GLOSSARY_ID", "meridian-national-bank-glossary-us")
+GLOSSARY_ID = os.environ.get("GLOSSARY_ID", "retail-northwind-glossary-us")
 
 _SNOWFLAKE_TABLES = []
 _SNOWFLAKE_SCHEMA_MAP = {}
+_SNOWFLAKE_ENTRY_MAP = {}
+_NEXUS_ENTRY_GROUP = "retail-nexus-market-intel"
+_DEFAULT_NEXUS_TABLES = [
+    "nexus_competitor_prices",
+    "nexus_category_market_share",
+    "nexus_consumer_panel",
+    "nexus_regional_demand_index",
+    "nexus_promo_calendar_benchmark",
+    "nexus_basket_affinity",
+]
 
 
 def _discover_snowflake_tables():
-    global _SNOWFLAKE_TABLES, _SNOWFLAKE_SCHEMA_MAP
+    global _SNOWFLAKE_TABLES, _SNOWFLAKE_SCHEMA_MAP, _SNOWFLAKE_ENTRY_MAP
     if _SNOWFLAKE_TABLES:
         return
-    if not PROJECT_ID or not os.environ.get("SNOWFLAKE_ACCOUNT"):
+    if not PROJECT_ID:
+        for t in _DEFAULT_NEXUS_TABLES:
+            _SNOWFLAKE_TABLES.append(t)
+            _SNOWFLAKE_SCHEMA_MAP[t] = "syndicated_intel"
+            _SNOWFLAKE_ENTRY_MAP[t] = t
         return
     try:
         token = _get_token()
-        base_url = f"https://dataplex.googleapis.com/v1/projects/{PROJECT_ID}/locations/us/entryGroups/snowflake-nexus/entries"
+        base_url = f"https://dataplex.googleapis.com/v1/projects/{PROJECT_ID}/locations/us/entryGroups/{_NEXUS_ENTRY_GROUP}/entries"
         page_token = None
         while True:
             url = base_url + (f"?pageToken={page_token}" if page_token else "")
             resp = _get_http_session().get(url, headers={"Authorization": f"Bearer {token}"}, timeout=15)
             if resp.status_code != 200:
                 logger.warning("Snowflake table discovery failed: %d", resp.status_code)
-                return
+                break
             data = resp.json()
             for entry in data.get("entries", []):
                 fqn = entry.get("fullyQualifiedName", "")
                 entry_type = entry.get("entryType", "")
+                entry_name = entry.get("name", "")
+                entry_id = entry_name.rsplit("/", 1)[-1] if "/" in entry_name else ""
                 if "snowflake-table" not in entry_type:
                     continue
                 parts = fqn.split(".")
                 if len(parts) >= 4:
                     schema = parts[-2].lower()
                     table = parts[-1].lower()
-                    if table not in _SNOWFLAKE_SCHEMA_MAP:
-                        _SNOWFLAKE_TABLES.append(table)
-                        _SNOWFLAKE_SCHEMA_MAP[table] = schema
+                else:
+                    schema = "syndicated_intel"
+                    table = entry_id.lower()
+                if table and table not in _SNOWFLAKE_SCHEMA_MAP:
+                    _SNOWFLAKE_TABLES.append(table)
+                    _SNOWFLAKE_SCHEMA_MAP[table] = schema
+                    _SNOWFLAKE_ENTRY_MAP[table] = entry_id or table
             page_token = data.get("nextPageToken")
             if not page_token:
                 break
-        if _SNOWFLAKE_TABLES:
-            ALL_TABLE_NAMES.extend(_SNOWFLAKE_TABLES)
-            logger.info("Discovered %d Snowflake tables: %s", len(_SNOWFLAKE_TABLES), _SNOWFLAKE_TABLES)
     except Exception as e:
         logger.warning("Snowflake table discovery error: %s", e)
+
+    if not _SNOWFLAKE_TABLES:
+        for t in _DEFAULT_NEXUS_TABLES:
+            _SNOWFLAKE_TABLES.append(t)
+            _SNOWFLAKE_SCHEMA_MAP[t] = "syndicated_intel"
+            _SNOWFLAKE_ENTRY_MAP[t] = t
+
+    _SNOWFLAKE_TABLES.sort()
+    logger.info("Discovered %d Snowflake NEXUS tables: %s", len(_SNOWFLAKE_TABLES), _SNOWFLAKE_TABLES)
 
 
 def _discover_bigquery_tables():
@@ -417,7 +531,7 @@ def _discover_bigquery_tables():
                     continue
                 dataset = match.group(1)
                 table = match.group(2)
-                if dataset not in _FSI_DATASETS:
+                if dataset not in _RETAIL_DATASETS or table == "nexus_connector_data":
                     continue
                 tier = _DATASET_TO_TIER.get(dataset, 'ref')
                 tables_by_tier[tier].append(table)
@@ -479,11 +593,14 @@ def _discover_glossary():
             for display_name in terms:
                 lower = display_name.lower()
                 GLOSSARY_TERM_MAP[lower] = [display_name]
-                words = lower.split()
-                if len(words) > 1:
-                    existing = GLOSSARY_TERM_MAP.get(words[0], [])
-                    if display_name not in existing:
-                        GLOSSARY_TERM_MAP[words[0]] = existing + [display_name]
+                clean = lower.replace('[retail] ', '').strip()
+                if clean:
+                    GLOSSARY_TERM_MAP[clean] = [display_name]
+                    words = clean.split()
+                    if len(words) > 1 and len(words[0]) >= 3:
+                        existing = GLOSSARY_TERM_MAP.get(words[0], [])
+                        if display_name not in existing:
+                            GLOSSARY_TERM_MAP[words[0]] = existing + [display_name]
             logger.info("Discovered %d glossary terms: %s", len(terms), list(terms.keys()))
     except Exception as e:
         logger.warning("Glossary discovery error: %s", e)
@@ -506,7 +623,7 @@ def _get_dataset(table_name):
     for prefix, ds in DATASET_MAP.items():
         if table_name.startswith(prefix):
             return ds
-    return 'fsi_gold'
+    return 'retail_gold'
 
 
 def _get_tier(table_name):
@@ -535,21 +652,20 @@ def table_info():
     tier = _get_tier(table)
 
     if tier == 'snowflake':
-        sf_schema = _SNOWFLAKE_SCHEMA_MAP.get(table, '')
-        entry_id = f"snowflake-table-nexus_market_data-{sf_schema}-{table}"
-        entry_path = f"projects/{PROJECT_ID}/locations/us/entryGroups/snowflake-nexus/entries/{entry_id}"
+        entry_id = _SNOWFLAKE_ENTRY_MAP.get(table, table)
+        entry_path = f"projects/{PROJECT_ID}/locations/us/entryGroups/{_NEXUS_ENTRY_GROUP}/entries/{entry_id}"
         catalog_url = (
             f"https://console.cloud.google.com/dataplex/dp-entries/projects/{PROJECT_ID}/locations/us/"
-            f"entryGroups/snowflake-nexus/entries/{entry_id}?project={PROJECT_ID}"
+            f"entryGroups/{_NEXUS_ENTRY_GROUP}/entries/{entry_id}?project={PROJECT_ID}"
         )
         fallback_url = (
             f"https://console.cloud.google.com/dataplex/dp-entries/projects/{PROJECT_ID}/locations/us/"
-            f"entryGroups/snowflake-nexus?project={PROJECT_ID}"
+            f"entryGroups/{_NEXUS_ENTRY_GROUP}?project={PROJECT_ID}"
         )
         try:
             token = _get_token()
             resp = _get_http_session().get(
-                f"https://dataplex.googleapis.com/v1/{entry_path}",
+                f"https://dataplex.googleapis.com/v1/{entry_path}?view=ALL",
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=10,
             )
@@ -726,6 +842,9 @@ try:
             msg = json.loads(raw)
             agent_type = msg.get("agent", "basic")
             question = msg.get("question", "")
+            category = msg.get("category", "merchandising")
+            is_cross_cloud = _is_cross_cloud_category(category)
+            scoped_question = _build_scoped_question(agent_type, question, category)
             agent_id = AGENT_IDS.get(agent_type, "")
 
             if not agent_id:
@@ -733,52 +852,139 @@ try:
                 continue
 
             start = time.time()
+            t0 = time.perf_counter()
             ws.send(json.dumps({"type": "status", "message": "Connecting to agent..."}))
 
             try:
-                session_id = _get_or_create_session(agent_id, user_id)
+                t_sess_start = time.perf_counter()
+                session_id = _get_or_create_session(agent_id, user_id, category=category)
+                session_create_ms = round((time.perf_counter() - t_sess_start) * 1000)
+                elapsed_ms = round((time.perf_counter() - t0) * 1000)
+                logger.info(
+                    "[LATENCY] agent=%s category=%s phase=session_create phase_ms=%d elapsed_ms=%d",
+                    agent_type, category, session_create_ms, elapsed_ms,
+                )
                 if not session_id:
                     ws.send(json.dumps({"type": "error", "message": "Failed to create session"}))
                     continue
 
                 token = _get_token()
+                stream_input = {
+                    "message": scoped_question,
+                    "user_id": user_id,
+                    "session_id": session_id,
+                }
+                if agent_type == "kc":
+                    stream_input["run_config"] = {"streaming_mode": "sse"}
                 resp = _get_http_session().post(
                     f"{_ae_url(agent_id)}:streamQuery",
                     headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                    json={"input": {
-                        "message": question,
-                        "user_id": user_id,
-                        "session_id": session_id,
-                    }},
+                    json={
+                        "class_method": "async_stream_query",
+                        "input": stream_input,
+                    },
                     stream=True,
                     timeout=300,
                 )
 
                 if resp.status_code != 200:
+                    logger.error("streamQuery failed: agent=%s status=%d body=%s", agent_type, resp.status_code, resp.text[:500])
                     ws.send(json.dumps({"type": "error", "message": f"Agent returned {resp.status_code}"}))
                     continue
 
                 all_tables = []
                 all_glossary = []
+                phase_timings = [{"phase": "session_create", "phase_ms": session_create_ms, "elapsed_ms": elapsed_ms}]
+                last_phase_t = time.perf_counter()
+                pending_tool_t = {}
+                first_token_ms = None
+                last_token_ms = None
+                sse_mode = (agent_type == "kc")
 
-                for line in resp.iter_lines():
-                    if not line:
-                        continue
-                    text = line.decode("utf-8").strip()
-                    if not text:
-                        continue
-
-                    events = _parse_stream_chunk(text)
+                for text in _iter_stream_lines(resp):
+                    events = _parse_stream_chunk(text, is_cross_cloud=is_cross_cloud, sse_mode=sse_mode)
                     for event in events:
-                        if event["type"] in ("tool_call", "tool_response"):
+                        now = time.perf_counter()
+                        elapsed_ms = round((now - t0) * 1000)
+                        event["elapsed_ms"] = elapsed_ms
+                        etype = event["type"]
+
+                        if etype == "tool_call":
+                            tname = event.get("name", "")
+                            step_ms = round((now - last_phase_t) * 1000)
+                            pending_tool_t[tname] = now
+                            last_phase_t = now
+                            phase_timings.append({
+                                "phase": f"tool_call:{tname}",
+                                "phase_ms": step_ms,
+                                "elapsed_ms": elapsed_ms,
+                            })
+                            logger.info(
+                                "[LATENCY] agent=%s category=%s phase=tool_call:%s phase_ms=%d elapsed_ms=%d",
+                                agent_type, category, tname, step_ms, elapsed_ms,
+                            )
                             all_tables.extend(event.get("tables", []))
                             all_glossary.extend(event.get("glossary_terms", []))
+
+                        elif etype == "tool_response":
+                            tname = event.get("name", "")
+                            t_call = pending_tool_t.pop(tname, last_phase_t)
+                            exec_ms = round((now - t_call) * 1000)
+                            last_phase_t = now
+                            event["tool_exec_ms"] = exec_ms
+                            phase_timings.append({
+                                "phase": f"tool_response:{tname}",
+                                "phase_ms": exec_ms,
+                                "elapsed_ms": elapsed_ms,
+                            })
+                            logger.info(
+                                "[LATENCY] agent=%s category=%s phase=tool_response:%s phase_ms=%d elapsed_ms=%d",
+                                agent_type, category, tname, exec_ms, elapsed_ms,
+                            )
+                            all_tables.extend(event.get("tables", []))
+                            all_glossary.extend(event.get("glossary_terms", []))
+
+                        elif etype == "text_chunk":
+                            if first_token_ms is None:
+                                first_token_ms = elapsed_ms
+                                gen_ms = round((now - last_phase_t) * 1000)
+                                phase_timings.append({
+                                    "phase": "first_token",
+                                    "phase_ms": gen_ms,
+                                    "elapsed_ms": first_token_ms,
+                                })
+                                logger.info(
+                                    "[LATENCY] agent=%s category=%s phase=first_token phase_ms=%d elapsed_ms=%d",
+                                    agent_type, category, gen_ms, first_token_ms,
+                                )
+                            last_token_ms = elapsed_ms
+                            last_phase_t = now
+
                         ws.send(json.dumps(event))
 
+                if last_token_ms is not None:
+                    stream_ms = last_token_ms - (first_token_ms or last_token_ms)
+                    phase_timings.append({
+                        "phase": "last_token",
+                        "phase_ms": stream_ms,
+                        "elapsed_ms": last_token_ms,
+                    })
+                    logger.info(
+                        "[LATENCY] agent=%s category=%s phase=last_token phase_ms=%d elapsed_ms=%d",
+                        agent_type, category, stream_ms, last_token_ms,
+                    )
+
                 latency = time.time() - start
+                total_ms = round((time.perf_counter() - t0) * 1000)
+                logger.info(
+                    "[LATENCY_SUMMARY] agent=%s category=%s total_ms=%d phases=%s",
+                    agent_type, category, total_ms, json.dumps(phase_timings),
+                )
                 ws.send(json.dumps({
                     "type": "done",
                     "latency": round(latency, 1),
+                    "total_ms": total_ms,
+                    "phase_timings": phase_timings,
                     "all_tables": list(set(all_tables)),
                     "all_glossary": list(set(all_glossary)),
                 }))

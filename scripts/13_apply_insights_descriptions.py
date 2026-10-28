@@ -27,9 +27,9 @@ def _get_token():
 
 
 def scan_id(dataset, table):
-    layer = dataset.replace("fsi_", "")
+    layer = dataset.replace("retail_", "")
     tname = table.replace(f"{layer}_", "").replace("bronze_", "").replace("silver_", "").replace("gold_", "")
-    return f"fsi-{layer}-{tname}-insights".replace("_", "-")
+    return f"retail-{layer}-{tname}-insights".replace("_", "-")
 
 
 def get_latest_job(token, pid, loc, sid):

@@ -1,0 +1,59 @@
+CREATE OR REPLACE TABLE `${project_id}.retail_bronze.bronze_bnpl_plans` AS
+SELECT
+  CONCAT('LN-', LPAD(CAST(n AS STRING), 9, '0')) AS bnpl_plan_id,
+  CONCAT('CUST-', LPAD(CAST(CAST(FLOOR(RAND() * 20000) + 1 AS INT64) AS STRING), 8, '0')) AS customer_id,
+  CASE MOD(n, 6)
+    WHEN 0 THEN 'PAY_IN_4' WHEN 1 THEN 'MONTHLY_3M' WHEN 2 THEN 'MONTHLY_6M'
+    WHEN 3 THEN 'SEASONAL_PROMO_12M' WHEN 4 THEN 'APPLIANCE_FINANCING_18M' ELSE 'VIP_FLEX_PAY'
+  END AS plan_type,
+  ROUND(CASE MOD(n, 6)
+    WHEN 0 THEN 50 + RAND() * 190
+    WHEN 1 THEN 75 + RAND() * 250
+    WHEN 2 THEN 110 + RAND() * 380
+    WHEN 3 THEN 140 + RAND() * 520
+    WHEN 4 THEN 250 + RAND() * 1650
+    ELSE 85 + RAND() * 340
+  END, 2) AS original_amount,
+  ROUND(CASE MOD(n, 6)
+    WHEN 0 THEN 35 + RAND() * 130
+    WHEN 1 THEN 50 + RAND() * 180
+    WHEN 2 THEN 75 + RAND() * 260
+    WHEN 3 THEN 95 + RAND() * 360
+    WHEN 4 THEN 180 + RAND() * 1150
+    ELSE 60 + RAND() * 240
+  END, 2) AS current_balance,
+  ROUND(CASE WHEN MOD(n, 6) = 0 THEN 0.0 ELSE 0.04 + RAND() * 0.14 END, 4) AS interest_rate,
+  CASE MOD(n, 5) WHEN 0 THEN 'ZERO_APR_PROMO' WHEN 1 THEN 'FIXED_INSTALLMENT' WHEN 2 THEN 'FIXED_INSTALLMENT' WHEN 3 THEN 'DEFERRED_INTEREST' ELSE 'FIXED_INSTALLMENT' END AS rate_type,
+  CAST(CASE MOD(n, 6)
+    WHEN 0 THEN 2 WHEN 1 THEN 3 WHEN 2 THEN 6 WHEN 3 THEN 12 WHEN 4 THEN 18 ELSE 6
+  END AS INT64) AS term_months,
+  DATE_SUB(CURRENT_DATE(), INTERVAL CAST(FLOOR(RAND() * 540) + 15 AS INT64) DAY) AS origination_date,
+  DATE_ADD(CURRENT_DATE(), INTERVAL CAST(FLOOR(RAND() * 360) + 30 AS INT64) DAY) AS maturity_date,
+  CASE MOD(n, 8)
+    WHEN 0 THEN 'Current' WHEN 1 THEN 'Current' WHEN 2 THEN 'Current' WHEN 3 THEN 'Current'
+    WHEN 4 THEN '30 Days Past Due' WHEN 5 THEN '60 Days Past Due'
+    WHEN 6 THEN '90+ Days Past Due' ELSE 'Current'
+  END AS delinquency_status,
+  CASE WHEN MOD(n, 6) IN (3, 4) THEN ROUND(0.50 + RAND() * 0.45, 2) ELSE NULL END AS ltv_ratio,
+  CAST(CASE MOD(n, 10)
+    WHEN 5 THEN 32 + FLOOR(RAND() * 18)
+    WHEN 6 THEN 55 + FLOOR(RAND() * 18)
+    WHEN 7 THEN 76 + FLOOR(RAND() * 22)
+    ELSE 8 + FLOOR(RAND() * 20)
+  END AS INT64) AS return_risk_score_at_signup,
+  ROUND(0.05 + RAND() * 0.30, 2) AS dti_ratio,
+  CASE MOD(n, 6) WHEN 4 THEN 'High-Ticket Home & Appliance Basket' ELSE NULL END AS collateral_description,
+  CASE MOD(n, 10)
+    WHEN 0 THEN 'Low' WHEN 1 THEN 'Low' WHEN 2 THEN 'Low' WHEN 3 THEN 'Low'
+    WHEN 4 THEN 'Low' WHEN 5 THEN 'Watch' WHEN 6 THEN 'Elevated'
+    WHEN 7 THEN 'High Risk' WHEN 8 THEN 'Low' ELSE 'Low'
+  END AS risk_rating,
+  CASE MOD(n, 10)
+    WHEN 0 THEN '4481' WHEN 1 THEN '4482' WHEN 2 THEN '4421' WHEN 3 THEN '4431' WHEN 4 THEN '4461'
+    WHEN 5 THEN '4511' WHEN 6 THEN '4522' WHEN 7 THEN '4541' WHEN 8 THEN '4483' ELSE '4532'
+  END AS naics_code,
+  CONCAT('BR-', LPAD(CAST(MOD(n, 500) + 1 AS STRING), 4, '0')) AS originating_store_id,
+  CONCAT('LO-', LPAD(CAST(MOD(n, 200) + 1 AS STRING), 4, '0')) AS store_associate_id,
+  TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
+  'ORION' AS source_system
+FROM UNNEST(GENERATE_ARRAY(1, 15000)) AS n

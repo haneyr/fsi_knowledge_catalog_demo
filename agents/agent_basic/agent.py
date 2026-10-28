@@ -13,10 +13,10 @@
 # limitations under the License.
 
 """
-FSI Basic Agent — Works with only 5 gold tables.
+Retail Basic Agent — Works with only 5 gold tables.
 
 Demonstrates that a simple agent with a small, curated set of tables
-can answer straightforward questions well. This is the "before scale" baseline.
+can answer straightforward questions well. This is the "before scale" foundational.
 
 Deploy to Vertex AI Agent Engine or run locally:
     export GOOGLE_CLOUD_PROJECT=your-project-id
@@ -38,36 +38,36 @@ from google.adk.plugins.bigquery_agent_analytics_plugin import BigQueryAgentAnal
 from google.cloud import bigquery
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
-BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
+BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "retail_agent_analytics")
 
 def _get_bq_client():
     return bigquery.Client(project=PROJECT_ID)
 
-SYSTEM_INSTRUCTION = f"""You are a financial data analyst for Meridian National Bank.
+SYSTEM_INSTRUCTION = f"""You are a retail data analyst for Northwind Retail Group.
 You have access to a small set of summary tables in BigQuery and can run SQL queries.
 
 Your project is: {PROJECT_ID}
 
 ## Available Tables (5 tables only)
 
-1. `{PROJECT_ID}.fsi_gold_nokc.gold_customer_360`
-   - One row per customer with deposits, loans, cards, and wealth AUM
-   - Columns: customer_id, first_name, last_name, customer_segment, total_deposit_balance,
-     total_loan_balance, total_card_balance, total_aum, total_relationship_value
+1. `{PROJECT_ID}.retail_gold_nokc.gold_customer_360`
+   - One row per customer with loyalty_balances, bnpl_plans, cards, and loyalty AUM
+   - Columns: customer_id, first_name, last_name, customer_segment, total_loyalty_balance,
+     total_bnpl_balance, total_card_balance, total_aum, total_relationship_value
 
-2. `{PROJECT_ID}.fsi_gold_nokc.gold_account_summary`
+2. `{PROJECT_ID}.retail_gold_nokc.gold_loyalty_account_summary`
    - Account-level metrics with 90-day transaction activity
    - Columns: account_id, customer_id, account_type, current_balance, transaction_count_90d
 
-3. `{PROJECT_ID}.fsi_gold_nokc.gold_loan_portfolio_summary`
-   - Loan analytics by type, risk rating, and delinquency status
-   - Columns: loan_type, risk_rating, delinquency_status, loan_count, total_outstanding, avg_fico
+3. `{PROJECT_ID}.retail_gold_nokc.gold_bnpl_plan_summary`
+   - BNPL Plan analytics by type, risk rating, and delinquency status
+   - Columns: plan_type, risk_rating, delinquency_status, plan_count, total_outstanding, avg_return_risk_score
 
-4. `{PROJECT_ID}.fsi_gold_nokc.gold_portfolio_performance`
-   - Wealth portfolio performance with returns and risk metrics
-   - Columns: portfolio_id, wm_client_id, market_value, ytd_return, avg_sharpe_ratio, avg_alpha
+4. `{PROJECT_ID}.retail_gold_nokc.gold_assortment_performance`
+   - Omnichannel Loyalty assortment performance with returns and risk metrics
+   - Columns: assortment_id, wm_client_id, market_value, ytd_return, avg_sharpe_ratio, avg_alpha
 
-5. `{PROJECT_ID}.fsi_gold_nokc.gold_balance_sheet_summary`
+5. `{PROJECT_ID}.retail_gold_nokc.gold_financial_summary`
    - High-level balance sheet: assets, liabilities, equity
    - Columns: category, line_item, amount
 
@@ -118,8 +118,9 @@ def run_sql(sql: str) -> str:
 
 
 root_agent = Agent(
-    name="fsi_basic_agent",
+    name="retail_basic_agent",
     model="gemini-2.5-flash",
+    description="[Retail] Northwind Retail Basic Agent (5 gold tables)",
     instruction=SYSTEM_INSTRUCTION,
     tools=[run_sql],
 )
@@ -132,7 +133,7 @@ bq_analytics_plugin = BigQueryAgentAnalyticsPlugin(
 )
 
 app = App(
-    name="fsi_basic_agent",
+    name="retail_basic_agent",
     root_agent=root_agent,
     plugins=[bq_analytics_plugin],
 )
@@ -140,11 +141,11 @@ app = App(
 
 async def run_interactive():
     session_service = InMemorySessionService()
-    runner = Runner(agent=root_agent, app_name="fsi_basic_agent", session_service=session_service)
-    session = await session_service.create_session(app_name="fsi_basic_agent", user_id="demo_user")
+    runner = Runner(agent=root_agent, app_name="retail_basic_agent", session_service=session_service)
+    session = await session_service.create_session(app_name="retail_basic_agent", user_id="demo_user")
 
     print("\n" + "=" * 60)
-    print("FSI Basic Agent (5 tables)")
+    print("Retail Basic Agent (5 tables)")
     print("=" * 60)
     print('\nType "quit" to exit.\n')
 

@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `${project_id}.fsi_bronze.bronze_fx_rates` AS
+CREATE OR REPLACE TABLE `${project_id}.retail_bronze.bronze_fx_rates` AS
 SELECT
   CONCAT('FX-', LPAD(CAST(n AS STRING), 8, '0')) AS fx_rate_id,
   DATE_ADD('2023-01-01', INTERVAL CAST(FLOOR(n / 8.0) AS INT64) DAY) AS as_of_date,
@@ -20,5 +20,5 @@ SELECT
   END, 6) AS ask_rate,
   CASE MOD(n, 3) WHEN 0 THEN 'Bloomberg' WHEN 1 THEN 'Reuters' ELSE 'ECB' END AS source,
   TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
-  'ARGUS' AS source_system
+  'HELIOS' AS source_system
 FROM UNNEST(GENERATE_ARRAY(1, 5000)) AS n

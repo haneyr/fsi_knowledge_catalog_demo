@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-FSI Scaled Agent — Exposed to all 150+ tables with no Knowledge Catalog guidance.
+Retail Scaled Agent — Exposed to all 150+ tables with no Knowledge Catalog guidance.
 
 Demonstrates that the same agent architecture breaks down when exposed to
 enterprise-scale data complexity. The agent struggles with table selection,
@@ -39,54 +39,57 @@ from google.adk.plugins.bigquery_agent_analytics_plugin import BigQueryAgentAnal
 from google.cloud import bigquery
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
-BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
+BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "retail_agent_analytics")
 
 def _get_bq_client():
     return bigquery.Client(project=PROJECT_ID)
 
 _BASE_SUFFIXES = [
-    'customers','accounts','transactions','loans','loan_payments','credit_cards',
-    'card_transactions','fraud_alerts','kyc_records','branches','employees','wire_transfers',
-    'ach_transfers','atm_transactions','wm_clients','portfolios','holdings','trades',
-    'securities','advisors','performance','fee_schedules','benchmarks','client_goals',
-    'risk_profiles','distributions','custodian_feeds','gl_entries','gl_accounts',
-    'cost_centers','regulatory_capital','risk_exposures','counterparties','market_data',
-    'stress_tests','audit_events','regulatory_filings','interest_rates','fx_rates',
-    'compliance_cases',
+    'customers','loyalty_accounts','pos_transactions','bnpl_plans','bnpl_payments','store_cards',
+    'payment_tenders','fraud_alerts','privacy_consents','stores','store_associates','high_value_refunds',
+    'vendor_settlements','kiosk_transactions','vip_members','merch_assortments','inventory_positions','ecom_orders',
+    'product_skus','category_managers','assortment_performance','promo_rules','category_benchmarks','customer_preferences',
+    'return_risk_profiles','reward_redemptions','carrier_feeds','gl_entries','gl_accounts',
+    'cost_centers','working_capital','shrinkage_exposures','suppliers','competitor_pricing',
+    'demand_scenarios','audit_events','compliance_attestations','markdown_rates','fx_rates',
+    'promo_abuse_cases',
 ]
 _GOLD_TABLES = [
-    'gold_customer_360','gold_account_summary','gold_transaction_patterns',
-    'gold_loan_portfolio_summary','gold_delinquency_analysis','gold_fraud_analytics',
-    'gold_aml_risk_scoring','gold_branch_performance','gold_portfolio_performance',
-    'gold_client_revenue','gold_asset_allocation','gold_advisor_scorecard',
-    'gold_fee_revenue','gold_net_interest_margin','gold_capital_adequacy',
-    'gold_liquidity_coverage','gold_market_risk_var','gold_operational_risk',
-    'gold_regulatory_dashboard','gold_balance_sheet_summary',
+    'gold_customer_360','gold_loyalty_account_summary','gold_order_patterns',
+    'gold_bnpl_plan_summary','gold_bnpl_delinquency_analysis','gold_return_fraud_analytics',
+    'gold_promo_fraud_scoring','gold_store_performance','gold_assortment_performance',
+    'gold_vip_member_revenue','gold_inventory_allocation','gold_category_manager_scorecard',
+    'gold_promo_margin_impact','gold_gross_margin_analysis','gold_working_capital_adequacy',
+    'gold_inventory_turnover_coverage','gold_markdown_risk_var','gold_shrinkage_operational_risk',
+    'gold_compliance_dashboard','gold_financial_summary',
 ]
 _VIEW_TABLES = [
     'vw_dq_scorecard','vw_dq_by_dimension','vw_dq_failed_rules','vw_dq_rule_detail',
-    'vw_profile_summary','vw_customer_total_relationship','vw_branch_retail_wealth',
-    'vw_regulatory_summary',
+    'vw_profile_summary','vw_customer_lifetime_value','vw_store_omnichannel_performance',
+    'vw_compliance_summary',
 ]
 _OTHER_TABLES = [
-    'ref_naics_codes','ref_country_codes','ref_currency_codes','ref_cusip_master',
-    'ref_isin_mapping','ref_lei_registry','ref_fed_district_codes','ref_product_catalog',
-    'staging_call_report_rc','staging_call_report_ri','staging_fr_y9c',
-    'snapshot_monthly_balances','snapshot_quarterly_positions','audit_data_access_log',
+    'ref_merch_category_codes','ref_country_codes','ref_currency_codes','ref_gtin_master',
+    'ref_sku_gtin_mapping','ref_supplier_registry','ref_sales_region_codes','ref_product_catalog',
+    'ref_loyalty_tiers','ref_gl_account_hierarchy',
+    'staging_pci_aoc_summary','staging_channel_revenue_recon','staging_supplier_audit_schedule',
+    'staging_ccpa_dsar_log','staging_annual_omniretail_filing',
+    'snapshot_monthly_loyalty_balances','snapshot_quarterly_inventory_positions','snapshot_daily_competitor_pricing',
+    'audit_data_access_log','audit_model_decisions',
 ]
 
 _DATASET_PREFIX = {
-    'bronze_': 'fsi_bronze_nokc', 'silver_': 'fsi_silver_nokc',
-    'gold_': 'fsi_gold_nokc', 'vw_': 'fsi_dashboards_nokc',
-    'ref_': 'fsi_reference_nokc', 'staging_': 'fsi_staging_nokc',
-    'snapshot_': 'fsi_snapshots_nokc', 'audit_': 'fsi_audit_nokc',
+    'bronze_': 'retail_bronze_nokc', 'silver_': 'retail_silver_nokc',
+    'gold_': 'retail_gold_nokc', 'vw_': 'retail_dashboards_nokc',
+    'ref_': 'retail_reference_nokc', 'staging_': 'retail_staging_nokc',
+    'snapshot_': 'retail_snapshots_nokc', 'audit_': 'retail_audit_nokc',
 }
 
 def _table_fqn(table_name):
     for prefix, dataset in _DATASET_PREFIX.items():
         if table_name.startswith(prefix):
             return f"{PROJECT_ID}.{dataset}.{table_name}"
-    return f"{PROJECT_ID}.fsi_gold_nokc.{table_name}"
+    return f"{PROJECT_ID}.retail_gold_nokc.{table_name}"
 
 _ALL_TABLE_NAMES = (
     [f'bronze_{s}' for s in _BASE_SUFFIXES]
@@ -95,8 +98,8 @@ _ALL_TABLE_NAMES = (
 )
 _NOKC_TABLES = [_table_fqn(t) for t in _ALL_TABLE_NAMES]
 
-SYSTEM_INSTRUCTION = f"""You are a financial data analyst for Meridian National Bank.
-You have access to BigQuery and can run SQL queries against the bank's data warehouse.
+SYSTEM_INSTRUCTION = f"""You are a retail data analyst for Northwind Retail Group.
+You have access to BigQuery and can run SQL queries against the retailer's data warehouse.
 
 Your project is: {PROJECT_ID}
 
@@ -147,8 +150,9 @@ def run_sql(sql: str) -> str:
 
 
 root_agent = Agent(
-    name="fsi_scaled_agent",
+    name="retail_scaled_agent",
     model="gemini-2.5-flash",
+    description="[Retail] Northwind Retail Scaled Agent (128 tables without Knowledge Catalog)",
     instruction=SYSTEM_INSTRUCTION,
     tools=[run_sql],
 )
@@ -161,7 +165,7 @@ bq_analytics_plugin = BigQueryAgentAnalyticsPlugin(
 )
 
 app = App(
-    name="fsi_scaled_agent",
+    name="retail_scaled_agent",
     root_agent=root_agent,
     plugins=[bq_analytics_plugin],
 )
@@ -169,11 +173,11 @@ app = App(
 
 async def run_interactive():
     session_service = InMemorySessionService()
-    runner = Runner(agent=root_agent, app_name="fsi_scaled_agent", session_service=session_service)
-    session = await session_service.create_session(app_name="fsi_scaled_agent", user_id="demo_user")
+    runner = Runner(agent=root_agent, app_name="retail_scaled_agent", session_service=session_service)
+    session = await session_service.create_session(app_name="retail_scaled_agent", user_id="demo_user")
 
     print("\n" + "=" * 60)
-    print("FSI Scaled Agent (150+ tables, NO Knowledge Catalog)")
+    print("Retail Scaled Agent (150+ tables, NO Knowledge Catalog)")
     print("=" * 60)
     print('\nType "quit" to exit.\n')
 

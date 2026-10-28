@@ -28,15 +28,15 @@ def snowflake_table_entry(cfg, schema, table):
 
 
 GLOSSARY_LINKS = {
-    ("SECURITIES", "SECURITY_PRICES"): [
-        ("cusip", "cusip"),
-        ("isin", "isin"),
+    ("PRODUCT_SKUS", "SECURITY_PRICES"): [
+        ("gtin_13", "gtin_13"),
+        ("sku_code", "sku_code"),
     ],
-    ("SECURITIES", "SECURITY_FUNDAMENTALS"): [
-        ("cusip", "cusip"),
+    ("PRODUCT_SKUS", "SECURITY_FUNDAMENTALS"): [
+        ("gtin_13", "gtin_13"),
     ],
-    ("SECURITIES", "CORPORATE_ACTIONS"): [
-        ("cusip", "cusip"),
+    ("PRODUCT_SKUS", "CORPORATE_ACTIONS"): [
+        ("gtin_13", "gtin_13"),
     ],
     ("INDICES", "BENCHMARK_RETURNS"): [
         ("benchmark_name", "sharpe-ratio"),
@@ -88,7 +88,7 @@ def apply_glossary_links(cfg):
 
 
 def apply_custom_aspects(cfg):
-    """Apply FSI custom aspects to Snowflake table entries."""
+    """Apply Retail custom aspects to Snowflake table entries."""
     logger.info("=== Applying custom aspects to Snowflake tables ===")
     count = 0
 
@@ -104,12 +104,12 @@ def apply_custom_aspects(cfg):
                 classification = "Public"
 
             try:
-                set_entry_aspect(cfg, entry, "fsi-data-classification", {
+                set_entry_aspect(cfg, entry, "retail-data-classification", {
                     "classification_level": classification,
                     "pii_category": "Not PII",
                     "requires_encryption": False,
                     "requires_masking": False,
-                    "regulatory_scope": "SEC, FINRA" if schema in ("SECURITIES", "INDICES") else "General",
+                    "regulatory_scope": "SEC, FINRA" if schema in ("PRODUCT_SKUS", "INDICES") else "General",
                 })
                 count += 1
             except RuntimeError as e:
@@ -117,9 +117,9 @@ def apply_custom_aspects(cfg):
 
             # Data Retention
             try:
-                set_entry_aspect(cfg, entry, "fsi-data-retention", {
+                set_entry_aspect(cfg, entry, "retail-data-retention", {
                     "retention_period_years": 7 if schema == "RISK_ANALYTICS" else 5,
-                    "governing_regulation": "SEC Rule 17a-4" if schema in ("SECURITIES", "INDICES") else "General",
+                    "governing_regulation": "SEC Rule 17a-4" if schema in ("PRODUCT_SKUS", "INDICES") else "General",
                     "retention_start_event": "Date of market data capture",
                     "archival_required": True,
                     "destruction_method": "Crypto Shredding",
@@ -130,7 +130,7 @@ def apply_custom_aspects(cfg):
 
             # Regulatory Compliance
             try:
-                set_entry_aspect(cfg, entry, "fsi-regulatory-compliance", {
+                set_entry_aspect(cfg, entry, "retail-regulatory-compliance", {
                     "applicable_regulations": "SEC, FINRA, MiFID II",
                     "compliance_status": "Compliant",
                     "last_audit_date": "2025-11-15",
@@ -143,7 +143,7 @@ def apply_custom_aspects(cfg):
 
             # Data Lineage Metadata
             try:
-                set_entry_aspect(cfg, entry, "fsi-data-lineage-metadata", {
+                set_entry_aspect(cfg, entry, "retail-data-lineage-metadata", {
                     "source_system": "NEXUS Data Services",
                     "ingestion_method": "API Integration",
                     "refresh_frequency": "End-of-Day" if "DAILY" in str(table_name) or schema != "RISK_ANALYTICS" else "End-of-Day",
@@ -155,9 +155,9 @@ def apply_custom_aspects(cfg):
 
             # Access Control
             try:
-                set_entry_aspect(cfg, entry, "fsi-access-control", {
+                set_entry_aspect(cfg, entry, "retail-access-control", {
                     "access_level": "Confidential" if schema == "RISK_ANALYTICS" else "Internal",
-                    "authorized_roles": "Risk Analyst, Portfolio Manager, Trader, Quant" if schema == "RISK_ANALYTICS" else "Analyst, Portfolio Manager, Operations",
+                    "authorized_roles": "Risk Analyst, Assortment Manager, Trader, Quant" if schema == "RISK_ANALYTICS" else "Analyst, Assortment Manager, Operations",
                     "requires_mfa": schema == "RISK_ANALYTICS",
                     "need_to_know_applies": schema == "RISK_ANALYTICS",
                     "audit_all_access": False,
@@ -169,7 +169,7 @@ def apply_custom_aspects(cfg):
             # Risk Classification
             if schema == "RISK_ANALYTICS":
                 try:
-                    set_entry_aspect(cfg, entry, "fsi-risk-classification", {
+                    set_entry_aspect(cfg, entry, "retail-risk-classification", {
                         "risk_category": "Market Risk",
                         "model_dependency": "Model Input",
                         "materiality_level": "Material",

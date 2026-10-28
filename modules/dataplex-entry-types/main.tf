@@ -19,11 +19,11 @@ variable "region" { type = string }
 # Source System Entry Types
 # ============================================================
 
-# --- ATLAS (IBM DB2 Mainframe) ---
-resource "google_dataplex_entry_type" "db2_instance" {
+# --- ORION (IBM DB2 Mainframe) ---
+resource "google_dataplex_entry_type" "retail_ibmi_instance" {
   project       = var.project_id
   location      = var.region
-  entry_type_id = "db2-instance"
+  entry_type_id = "retail-ibmi-instance"
   display_name  = "DB2 Mainframe Instance"
   description   = "Represents an IBM DB2 for z/OS instance"
   type_aliases  = ["DATABASE"]
@@ -31,10 +31,10 @@ resource "google_dataplex_entry_type" "db2_instance" {
   system        = "DB2 for z/OS"
 }
 
-resource "google_dataplex_entry_type" "db2_schema" {
+resource "google_dataplex_entry_type" "retail_ibmi_schema" {
   project       = var.project_id
   location      = var.region
-  entry_type_id = "db2-schema"
+  entry_type_id = "retail-ibmi-schema"
   display_name  = "DB2 Schema"
   description   = "Represents a schema within a DB2 instance"
   type_aliases  = ["DATABASE_SCHEMA"]
@@ -42,10 +42,10 @@ resource "google_dataplex_entry_type" "db2_schema" {
   system        = "DB2 for z/OS"
 }
 
-resource "google_dataplex_entry_type" "db2_table" {
+resource "google_dataplex_entry_type" "retail_ibmi_table" {
   project       = var.project_id
   location      = var.region
-  entry_type_id = "db2-table"
+  entry_type_id = "retail-ibmi-table"
   display_name  = "DB2 Table"
   description   = "Represents a table within a DB2 schema"
   type_aliases  = ["TABLE"]
@@ -53,45 +53,45 @@ resource "google_dataplex_entry_type" "db2_table" {
   system        = "DB2 for z/OS"
 }
 
-# --- FORTUNA (Temenos T24) ---
-resource "google_dataplex_entry_type" "temenos_instance" {
+# --- LUMEN (Salesforce T24) ---
+resource "google_dataplex_entry_type" "retail_sfcc_instance" {
   project       = var.project_id
   location      = var.region
-  entry_type_id = "temenos-instance"
-  display_name  = "Temenos T24 Instance"
-  description   = "Represents a Temenos T24 core banking instance"
+  entry_type_id = "retail-sfcc-instance"
+  display_name  = "Salesforce T24 Instance"
+  description   = "Represents a Salesforce T24 core retail instance"
   type_aliases  = ["DATABASE"]
-  platform      = "Temenos"
+  platform      = "Salesforce"
   system        = "T24 Transact"
 }
 
-resource "google_dataplex_entry_type" "temenos_schema" {
+resource "google_dataplex_entry_type" "retail_sfcc_schema" {
   project       = var.project_id
   location      = var.region
-  entry_type_id = "temenos-schema"
-  display_name  = "Temenos Schema"
-  description   = "Represents a module/schema within Temenos T24"
+  entry_type_id = "retail-sfcc-schema"
+  display_name  = "Salesforce Schema"
+  description   = "Represents a module/schema within Salesforce T24"
   type_aliases  = ["DATABASE_SCHEMA"]
-  platform      = "Temenos"
+  platform      = "Salesforce"
   system        = "T24 Transact"
 }
 
-resource "google_dataplex_entry_type" "temenos_table" {
+resource "google_dataplex_entry_type" "retail_sfcc_table" {
   project       = var.project_id
   location      = var.region
-  entry_type_id = "temenos-table"
-  display_name  = "Temenos Table"
-  description   = "Represents a table within Temenos T24"
+  entry_type_id = "retail-sfcc-table"
+  display_name  = "Salesforce Table"
+  description   = "Represents a table within Salesforce T24"
   type_aliases  = ["TABLE"]
-  platform      = "Temenos"
+  platform      = "Salesforce"
   system        = "T24 Transact"
 }
 
-# --- ARGUS (SAP S/4HANA) ---
-resource "google_dataplex_entry_type" "sap_instance" {
+# --- HELIOS (SAP S/4HANA) ---
+resource "google_dataplex_entry_type" "retail_sap_instance" {
   project       = var.project_id
   location      = var.region
-  entry_type_id = "sap-instance"
+  entry_type_id = "retail-sap-instance"
   display_name  = "SAP S/4HANA Instance"
   description   = "Represents an SAP S/4HANA system"
   type_aliases  = ["DATABASE"]
@@ -99,10 +99,10 @@ resource "google_dataplex_entry_type" "sap_instance" {
   system        = "S/4HANA"
 }
 
-resource "google_dataplex_entry_type" "sap_schema" {
+resource "google_dataplex_entry_type" "retail_sap_schema" {
   project       = var.project_id
   location      = var.region
-  entry_type_id = "sap-schema"
+  entry_type_id = "retail-sap-schema"
   display_name  = "SAP Schema"
   description   = "Represents a schema within SAP HANA"
   type_aliases  = ["DATABASE_SCHEMA"]
@@ -110,10 +110,10 @@ resource "google_dataplex_entry_type" "sap_schema" {
   system        = "S/4HANA"
 }
 
-resource "google_dataplex_entry_type" "sap_table" {
+resource "google_dataplex_entry_type" "retail_sap_table" {
   project       = var.project_id
   location      = var.region
-  entry_type_id = "sap-table"
+  entry_type_id = "retail-sap-table"
   display_name  = "SAP Table"
   description   = "Represents a table within SAP HANA"
   type_aliases  = ["TABLE"]
@@ -124,105 +124,105 @@ resource "google_dataplex_entry_type" "sap_table" {
 # ============================================================
 # Source System Aspect Types (marker aspects)
 # ============================================================
-resource "google_dataplex_aspect_type" "db2_instance" {
+resource "google_dataplex_aspect_type" "retail_ibmi_instance" {
   project        = var.project_id
   location       = var.region
-  aspect_type_id = "db2-instance"
+  aspect_type_id = "retail-ibmi-instance"
   display_name   = "DB2 Instance"
   description    = "Marker aspect for DB2 Instance entries"
   metadata_template = jsonencode({
-    name         = "db2_instance"
+    name         = "retail_ibmi_instance"
     type         = "record"
     recordFields = []
   })
 }
 
-resource "google_dataplex_aspect_type" "db2_schema" {
+resource "google_dataplex_aspect_type" "retail_ibmi_schema" {
   project        = var.project_id
   location       = var.region
-  aspect_type_id = "db2-schema"
+  aspect_type_id = "retail-ibmi-schema"
   display_name   = "DB2 Schema"
   description    = "Marker aspect for DB2 Schema entries"
   metadata_template = jsonencode({
-    name         = "db2_schema"
+    name         = "retail_ibmi_schema"
     type         = "record"
     recordFields = []
   })
 }
 
-resource "google_dataplex_aspect_type" "db2_table" {
+resource "google_dataplex_aspect_type" "retail_ibmi_table" {
   project        = var.project_id
   location       = var.region
-  aspect_type_id = "db2-table"
+  aspect_type_id = "retail-ibmi-table"
   display_name   = "DB2 Table"
   description    = "Marker aspect for DB2 Table entries"
   metadata_template = jsonencode({
-    name         = "db2_table"
+    name         = "retail_ibmi_table"
     type         = "record"
     recordFields = []
   })
 }
 
-resource "google_dataplex_aspect_type" "temenos_instance" {
+resource "google_dataplex_aspect_type" "retail_sfcc_instance" {
   project        = var.project_id
   location       = var.region
-  aspect_type_id = "temenos-instance"
-  display_name   = "Temenos Instance"
-  description    = "Marker aspect for Temenos Instance entries"
+  aspect_type_id = "retail-sfcc-instance"
+  display_name   = "Salesforce Instance"
+  description    = "Marker aspect for Salesforce Instance entries"
   metadata_template = jsonencode({
-    name         = "temenos_instance"
+    name         = "retail_sfcc_instance"
     type         = "record"
     recordFields = []
   })
 }
 
-resource "google_dataplex_aspect_type" "temenos_table" {
+resource "google_dataplex_aspect_type" "retail_sfcc_table" {
   project        = var.project_id
   location       = var.region
-  aspect_type_id = "temenos-table"
-  display_name   = "Temenos Table"
-  description    = "Marker aspect for Temenos Table entries"
+  aspect_type_id = "retail-sfcc-table"
+  display_name   = "Salesforce Table"
+  description    = "Marker aspect for Salesforce Table entries"
   metadata_template = jsonencode({
-    name         = "temenos_table"
+    name         = "retail_sfcc_table"
     type         = "record"
     recordFields = []
   })
 }
 
-resource "google_dataplex_aspect_type" "sap_instance" {
+resource "google_dataplex_aspect_type" "retail_sap_instance" {
   project        = var.project_id
   location       = var.region
-  aspect_type_id = "sap-instance"
+  aspect_type_id = "retail-sap-instance"
   display_name   = "SAP Instance"
   description    = "Marker aspect for SAP Instance entries"
   metadata_template = jsonencode({
-    name         = "sap_instance"
+    name         = "retail_sap_instance"
     type         = "record"
     recordFields = []
   })
 }
 
-resource "google_dataplex_aspect_type" "sap_table" {
+resource "google_dataplex_aspect_type" "retail_sap_table" {
   project        = var.project_id
   location       = var.region
-  aspect_type_id = "sap-table"
+  aspect_type_id = "retail-sap-table"
   display_name   = "SAP Table"
   description    = "Marker aspect for SAP Table entries"
   metadata_template = jsonencode({
-    name         = "sap_table"
+    name         = "retail_sap_table"
     type         = "record"
     recordFields = []
   })
 }
 
 # ============================================================
-# FSI Custom Aspect Types (global for cross-region use)
+# Retail Custom Aspect Types (global for cross-region use)
 # ============================================================
 
 resource "google_dataplex_aspect_type" "data_classification" {
   project        = var.project_id
   location       = "global"
-  aspect_type_id = "fsi-data-classification"
+  aspect_type_id = "retail-data-classification"
   display_name   = "Data Classification"
   description    = "Data sensitivity and PII classification for financial services data"
   metadata_template = jsonencode({
@@ -243,7 +243,7 @@ resource "google_dataplex_aspect_type" "data_classification" {
 resource "google_dataplex_aspect_type" "data_retention" {
   project        = var.project_id
   location       = "global"
-  aspect_type_id = "fsi-data-retention"
+  aspect_type_id = "retail-data-retention"
   display_name   = "Data Retention Policy"
   description    = "Regulatory data retention requirements for financial services data"
   metadata_template = jsonencode({
@@ -263,7 +263,7 @@ resource "google_dataplex_aspect_type" "data_retention" {
 resource "google_dataplex_aspect_type" "regulatory_compliance" {
   project        = var.project_id
   location       = "global"
-  aspect_type_id = "fsi-regulatory-compliance"
+  aspect_type_id = "retail-regulatory-compliance"
   display_name   = "Regulatory Compliance"
   description    = "Regulatory compliance status and applicable regulations"
   metadata_template = jsonencode({
@@ -284,7 +284,7 @@ resource "google_dataplex_aspect_type" "regulatory_compliance" {
 resource "google_dataplex_aspect_type" "data_lineage_metadata" {
   project        = var.project_id
   location       = "global"
-  aspect_type_id = "fsi-data-lineage-metadata"
+  aspect_type_id = "retail-data-lineage-metadata"
   display_name   = "Data Lineage Metadata"
   description    = "Source system and data flow information"
   metadata_template = jsonencode({
@@ -293,7 +293,7 @@ resource "google_dataplex_aspect_type" "data_lineage_metadata" {
     recordFields = [
       { name = "source_system", type = "string", index = 1, constraints = { required = true }, annotations = { displayName = "Source System" } },
       { name = "ingestion_method", type = "enum", index = 2, annotations = { displayName = "Ingestion Method" },
-        enumValues = [{ name = "IBM CDC Replication", index = 1 }, { name = "Temenos Extract API", index = 2 }, { name = "SAP SLT Replication", index = 3 }, { name = "Batch File Extract", index = 4 }, { name = "Database Replication", index = 5 }, { name = "API Integration", index = 6 }, { name = "SWIFT/FIX Message", index = 7 }] },
+        enumValues = [{ name = "IBM CDC Replication", index = 1 }, { name = "Salesforce Extract API", index = 2 }, { name = "SAP SLT Replication", index = 3 }, { name = "Batch File Extract", index = 4 }, { name = "Database Replication", index = 5 }, { name = "API Integration", index = 6 }, { name = "SWIFT/FIX Message", index = 7 }] },
       { name = "refresh_frequency", type = "enum", index = 3, annotations = { displayName = "Refresh Frequency" },
         enumValues = [{ name = "Real-time", index = 1 }, { name = "Intraday", index = 2 }, { name = "End-of-Day", index = 3 }, { name = "Daily", index = 4 }, { name = "Weekly", index = 5 }, { name = "Monthly", index = 6 }] },
       { name = "data_flow_path", type = "string", index = 4, annotations = { displayName = "Data Flow Path" } },
@@ -304,7 +304,7 @@ resource "google_dataplex_aspect_type" "data_lineage_metadata" {
 resource "google_dataplex_aspect_type" "access_control" {
   project        = var.project_id
   location       = "global"
-  aspect_type_id = "fsi-access-control"
+  aspect_type_id = "retail-access-control"
   display_name   = "Access Control Policy"
   description    = "Role-based access control and authorization requirements"
   metadata_template = jsonencode({
@@ -324,7 +324,7 @@ resource "google_dataplex_aspect_type" "access_control" {
 resource "google_dataplex_aspect_type" "risk_classification" {
   project        = var.project_id
   location       = "global"
-  aspect_type_id = "fsi-risk-classification"
+  aspect_type_id = "retail-risk-classification"
   display_name   = "Risk Data Classification"
   description    = "Risk management classification and model dependency tagging"
   metadata_template = jsonencode({
@@ -345,7 +345,7 @@ resource "google_dataplex_aspect_type" "risk_classification" {
 resource "google_dataplex_aspect_type" "regulatory_reporting" {
   project        = var.project_id
   location       = "global"
-  aspect_type_id = "fsi-regulatory-reporting"
+  aspect_type_id = "retail-regulatory-reporting"
   display_name   = "Regulatory Reporting Mapping"
   description    = "Maps data elements to regulatory report line items"
   metadata_template = jsonencode({
@@ -356,7 +356,7 @@ resource "google_dataplex_aspect_type" "regulatory_reporting" {
       { name = "filing_frequency", type = "enum", index = 2, annotations = { displayName = "Filing Frequency" },
         enumValues = [{ name = "Daily", index = 1 }, { name = "Monthly", index = 2 }, { name = "Quarterly", index = 3 }, { name = "Semi-Annual", index = 4 }, { name = "Annual", index = 5 }, { name = "Ad Hoc", index = 6 }] },
       { name = "regulatory_body", type = "enum", index = 3, annotations = { displayName = "Regulatory Body" },
-        enumValues = [{ name = "OCC", index = 1 }, { name = "Federal Reserve", index = 2 }, { name = "FDIC", index = 3 }, { name = "SEC", index = 4 }, { name = "FINRA", index = 5 }, { name = "FinCEN", index = 6 }, { name = "CFPB", index = 7 }, { name = "State Regulator", index = 8 }] },
+        enumValues = [{ name = "OCC", index = 1 }, { name = "Federal Reserve", index = 2 }, { name = "PCI-SSC", index = 3 }, { name = "SEC", index = 4 }, { name = "FINRA", index = 5 }, { name = "FinCEN", index = 6 }, { name = "CFPB", index = 7 }, { name = "State Regulator", index = 8 }] },
       { name = "schedule_line_item", type = "string", index = 4, annotations = { displayName = "Schedule / Line Item" } },
     ]
   })
@@ -365,26 +365,26 @@ resource "google_dataplex_aspect_type" "regulatory_reporting" {
 # ============================================================
 # Entry Groups
 # ============================================================
-resource "google_dataplex_entry_group" "atlas_db2" {
+resource "google_dataplex_entry_group" "orion_ibmi" {
   project        = var.project_id
   location       = var.region
-  entry_group_id = "atlas-core-banking"
-  display_name   = "ATLAS Core Banking (DB2)"
-  description    = "IBM DB2 mainframe entries for the ATLAS core banking system"
+  entry_group_id = "retail-orion-store-pos"
+  display_name   = "ORION Core Retail (DB2)"
+  description    = "IBM DB2 mainframe entries for the ORION core retail system"
 }
 
-resource "google_dataplex_entry_group" "fortuna_wealth" {
+resource "google_dataplex_entry_group" "lumen_commerce" {
   project        = var.project_id
   location       = var.region
-  entry_group_id = "fortuna-wealth-mgmt"
-  display_name   = "FORTUNA Wealth Management (Temenos)"
-  description    = "Temenos T24 entries for the FORTUNA wealth management platform"
+  entry_group_id = "retail-lumen-commerce-loyalty"
+  display_name   = "LUMEN Omnichannel Loyalty Management (Salesforce)"
+  description    = "Salesforce T24 entries for the LUMEN loyalty management platform"
 }
 
-resource "google_dataplex_entry_group" "argus_risk" {
+resource "google_dataplex_entry_group" "helios_merch" {
   project        = var.project_id
   location       = var.region
-  entry_group_id = "argus-finance-risk"
-  display_name   = "ARGUS Finance & Risk (SAP)"
-  description    = "SAP S/4HANA entries for the ARGUS finance and risk management system"
+  entry_group_id = "retail-helios-merch-supply"
+  display_name   = "HELIOS Finance & Risk (SAP)"
+  description    = "SAP S/4HANA entries for the HELIOS finance and risk management system"
 }

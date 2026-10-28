@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `${project_id}.fsi_silver.silver_audit_events` AS
+CREATE OR REPLACE TABLE `${project_id}.retail_silver.silver_audit_events` AS
 SELECT
   audit_event_id,
   event_timestamp,
@@ -12,5 +12,5 @@ SELECT
   created_at,
   source_system,
   CURRENT_TIMESTAMP() AS silver_loaded_at
-FROM `${project_id}.fsi_bronze.bronze_audit_events`
+FROM `${project_id}.retail_bronze.bronze_audit_events`
 WHERE audit_event_id IS NOT NULL

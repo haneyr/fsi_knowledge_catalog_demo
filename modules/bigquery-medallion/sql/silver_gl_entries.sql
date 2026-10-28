@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `${project_id}.fsi_silver.silver_gl_entries` AS
+CREATE OR REPLACE TABLE `${project_id}.retail_silver.silver_gl_entries` AS
 SELECT
   gl_entry_id,
   gl_account_id,
@@ -20,7 +20,7 @@ SELECT
   created_at,
   source_system,
   CURRENT_TIMESTAMP() AS silver_loaded_at
-FROM `${project_id}.fsi_bronze.bronze_gl_entries`
+FROM `${project_id}.retail_bronze.bronze_gl_entries`
 WHERE gl_entry_id IS NOT NULL
   AND gl_account_id IS NOT NULL
   AND status = 'Posted'

@@ -1,4 +1,4 @@
-"""Custom scoring functions for FSI KC agent evaluation."""
+"""Custom scoring functions for Retail KC agent evaluation."""
 
 import re
 from dataclasses import dataclass
@@ -11,24 +11,24 @@ class Score:
 
 
 GLOSSARY_KEYWORDS = {
-    "FICO Score": ["fico", "credit score", "fair isaac"],
-    "AUM": ["aum", "assets under management"],
-    "SAR": ["sar", "suspicious activity"],
-    "CET1 Ratio": ["cet1", "common equity tier", "capital ratio"],
+    "Return-Risk Score": ["return_risk", "return risk", "return_risk_score"],
+    "CLV": ["clv", "customer lifetime value"],
+    "Return Abuse Alert": ["return abuse", "fraud alert", "promo fraud"],
+    "Working Capital Ratio": ["working capital", "liquidity", "capital ratio"],
     "Customer ID": ["customer_id", "customer id", "customer identifier"],
     "Delinquency": ["delinquen", "past due", "overdue"],
-    "KYC": ["kyc", "know your customer"],
+    "Consent Verification": ["privacy consent", "ccpa", "gdpr", "consent"],
     "VaR": ["var", "value at risk"],
-    "CUSIP": ["cusip"],
-    "Branch": ["branch"],
-    "NIM": ["nim", "net interest margin"],
-    "Risk Rating": ["risk rating", "risk_rating", "credit quality"],
+    "GTIN": ["gtin_13"],
+    "Store": ["store", "store_id", "location"],
+    "Gross Margin": ["gross margin", "margin", "markdown"],
+    "Risk Rating": ["risk rating", "risk_rating", "return risk"],
 }
 
 METADATA_KEYWORDS = {
     "data_quality": ["data quality", "quality score", "quality rule", "dq ", "validation", "trustworth"],
-    "lineage": ["lineage", "source system", "atlas", "fortuna", "argus", "db2", "mainframe", "bronze.*silver.*gold", "medallion"],
-    "regulatory": ["basel", "regulatory", "compliance", "fdic", "bsa", "aml requirement"],
+    "lineage": ["lineage", "source system", "orion", "lumen", "helios", "db2", "mainframe", "bronze.*silver.*gold", "medallion"],
+    "regulatory": ["pci_dss", "regulatory", "compliance", "pci_ssc", "bsa", "promo_fraud requirement"],
     "classification": ["classification", "pii", "sensitive", "restricted", "confidential"],
 }
 

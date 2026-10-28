@@ -19,7 +19,7 @@
 # Secret Manager secrets. Does NOT create the project itself.
 #
 # Usage:
-#   export GOOGLE_CLOUD_PROJECT=fsi-kc-demo-dev
+#   export GOOGLE_CLOUD_PROJECT=retail-kc-demo-dev
 #   bash bootstrap.sh
 ####################################################################################
 

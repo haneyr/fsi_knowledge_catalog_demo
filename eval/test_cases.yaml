@@ -15,23 +15,23 @@ cases:
     question: "What are our top 5 customers by total relationship value?"
     tags:
       complexity: simple
-      audience: retail_banking
+      audience: store_operations
       kc_feature: semantic_search
     expected:
       basic:  { outcome: success, tables: [gold_customer_360], should_contain: ["$"] }
       scaled: { outcome: success, tables: [gold_customer_360] }
       kc:     { outcome: success, tables: [gold_customer_360], glossary: [Customer ID] }
 
-  - id: loan_portfolio_summary
-    question: "Give me a breakdown of our loan portfolio by product type and risk rating."
+  - id: bnpl_plan_summary
+    question: "Give me a breakdown of our bnpl_plan assortment by product type and risk rating."
     tags:
       complexity: simple
       audience: risk_compliance
       kc_feature: schema_understanding
     expected:
-      basic:  { outcome: success, tables: [gold_loan_portfolio_summary] }
-      scaled: { outcome: success, tables: [gold_loan_portfolio_summary] }
-      kc:     { outcome: success, tables: [gold_loan_portfolio_summary], glossary: [Risk Rating] }
+      basic:  { outcome: success, tables: [gold_bnpl_plan_summary] }
+      scaled: { outcome: success, tables: [gold_bnpl_plan_summary] }
+      kc:     { outcome: success, tables: [gold_bnpl_plan_summary], glossary: [Risk Rating] }
 
   - id: balance_sheet_overview
     question: "What does our balance sheet look like? Show me total assets, liabilities, and equity."
@@ -40,35 +40,35 @@ cases:
       audience: executive_strategy
       kc_feature: semantic_search
     expected:
-      basic:  { outcome: success, tables: [gold_balance_sheet_summary], should_contain: ["$"] }
-      scaled: { outcome: success, tables: [gold_balance_sheet_summary] }
-      kc:     { outcome: success, tables: [gold_balance_sheet_summary] }
+      basic:  { outcome: success, tables: [gold_financial_summary], should_contain: ["$"] }
+      scaled: { outcome: success, tables: [gold_financial_summary] }
+      kc:     { outcome: success, tables: [gold_financial_summary] }
 
-  - id: portfolio_performance
-    question: "How are our wealth management portfolios performing? Show me returns and risk metrics."
+  - id: assortment_performance
+    question: "How are our loyalty management assortments performing? Show me returns and risk metrics."
     tags:
       complexity: simple
-      audience: wealth_management
+      audience: digital_commerce
       kc_feature: semantic_search
     expected:
-      basic:  { outcome: success, tables: [gold_portfolio_performance] }
-      scaled: { outcome: success, tables: [gold_portfolio_performance] }
-      kc:     { outcome: success, tables: [gold_portfolio_performance] }
+      basic:  { outcome: success, tables: [gold_assortment_performance] }
+      scaled: { outcome: success, tables: [gold_assortment_performance] }
+      kc:     { outcome: success, tables: [gold_assortment_performance] }
 
   # ============================================================
   # AMBIGUOUS — Scaled agent picks wrong tables
   # ============================================================
 
   - id: suspicious_activity_trends
-    question: "Show me suspicious activity trends over the past year."
+    question: "Show me return fraud and promo abuse trends over the past year."
     tags:
       complexity: ambiguous
       audience: risk_compliance
       kc_feature: glossary_terms
     expected:
       basic:  { outcome: fail_gracefully }
-      scaled: { outcome: partial, wrong_tables: [bronze_fraud_alerts, silver_fraud_alerts, bronze_compliance_cases] }
-      kc:     { outcome: success, tables: [gold_fraud_analytics, gold_aml_risk_scoring, silver_fraud_alerts], glossary: [SAR] }
+      scaled: { outcome: partial, wrong_tables: [bronze_fraud_alerts, silver_fraud_alerts, bronze_promo_abuse_cases] }
+      kc:     { outcome: success, tables: [gold_return_fraud_analytics, gold_promo_fraud_scoring, silver_fraud_alerts], glossary: [Return Abuse Alert] }
 
   - id: interest_rate_exposure
     question: "What's our interest rate exposure across the balance sheet?"
@@ -78,59 +78,59 @@ cases:
       kc_feature: schema_understanding
     expected:
       basic:  { outcome: fail_gracefully }
-      scaled: { outcome: partial, wrong_tables: [bronze_interest_rates] }
-      kc:     { outcome: success, tables: [gold_net_interest_margin, gold_balance_sheet_summary], glossary: [NIM] }
+      scaled: { outcome: partial, wrong_tables: [bronze_markdown_rates] }
+      kc:     { outcome: success, tables: [gold_gross_margin_analysis, gold_financial_summary], glossary: [Gross Margin] }
 
   - id: customer_risk_overview
-    question: "Give me an overview of customer risk across the bank."
+    question: "Give me an overview of customer risk across the retailer."
     tags:
       complexity: ambiguous
       audience: executive_strategy
       kc_feature: glossary_terms
     expected:
       basic:  { outcome: partial }
-      scaled: { outcome: partial, wrong_tables: [bronze_risk_exposures, bronze_risk_profiles] }
-      kc:     { outcome: success, tables: [gold_customer_360, gold_aml_risk_scoring], glossary: [Risk Rating, KYC] }
+      scaled: { outcome: partial, wrong_tables: [bronze_shrinkage_exposures, bronze_return_risk_profiles] }
+      kc:     { outcome: success, tables: [gold_customer_360, gold_promo_fraud_scoring], glossary: [Risk Rating, Consent Verification] }
 
   - id: delinquency_trends
     question: "Are delinquencies trending up or down? Should we be concerned?"
     tags:
       complexity: ambiguous
-      audience: retail_banking
+      audience: store_operations
       kc_feature: glossary_terms
     expected:
       basic:  { outcome: partial }
-      scaled: { outcome: partial, wrong_tables: [silver_loans, bronze_loans] }
-      kc:     { outcome: success, tables: [gold_delinquency_analysis, gold_loan_portfolio_summary], glossary: [Delinquency] }
+      scaled: { outcome: partial, wrong_tables: [silver_bnpl_plans, bronze_bnpl_plans] }
+      kc:     { outcome: success, tables: [gold_bnpl_delinquency_analysis, gold_bnpl_plan_summary], glossary: [Delinquency] }
 
   # ============================================================
   # MULTI-TABLE — Requires joining multiple sources
   # ============================================================
 
-  - id: branch_performance_full
-    question: "Which branches are our top performers? Consider both retail and commercial metrics."
+  - id: store_performance_full
+    question: "Which stores are our top performers? Consider both retail and commercial metrics."
     tags:
       complexity: multi_table
-      audience: retail_banking
+      audience: store_operations
       kc_feature: cross_domain_discovery
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_branch_performance], glossary: [Branch] }
+      kc:     { outcome: success, tables: [gold_store_performance], glossary: [Store] }
 
   - id: advisor_revenue_analysis
-    question: "Which wealth advisors generate the most revenue and have the best client retention?"
+    question: "Which loyalty advisors generate the most revenue and have the best client retention?"
     tags:
       complexity: multi_table
-      audience: wealth_management
+      audience: digital_commerce
       kc_feature: schema_understanding
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_advisor_scorecard, gold_client_revenue] }
+      kc:     { outcome: success, tables: [gold_category_manager_scorecard, gold_vip_member_revenue] }
 
-  - id: aml_investigation
-    question: "I need to investigate AML risk. Show me high-risk customers with their KYC status and any recent wire transfer activity."
+  - id: promo_fraud_investigation
+    question: "I need to investigate Promo-Fraud risk. Show me high-risk customers with their Consent Verification status and any recent wire transfer activity."
     tags:
       complexity: multi_table
       audience: risk_compliance
@@ -138,7 +138,7 @@ cases:
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_aml_risk_scoring, gold_customer_360], glossary: [KYC, SAR] }
+      kc:     { outcome: success, tables: [gold_promo_fraud_scoring, gold_customer_360], glossary: [Consent Verification, Return Abuse Alert] }
 
   - id: operational_risk_audit
     question: "What does our operational risk profile look like? Include any audit findings."
@@ -149,25 +149,25 @@ cases:
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_operational_risk], lineage: true }
+      kc:     { outcome: success, tables: [gold_shrinkage_operational_risk], lineage: true }
 
   # ============================================================
-  # CROSS-DOMAIN — Spans retail + wealth + risk domains
+  # CROSS-DOMAIN — Spans retail + loyalty + risk domains
   # ============================================================
 
   - id: hnw_total_exposure
-    question: "For our high-net-worth clients, what's their total exposure including deposits, loans, and investments?"
+    question: "For our VIP loyalty members, what's their total exposure including loyalty_balances, bnpl_plans, and investments?"
     tags:
       complexity: cross_domain
-      audience: wealth_management
+      audience: digital_commerce
       kc_feature: cross_domain_discovery
     expected:
       basic:  { outcome: success, tables: [gold_customer_360] }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_customer_360], glossary: [AUM, Customer ID], lineage: true }
+      kc:     { outcome: success, tables: [gold_customer_360], glossary: [CLV, Customer ID], lineage: true }
 
-  - id: branch_retail_wealth_revenue
-    question: "Which branches have the highest combined retail and wealth management revenue?"
+  - id: store_omnichannel_revenue
+    question: "Which stores have the highest combined retail and loyalty management revenue?"
     tags:
       complexity: cross_domain
       audience: executive_strategy
@@ -175,21 +175,21 @@ cases:
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_branch_performance, gold_client_revenue], glossary: [Branch] }
+      kc:     { outcome: success, tables: [gold_store_performance, gold_vip_member_revenue], glossary: [Store] }
 
   - id: customer_product_penetration
-    question: "For our top customers, how many products do they have across retail banking and wealth management?"
+    question: "For our top customers, how many products do they have across retail retail and loyalty management?"
     tags:
       complexity: cross_domain
-      audience: retail_banking
+      audience: store_operations
       kc_feature: cross_domain_discovery
     expected:
       basic:  { outcome: partial, tables: [gold_customer_360] }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_customer_360], glossary: [Customer ID, AUM] }
+      kc:     { outcome: success, tables: [gold_customer_360], glossary: [Customer ID, CLV] }
 
   - id: cross_sell_opportunities
-    question: "Identify private banking clients who don't yet have wealth management portfolios — potential cross-sell opportunities."
+    question: "Identify private retail clients who don't yet have loyalty management assortments — potential cross-sell opportunities."
     tags:
       complexity: cross_domain
       audience: executive_strategy
@@ -203,8 +203,8 @@ cases:
   # GOVERNANCE-DEPENDENT — Need metadata to answer properly
   # ============================================================
 
-  - id: fico_trust
-    question: "What's the average FICO score across our loan portfolio, and should we trust this number?"
+  - id: return_risk_trust
+    question: "What's the average Return-Risk score across our bnpl_plan assortment, and should we trust this number?"
     tags:
       complexity: governance_dependent
       audience: data_steward
@@ -212,10 +212,10 @@ cases:
     expected:
       basic:  { outcome: partial }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_loan_portfolio_summary], glossary: [FICO Score], metadata: [data_quality] }
+      kc:     { outcome: success, tables: [gold_bnpl_plan_summary], glossary: [Return-Risk Score], metadata: [data_quality] }
 
-  - id: cusip_data_quality
-    question: "We're seeing issues with our securities data. Can you check the quality of CUSIP identifiers?"
+  - id: gtin_data_quality
+    question: "We're seeing issues with our product_skus data. Can you check the quality of GTIN identifiers?"
     tags:
       complexity: governance_dependent
       audience: data_steward
@@ -223,18 +223,18 @@ cases:
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
-      kc:     { outcome: success, glossary: [CUSIP], metadata: [data_quality] }
+      kc:     { outcome: success, glossary: [GTIN], metadata: [data_quality] }
 
-  - id: basel_capital_requirements
-    question: "Are we meeting our Basel III capital requirements? What's our buffer above the minimum?"
+  - id: pci_working_capital_requirements
+    question: "Are we meeting our PCI-DSS III capital requirements? What's our buffer above the minimum?"
     tags:
       complexity: governance_dependent
       audience: regulatory_reporting
       kc_feature: glossary_terms
     expected:
       basic:  { outcome: fail_gracefully }
-      scaled: { outcome: partial, wrong_tables: [bronze_regulatory_capital] }
-      kc:     { outcome: success, tables: [gold_capital_adequacy], glossary: [CET1 Ratio], metadata: [regulatory] }
+      scaled: { outcome: partial, wrong_tables: [bronze_working_capital] }
+      kc:     { outcome: success, tables: [gold_working_capital_adequacy], glossary: [Working Capital Ratio Ratio], metadata: [regulatory] }
 
   - id: data_lineage_question
     question: "Where does our customer data originate and how does it flow through the system?"
@@ -260,10 +260,10 @@ cases:
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_capital_adequacy, gold_loan_portfolio_summary], glossary: [CET1 Ratio], lineage: true }
+      kc:     { outcome: success, tables: [gold_working_capital_adequacy, gold_bnpl_plan_summary], glossary: [Working Capital Ratio Ratio], lineage: true }
 
   - id: market_risk_var_analysis
-    question: "Calculate our portfolio Value at Risk and explain what assumptions go into this number."
+    question: "Calculate our assortment Value at Risk and explain what assumptions go into this number."
     tags:
       complexity: impossible_without_metadata
       audience: risk_compliance
@@ -271,7 +271,7 @@ cases:
     expected:
       basic:  { outcome: partial }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_market_risk_var], glossary: [VaR], metadata: [data_quality] }
+      kc:     { outcome: success, tables: [gold_markdown_risk_var], glossary: [VaR], metadata: [data_quality] }
 
   - id: liquidity_coverage_ratio
     question: "What's our liquidity coverage ratio and how does it compare to regulatory minimums?"
@@ -282,7 +282,7 @@ cases:
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_liquidity_coverage] }
+      kc:     { outcome: success, tables: [gold_inventory_turnover_coverage] }
 
   - id: regulatory_filing_readiness
     question: "Are we ready for our next regulatory filing? Summarize our key metrics across the call report schedules."
@@ -293,7 +293,7 @@ cases:
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: partial }
-      kc:     { outcome: success, tables: [gold_regulatory_dashboard, silver_regulatory_filings, bronze_regulatory_filings, gold_capital_adequacy], lineage: true }
+      kc:     { outcome: success, tables: [gold_compliance_dashboard, silver_compliance_attestations, bronze_compliance_attestations, gold_working_capital_adequacy], lineage: true }
 
   # ============================================================
   # MULTI-CLOUD — Requires Snowflake NEXUS integration
@@ -302,30 +302,30 @@ cases:
   # should fail gracefully or give partial answers.
   # ============================================================
 
-  - id: portfolio_current_pricing
-    question: "What are the latest closing prices from NEXUS for the securities in our top wealth portfolios?"
+  - id: assortment_current_pricing
+    question: "What are the latest closing prices from NEXUS for the product_skus in our top loyalty assortments?"
     tags:
       complexity: multi_cloud
-      audience: wealth_management
+      audience: digital_commerce
       kc_feature: cross_platform_discovery
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: fail_gracefully }
-      kc:     { outcome: success, tables: [gold_portfolio_performance], snowflake_tables: [security_prices], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+      kc:     { outcome: success, tables: [gold_assortment_performance], snowflake_tables: [security_prices], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
 
   - id: benchmark_comparison
-    question: "How do our portfolios compare to their benchmark indices this year? Use the external benchmark returns data."
+    question: "How do our assortments compare to their benchmark indices this year? Use the external benchmark returns data."
     tags:
       complexity: multi_cloud
-      audience: wealth_management
+      audience: digital_commerce
       kc_feature: cross_platform_discovery
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: fail_gracefully }
-      kc:     { outcome: success, tables: [gold_portfolio_performance], snowflake_tables: [benchmark_returns], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+      kc:     { outcome: success, tables: [gold_assortment_performance], snowflake_tables: [benchmark_returns], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
 
   - id: yield_curve_nim
-    question: "Show me the current SOFR and Treasury yield curve alongside our net interest margin. How sensitive is our NIM to rate changes?"
+    question: "Show me the current SOFR and Treasury yield curve alongside our net interest margin. How sensitive is our Gross Margin to rate changes?"
     tags:
       complexity: multi_cloud
       audience: risk_compliance
@@ -333,10 +333,10 @@ cases:
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: fail_gracefully }
-      kc:     { outcome: success, tables: [gold_net_interest_margin], snowflake_tables: [interest_rate_curves], glossary: [NIM], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+      kc:     { outcome: success, tables: [gold_gross_margin_analysis], snowflake_tables: [interest_rate_curves], glossary: [Gross Margin], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
 
   - id: credit_spread_exposure
-    question: "What's our credit spread exposure by sector? Show current market spreads alongside our portfolio risk."
+    question: "What's our credit spread exposure by sector? Show current market spreads alongside our assortment risk."
     tags:
       complexity: multi_cloud
       audience: risk_compliance
@@ -344,7 +344,7 @@ cases:
     expected:
       basic:  { outcome: fail_gracefully }
       scaled: { outcome: fail_gracefully }
-      kc:     { outcome: success, tables: [gold_market_risk_var], snowflake_tables: [credit_spreads], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
+      kc:     { outcome: success, tables: [gold_markdown_risk_var], snowflake_tables: [credit_spreads], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
 
   - id: fx_rate_comparison
     question: "Compare our internal FX rates with the NEXUS spot rates. Are there any significant discrepancies?"
@@ -358,10 +358,10 @@ cases:
       kc:     { outcome: success, snowflake_tables: [fx_spot_rates], tool_calls: [search_entries, get_context, run_sql, query_snowflake] }
 
   - id: security_fundamentals
-    question: "What are the P/E ratios and dividend yields for the securities in our largest portfolios? Use NEXUS fundamentals data."
+    question: "What are the P/E ratios and dividend yields for the product_skus in our largest assortments? Use NEXUS fundamentals data."
     tags:
       complexity: multi_cloud
-      audience: wealth_management
+      audience: digital_commerce
       kc_feature: cross_platform_discovery
     expected:
       basic:  { outcome: fail_gracefully }

@@ -1,4 +1,4 @@
-"""Report generation for FSI KC agent evaluation."""
+"""Report generation for Retail KC agent evaluation."""
 
 import html
 import json
@@ -146,7 +146,7 @@ def _build_html(results, agents, has_vertex=False):
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>FSI KC Agent Evaluation Report</title>
+<title>Retail KC Agent Evaluation Report</title>
 <style>
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 body {{ background: #0a0e1a; color: #e0e0e0; font-family: 'Google Sans','Segoe UI',system-ui,sans-serif; padding: 24px; }}
@@ -190,7 +190,7 @@ canvas {{ max-width: 400px; }}
 </style>
 </head>
 <body>
-<h1>FSI Knowledge Catalog Agent Evaluation</h1>
+<h1>Retail Knowledge Catalog Agent Evaluation</h1>
 <div class="subtitle">{ts} &middot; {len(results)} test cases &middot; {len(agents)} agents</div>
 
 <div class="filters">

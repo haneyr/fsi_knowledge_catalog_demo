@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `${project_id}.fsi_bronze.bronze_gl_entries` AS
+CREATE OR REPLACE TABLE `${project_id}.retail_bronze.bronze_gl_entries` AS
 SELECT
   CONCAT('GL-', LPAD(CAST(n AS STRING), 12, '0')) AS gl_entry_id,
   CONCAT('GLACCT-', LPAD(CAST(CAST(FLOOR(RAND() * 5000) + 1 AS INT64) AS STRING), 6, '0')) AS gl_account_id,
@@ -10,7 +10,7 @@ SELECT
   'USD' AS currency,
   CONCAT('JE-', LPAD(CAST(CAST(FLOOR(n / 3.0) AS INT64) AS STRING), 10, '0')) AS journal_entry_id,
   CASE MOD(n, 8)
-    WHEN 0 THEN 'Interest Income' WHEN 1 THEN 'Fee Revenue' WHEN 2 THEN 'Loan Loss Provision'
+    WHEN 0 THEN 'Interest Income' WHEN 1 THEN 'Fee Revenue' WHEN 2 THEN 'BNPL Plan Loss Provision'
     WHEN 3 THEN 'Operating Expense' WHEN 4 THEN 'Depreciation' WHEN 5 THEN 'Tax Expense'
     WHEN 6 THEN 'Intercompany' ELSE 'Adjustment'
   END AS description,
@@ -22,5 +22,5 @@ SELECT
   CONCAT('FY', CAST(2024 + CAST(FLOOR(RAND() * 2) AS INT64) AS STRING)) AS fiscal_year,
   CAST(FLOOR(1 + RAND() * 12) AS INT64) AS fiscal_period,
   TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
-  'ARGUS' AS source_system
+  'HELIOS' AS source_system
 FROM UNNEST(GENERATE_ARRAY(1, 50000)) AS n

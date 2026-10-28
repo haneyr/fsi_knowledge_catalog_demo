@@ -20,18 +20,24 @@ variable "multi_region" {
 
 locals {
   reference_tables = [
-    "ref_naics_codes", "ref_country_codes", "ref_currency_codes",
-    "ref_cusip_master", "ref_isin_mapping", "ref_lei_registry",
-    "ref_fed_district_codes", "ref_product_catalog", "ref_fee_tiers",
+    "ref_merch_category_codes", "ref_country_codes", "ref_currency_codes",
+    "ref_gtin_master", "ref_sku_gtin_mapping", "ref_supplier_registry",
+    "ref_sales_region_codes", "ref_product_catalog", "ref_loyalty_tiers",
     "ref_gl_account_hierarchy",
   ]
 }
 
 resource "google_bigquery_dataset" "reference" {
   project     = var.project_id
-  dataset_id  = "fsi_reference"
+  dataset_id  = "retail_reference"
   location    = var.multi_region
-  description = "Reference and lookup tables for FSI data validation"
+  description = "[Retail] Reference and lookup tables for Retail data validation"
+  labels = {
+    use-case = "retail"
+    demo     = "retail-knowledge-catalog"
+    owner    = "alitch"
+    env      = "demo"
+  }
 }
 
 resource "google_bigquery_job" "reference" {

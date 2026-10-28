@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `${project_id}.fsi_silver.silver_fraud_alerts` AS
+CREATE OR REPLACE TABLE `${project_id}.retail_silver.silver_fraud_alerts` AS
 SELECT
   alert_id,
   customer_id,
@@ -18,7 +18,7 @@ SELECT
   CURRENT_TIMESTAMP() AS silver_loaded_at
 FROM (
   SELECT *, ROW_NUMBER() OVER (PARTITION BY alert_id ORDER BY created_at DESC) AS rn
-  FROM `${project_id}.fsi_bronze.bronze_fraud_alerts`
+  FROM `${project_id}.retail_bronze.bronze_fraud_alerts`
 )
 WHERE rn = 1
   AND alert_id IS NOT NULL
